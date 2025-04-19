@@ -1,14 +1,59 @@
 services:
   backend:
-    build: ./backend
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--reload"]
-    volumes: [ "./backend:/code" ]
-    ports: [ "8000:8000" ]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/code
     env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - chroma
+      - db
+
+  worker:
+    build:
+      context: ./backend
+    command: ["celery", "-A", "app.workers", "worker", "--loglevel=info"]
+    volumes:
+      - ./backend:/code
+    env_file: .env
+    depends_on:
+      - backend
+      - redis
 
   frontend:
-    build: ./frontend
-    command: ["npm", "run", "dev", "-w", "web"]
-    volumes: [ "./frontend:/app" ]
-    ports: [ "3000:3000" ]
+    build:
+      context: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     env_file: .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  chroma:
+    image: ghcr.io/chroma-core/chroma:0.6.3
+    volumes:
+      - chroma_data:/chroma/.chroma
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: caseforge
+      POSTGRES_PASSWORD: caseforge
+      POSTGRES_DB: caseforge
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  pg_data:
+  chroma_data:
