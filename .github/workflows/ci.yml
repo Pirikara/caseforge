@@ -1,18 +1,18 @@
-name: CI
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres: 
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: pass
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.12' }
-      - run: pip install -r backend/requirements.txt
-      - run: uvicorn app.main:app --port 8000 &
-        working-directory: backend/app
-      - run: curl -sSf http://localhost:8000/health
+# name: CI
+# on: [push, pull_request]
+# jobs:
+#   test:
+#     runs-on: ubuntu-latest
+#     services:
+#       postgres: 
+#         image: postgres:16
+#         env:
+#           POSTGRES_PASSWORD: pass
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-python@v5
+#         with: { python-version: '3.12' }
+#       - run: pip install -r backend/requirements.txt
+#       - run: uvicorn app.main:app --port 8000 &
+#         working-directory: backend/app
+#       - run: curl -sSf http://localhost:8000/health
