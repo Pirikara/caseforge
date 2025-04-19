@@ -2,37 +2,38 @@
 import useSWR from 'swr'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useState } from 'react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function RunListPage() {
   const { id } = useParams()
-  const { data, error, mutate } = useSWR(`/api/projects/${id}/runs`, fetcher)
-  const [loading, setLoading] = useState(false)
-
-  const handleRunClick = async () => {
-    setLoading(true)
-    await fetch(`/api/projects/${id}/run`, { method: 'POST' })
-    await mutate()  // 再取得
-    setLoading(false)
-  }
+  const { data, error } = useSWR(`/api/projects/${id}/runs`, fetcher)
 
   if (error) return <div>エラー: {error.message}</div>
   if (!data) return <div>読み込み中...</div>
 
+  const chartData = data.map((runId: string) => {
+    const timestamp = runId.replace(/^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/, '$1/$2/$3 $4:$5:$6')
+    return { name: timestamp, value: parseInt(runId.replace(/.*-(\d+)$/, '$1')) || 0 }
+  })
+
   return (
     <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold">テスト実行履歴</h1>
-        <button
-          onClick={handleRunClick}
-          disabled={loading}
-          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          {loading ? '実行中...' : 'テスト実行'}
-        </button>
+      <h1 className="text-xl font-bold mb-4">テスト実行履歴</h1>
+
+      <div className="h-64 mb-8">
+        <ResponsiveContainer>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
+
       <ul className="space-y-1">
         {data.map((runId: string) => (
           <li key={runId}>
