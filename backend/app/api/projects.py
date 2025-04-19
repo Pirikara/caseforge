@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 from app.services.teststore import list_testcases
 from app.services.runner import run_tests
 from app.services.runner import list_test_runs
+from fastapi.responses import JSONResponse
+from app.services.runner import get_run_result
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -35,3 +37,8 @@ async def run_project_tests(project_id: str):
 @router.get("/{project_id}/runs")
 async def get_run_history(project_id: str):
     return list_test_runs(project_id)
+
+@router.get("/{project_id}/runs/{run_id}")
+async def get_run_detail(project_id: str, run_id: str):
+    result = get_run_result(project_id, run_id)
+    return JSONResponse(content=result)

@@ -49,3 +49,10 @@ def list_test_runs(project_id: str) -> list[str]:
     if not os.path.exists(path):
         return []
     return sorted(os.listdir(path), reverse=True)
+
+def get_run_result(project_id: str, run_id: str) -> list[dict]:
+    path = f"{LOG_DIR}/{project_id}/{run_id}.json"
+    if not os.path.exists(path):
+        return [{"error": "Log not found", "run_id": run_id}]
+    with open(path, "r") as f:
+        return json.load(f)
