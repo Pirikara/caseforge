@@ -4,7 +4,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     services:
-      postgres: { image: postgres:16, env: { POSTGRES_PASSWORD: pass } }
+      postgres: 
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: pass
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
