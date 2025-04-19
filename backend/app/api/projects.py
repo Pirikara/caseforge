@@ -4,6 +4,7 @@ from app.services.testgen import trigger_test_generation
 from fastapi.responses import JSONResponse
 from app.services.teststore import list_testcases
 from app.services.runner import run_tests
+from app.services.runner import list_test_runs
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -30,3 +31,7 @@ async def get_generated_tests(project_id: str):
 async def run_project_tests(project_id: str):
     results = await run_tests(project_id)
     return {"message": "Test run complete", "results": results}
+
+@router.get("/{project_id}/runs")
+async def get_run_history(project_id: str):
+    return list_test_runs(project_id)

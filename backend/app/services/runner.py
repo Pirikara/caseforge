@@ -1,10 +1,18 @@
 import httpx
+import json
+import os
+from datetime import datetime
 from app.services.teststore import list_testcases
 
+LOG_DIR = "/code/data/test_runs"
+
 async def run_tests(project_id: str) -> list[dict]:
-    base_url = "http://backend:8000"  # API テスト対象のベースURL（本番では外部URLに）
+    base_url = "http://backend:8000"
     results = []
     tests = list_testcases(project_id)
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    log_path = f"{LOG_DIR}/{project_id}"
+    os.makedirs(log_path, exist_ok=True)
 
     async with httpx.AsyncClient(base_url=base_url, timeout=10.0) as client:
         for test in tests:
@@ -29,7 +37,15 @@ async def run_tests(project_id: str) -> list[dict]:
                     "error": str(e),
                     "pass": False
                 }
-
             results.append(result)
 
+    with open(f"{log_path}/{timestamp}.json", "w") as f:
+        json.dump(results, f, indent=2)
+
     return results
+
+def list_test_runs(project_id: str) -> list[str]:
+    path = f"{LOG_DIR}/{project_id}"
+    if not os.path.exists(path):
+        return []
+    return sorted(os.listdir(path), reverse=True)
