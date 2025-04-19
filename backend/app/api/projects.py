@@ -1,6 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.services.schema import save_and_index_schema
 from app.services.testgen import trigger_test_generation
+from fastapi.responses import JSONResponse
+from app.services.teststore import list_testcases
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -17,3 +19,8 @@ async def upload_schema(project_id: str, file: UploadFile = File(...)):
 async def generate_tests(project_id: str):
     task_id = trigger_test_generation(project_id)
     return {"message": "Test generation started", "task_id": task_id}
+
+@router.get("/{project_id}/tests")
+async def get_generated_tests(project_id: str):
+    tests = list_testcases(project_id)
+    return JSONResponse(content=tests)
