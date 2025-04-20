@@ -27,9 +27,9 @@ services:
   frontend:
     build:
       context: ./frontend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    # volumes:
+    #   - /app/node_modules
+    #   - ./frontend:/app:ro
     env_file: .env
     ports:
       - "3000:3000"

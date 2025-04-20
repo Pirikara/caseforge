@@ -8,7 +8,7 @@ from app.services.runner import list_test_runs
 from fastapi.responses import JSONResponse
 from app.services.runner import get_run_result
 
-router = APIRouter(prefix="/projects", tags=["projects"])
+router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 @router.post("/{project_id}/schema")
 async def upload_schema(project_id: str, file: UploadFile = File(...)):

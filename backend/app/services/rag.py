@@ -1,6 +1,16 @@
-from langchain.document_loaders import OpenAPILoader
-from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.schema import Document
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+
+class OpenAPILoader:
+    def __init__(self, path: str):
+        self.path = path
+
+    def load(self):
+        with open(self.path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return [Document(page_content=content, metadata={"source": self.path})]
 
 async def index_schema(project_id: str, path: str):
     loader = OpenAPILoader(path)

@@ -1,10 +1,15 @@
 'use client'
-import useSWR from 'swr'
 import Link from 'next/link'
+import useSWR from 'swr'
 import { useParams } from 'next/navigation'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
+const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000'
+const fetcher = (url: string) =>
+  fetch(`${API}${url}`).then(r => {
+    if (!r.ok) throw new Error(`API ${r.status}`)
+    return r.json()
+  })
 
 export default function RunListPage() {
   const { id } = useParams()

@@ -3,7 +3,13 @@ import useSWR from 'swr'
 import { useParams } from 'next/navigation'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
+const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000'
+
+const fetcher = (url: string) =>
+  fetch(`${API}${url}`).then(r => {
+    if (!r.ok) throw new Error(`API ${r.status}`)
+    return r.json()
+  })
 
 const COLORS = ['#10b981', '#ef4444']
 
