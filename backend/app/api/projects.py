@@ -7,6 +7,7 @@ from app.services.runner import run_tests
 from app.services.runner import list_test_runs
 from fastapi.responses import JSONResponse
 from app.services.runner import get_run_result
+from app.workers.tasks import generate_tests_task
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -16,7 +17,7 @@ async def upload_schema(project_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Invalid content type")
 
     contents = await file.read()
-    await save_and_index_schema(project_id, contents, file.filename)
+    save_and_index_schema(project_id, contents, file.filename)
     return {"message": "Schema uploaded and indexed successfully."}
 
 @router.post("/{project_id}/generate-tests")
@@ -42,3 +43,9 @@ async def get_run_history(project_id: str):
 async def get_run_detail(project_id: str, run_id: str):
     result = get_run_result(project_id, run_id)
     return JSONResponse(content=result)
+
+@router.post("/{project_id}/generate")
+def generate_tests(project_id: str):
+    print(f"Generating tests for project {project_id}")
+    generate_tests_task.delay(project_id)
+    return {"status": "queued"}
