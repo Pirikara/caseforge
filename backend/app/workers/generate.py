@@ -32,7 +32,12 @@ Return JSON format:
 """)
 
     qa_chain = RetrievalQA.from_chain_type(
-        llm=ChatOpenAI(model_name="gpt-3.5-turbo"),
+        llm=ChatOpenAI(
+            base_url="http://192.168.2.101:1234/v1",
+            api_key="not-needed",
+            model_name="Hermes-3-Llama-3.1-8B-GGUF",
+            temperature=0.2,
+        ),
         retriever=retriever,
         chain_type_kwargs={"prompt": prompt},
     )

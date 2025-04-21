@@ -1,13 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from app.services.schema import save_and_index_schema
 from app.services.testgen import trigger_test_generation
-from fastapi.responses import JSONResponse
 from app.services.teststore import list_testcases
-from app.services.runner import run_tests
-from app.services.runner import list_test_runs
-from fastapi.responses import JSONResponse
-from app.services.runner import get_run_result
+from app.services.runner import run_tests, list_test_runs, get_run_result
 from app.workers.tasks import generate_tests_task
+from fastapi.responses import JSONResponse
+from pathlib import Path
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -15,7 +13,6 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 async def upload_schema(project_id: str, file: UploadFile = File(...)):
     if file.content_type not in ["application/json", "application/x-yaml", "text/yaml"]:
         raise HTTPException(status_code=400, detail="Invalid content type")
-
     contents = await file.read()
     save_and_index_schema(project_id, contents, file.filename)
     return {"message": "Schema uploaded and indexed successfully."}
@@ -42,10 +39,25 @@ async def get_run_history(project_id: str):
 @router.get("/{project_id}/runs/{run_id}")
 async def get_run_detail(project_id: str, run_id: str):
     result = get_run_result(project_id, run_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Run not found")
     return JSONResponse(content=result)
 
+@router.get("/")
+async def list_projects():
+    from app.services.schema import list_projects
+    return list_projects()
+
+@router.post("/")
+async def create_project(project_id: str = Query(...)):
+    path = Path(f"/code/data/schemas/{project_id}")
+    if path.exists():
+        raise HTTPException(status_code=409, detail="Project already exists")
+    path.mkdir(parents=True, exist_ok=True)
+    return {"status": "created", "project_id": project_id}
+
 @router.post("/{project_id}/generate")
-def generate_tests(project_id: str):
+def deprecated_generate_tests(project_id: str):
     print(f"Generating tests for project {project_id}")
     generate_tests_task.delay(project_id)
     return {"status": "queued"}

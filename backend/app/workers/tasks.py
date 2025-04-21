@@ -4,6 +4,7 @@ from app.services.rag import ChromaEmbeddingFunction
 from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_community.llms import LlamaCpp
 import json
 
 @celery_app.task
@@ -16,7 +17,12 @@ def generate_tests_task(project_id: str):
     context_docs = vectordb.as_retriever(search_kwargs={"k": 10}).invoke("Generate test cases")
     context = "".join(d.page_content[:800] for d in context_docs)
 
-    llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2)
+    # llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2)
+    llm = ChatOpenAI(
+        model_name="Hermes-3-Llama-3.1-8B-GGUF",
+        openai_api_base="http://192.168.2.101:1234/v1",
+        temperature=0.2,
+    )
     prompt = ChatPromptTemplate.from_template(
         """You are an API QA expert. Using the following OpenAPI snippet:
 {context}

@@ -1,6 +1,7 @@
 from langchain.schema import Document
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from chromadb.utils.embedding_functions import EmbeddingFunction
 
 class OpenAPILoader:
     def __init__(self, path: str):
@@ -11,7 +12,7 @@ class OpenAPILoader:
             content = f.read()
         return [Document(page_content=content, metadata={"source": self.path})]
 
-class ChromaEmbeddingFunction:
+class ChromaEmbeddingFunction(EmbeddingFunction):
     def __init__(self):
         self.embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
@@ -20,6 +21,9 @@ class ChromaEmbeddingFunction:
     
     def embed_documents(self, input: list[str]) -> list[list[float]]:
         return self.embedder.embed_documents(input)
+    
+    def embed_query(self, input: str) -> list[float]:
+        return self.embedder.embed_query(input)
 
 def index_schema(project_id: str, path: str):
     loader = OpenAPILoader(path)
