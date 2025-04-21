@@ -1,12 +1,13 @@
 from celery import Celery
 import os
 from dotenv import load_dotenv
+from app.config import settings
 
 load_dotenv()
 
 celery_app = Celery(
     "caseforge",
-    broker=os.environ["REDIS_URL"],
+    broker=settings.REDIS_URL,
 )
 
 # タスク検出パスを追加
