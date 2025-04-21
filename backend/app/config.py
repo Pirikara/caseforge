@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # Redis設定
     REDIS_URL: str = os.environ.get("REDIS_URL", "redis://redis:6379/0")
     
+    # データベース設定
+    DATABASE_URL: str = os.environ.get("DATABASE_URL", "postgresql://caseforge:caseforge@db:5432/caseforge")
+    
     class Config:
         env_file = ".env"
 
