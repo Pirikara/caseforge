@@ -73,33 +73,64 @@ export default function GenerateTestsPage() {
   const [generationStatus, setGenerationStatus] = React.useState<'idle' | 'generating' | 'completed' | 'failed'>('idle');
   const [generatedCount, setGeneratedCount] = React.useState(0);
   
+  // エラーメッセージ状態
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  
   // テスト生成を開始
   const handleGenerateTests = async () => {
     try {
       setIsGenerating(true);
       setGenerationStatus('generating');
+      setErrorMessage(null);
       
+      console.log(`Sending test generation request for project: ${projectId}`);
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-      const response = await fetch(`${API}/api/projects/${projectId}/generate-tests`, {
+      const url = `${API}/api/projects/${projectId}/generate-tests`;
+      console.log(`API URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'テスト生成に失敗しました');
+      console.log(`Response status: ${response.status}`);
+      const responseText = await response.text();
+      console.log(`Response text: ${responseText}`);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', e);
+        throw new Error(`Invalid response format: ${responseText}`);
       }
       
-      const data = await response.json();
+      if (!response.ok) {
+        const errorMsg = data?.detail || 'テスト生成に失敗しました';
+        console.error('API error:', errorMsg);
+        setErrorMessage(errorMsg);
+        throw new Error(errorMsg);
+      }
       
       if (data.status === 'error') {
-        throw new Error(data.message || 'テスト生成に失敗しました');
+        const errorMsg = data.message || 'テスト生成に失敗しました';
+        console.error('Task error:', errorMsg);
+        setErrorMessage(errorMsg);
+        throw new Error(errorMsg);
       }
       
+      console.log('Test generation task started successfully:', data);
+      
+      // 非同期タスクの場合は、ここでは完了とみなさない
+      // 実際のアプリケーションでは、WebSocketやポーリングで状態を確認する必要がある
+      // ここではデモのために、タスクが開始されたら成功とみなす
       setGenerationStatus('completed');
       setGeneratedCount(data.count || 0);
       
-      toast.success('テスト生成が完了しました', {
-        description: `${data.count || 0}件のテストケースが生成されました。`,
+      toast.success('テスト生成タスクが開始されました', {
+        description: 'バックグラウンドでテスト生成が実行されています。しばらくしてからテストケース一覧を確認してください。',
       });
     } catch (error) {
       console.error('テスト生成エラー:', error);
@@ -243,11 +274,22 @@ export default function GenerateTestsPage() {
               <p className="text-sm text-muted-foreground">
                 エラーが発生したため、テスト生成を完了できませんでした。
                 <br />
-                もう一度お試しいただくか、スキーマを確認してください。
+                {errorMessage ? (
+                  <span className="font-mono text-red-600 block mt-2 p-2 bg-red-100 dark:bg-red-900 rounded">
+                    エラー: {errorMessage}
+                  </span>
+                ) : (
+                  'もう一度お試しいただくか、スキーマを確認してください。'
+                )}
               </p>
-              <div className="flex justify-center">
+              <div className="flex flex-col gap-2 items-center">
                 <Button onClick={handleGenerateTests}>
                   再試行
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href={`/projects/${projectId}/schema`}>
+                    スキーマを確認/更新
+                  </Link>
                 </Button>
               </div>
             </div>

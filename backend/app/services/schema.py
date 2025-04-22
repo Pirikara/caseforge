@@ -7,6 +7,7 @@ from fastapi import Depends
 from pathlib import Path
 import os
 from typing import Optional
+from datetime import datetime
 
 async def save_and_index_schema(project_id: str, content: bytes, filename: str, session: Optional[Session] = None):
     """
@@ -78,13 +79,34 @@ async def list_projects(session: Optional[Session] = None):
     # セッションがない場合は新しいセッションを作成
     if session is None:
         session = Session(engine)
+        logger.debug(f"Created new database session for listing projects")
         
     try:
-        projects = session.exec(select(Project)).all()
-        logger.debug(f"Found {len(projects)} projects in database")
-        return [{"id": p.project_id, "name": p.name, "description": p.description} for p in projects]
+        logger.debug(f"Executing query to get all projects")
+        query = select(Project)
+        projects = session.exec(query).all()
+        logger.info(f"Found {len(projects)} projects in database")
+        
+        # プロジェクトの詳細をログに出力
+        for p in projects:
+            logger.debug(f"Project: id={p.id}, project_id={p.project_id}, name={p.name}")
+        
+        result = [{"id": p.project_id, "name": p.name, "description": p.description, "created_at": p.created_at.isoformat() if p.created_at else datetime.now().isoformat()} for p in projects]
+        return result
     except Exception as e:
-        logger.error(f"Error listing projects: {e}")
+        logger.error(f"Error listing projects: {e}", exc_info=True)
+        # ファイルシステムからプロジェクトを取得する代替手段
+        try:
+            logger.info("Attempting to list projects from filesystem as fallback")
+            schema_dir = Path(settings.SCHEMA_DIR)
+            if schema_dir.exists() and schema_dir.is_dir():
+                projects = [d.name for d in schema_dir.iterdir() if d.is_dir()]
+                logger.info(f"Found {len(projects)} projects in filesystem")
+                # ファイルシステムからの取得では作成日時が不明なので現在時刻を使用
+                now = datetime.now().isoformat()
+                return [{"id": p, "name": p, "description": "", "created_at": now} for p in projects]
+        except Exception as fallback_error:
+            logger.error(f"Fallback error listing projects from filesystem: {fallback_error}")
         return []
 
 async def create_project(project_id: str, name: str = None, description: str = None, session: Optional[Session] = None):

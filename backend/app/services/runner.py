@@ -125,3 +125,94 @@ def get_run_result(project_id: str, run_id: str) -> list[dict]:
     except Exception as e:
         logger.error(f"Error loading test run log {path}: {e}")
         return None
+
+def get_recent_runs(limit: int = 5) -> dict:
+    """
+    全プロジェクトの最近のテスト実行を取得する
+    
+    Args:
+        limit: 取得する実行数の上限
+        
+    Returns:
+        最近のテスト実行と統計情報を含む辞書
+    """
+    try:
+        # 統計情報の初期化
+        stats = {
+            "totalTests": 0,
+            "totalRuns": 0,
+            "successRate": 0
+        }
+        
+        # すべてのプロジェクトディレクトリを取得
+        log_dir = settings.LOG_DIR
+        if not os.path.exists(log_dir):
+            logger.warning(f"Log directory not found: {log_dir}")
+            return {"runs": [], "stats": stats}
+            
+        projects = [d for d in os.listdir(log_dir) if os.path.isdir(os.path.join(log_dir, d))]
+        logger.debug(f"Found {len(projects)} projects with test runs")
+        
+        # すべてのテスト実行を収集
+        all_runs = []
+        for project_id in projects:
+            project_path = os.path.join(log_dir, project_id)
+            run_files = [f for f in os.listdir(project_path) if f.endswith('.json')]
+            
+            for run_file in run_files:
+                run_id = run_file.replace('.json', '')
+                run_path = os.path.join(project_path, run_file)
+                
+                try:
+                    # ファイルの最終更新時間を取得
+                    mod_time = os.path.getmtime(run_path)
+                    
+                    # 実行結果を読み込む
+                    with open(run_path, 'r') as f:
+                        results = json.load(f)
+                    
+                    # 成功したテストの数を計算
+                    passed_tests = sum(1 for r in results if r.get('pass', False))
+                    total_tests = len(results)
+                    
+                    # 統計情報を更新
+                    stats["totalTests"] += total_tests
+                    stats["totalRuns"] += 1
+                    
+                    # 実行情報を追加
+                    all_runs.append({
+                        "run_id": run_id,
+                        "project_id": project_id,
+                        "status": "completed",
+                        "start_time": datetime.fromtimestamp(mod_time).isoformat(),
+                        "success_rate": round(passed_tests / total_tests * 100) if total_tests > 0 else 0
+                    })
+                except Exception as e:
+                    logger.error(f"Error processing run file {run_path}: {e}")
+        
+        # 日時でソート
+        all_runs.sort(key=lambda x: x["start_time"], reverse=True)
+        
+        # 上限数に制限
+        recent_runs = all_runs[:limit]
+        
+        # 成功率を計算
+        if stats["totalRuns"] > 0:
+            success_tests = sum(1 for run in all_runs for r in get_run_result(run["project_id"], run["run_id"]) or [] if r.get('pass', False))
+            total_tests = sum(len(get_run_result(run["project_id"], run["run_id"]) or []) for run in all_runs)
+            stats["successRate"] = round(success_tests / total_tests * 100) if total_tests > 0 else 0
+        
+        return {
+            "runs": recent_runs,
+            "stats": stats
+        }
+    except Exception as e:
+        logger.error(f"Error getting recent runs: {e}")
+        return {
+            "runs": [],
+            "stats": {
+                "totalTests": 0,
+                "totalRuns": 0,
+                "successRate": 0
+            }
+        }
