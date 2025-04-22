@@ -1,7 +1,14 @@
 from celery import Celery
+import os
+from dotenv import load_dotenv
+from app.config import settings
+
+load_dotenv()
 
 celery_app = Celery(
     "caseforge",
-    broker="redis://redis:6379/0",
-    backend="redis://redis:6379/1",
+    broker=settings.REDIS_URL,
 )
+
+# タスク検出パスを追加
+celery_app.autodiscover_tasks(["app.workers"])
