@@ -1,13 +1,14 @@
 from app.config import settings
 from app.logging_config import logger
-from app.models import get_session, Project, Schema
+from app.models import get_session, Project, Schema, engine
 from app.services.rag import index_schema
 from sqlmodel import Session, select
 from fastapi import Depends
 from pathlib import Path
 import os
+from typing import Optional
 
-async def save_and_index_schema(project_id: str, content: bytes, filename: str, session: Session = Depends(get_session)):
+async def save_and_index_schema(project_id: str, content: bytes, filename: str, session: Optional[Session] = None):
     """
     OpenAPIスキーマを保存し、インデックスを作成する
     
@@ -17,6 +18,10 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
         filename: ファイル名
         session: データベースセッション
     """
+    # セッションがない場合は新しいセッションを作成
+    if session is None:
+        session = Session(engine)
+        
     try:
         # ファイルシステムへの保存
         os.makedirs(f"{settings.SCHEMA_DIR}/{project_id}", exist_ok=True)
@@ -60,7 +65,7 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
         logger.error(f"Error saving and indexing schema for project {project_id}: {e}")
         raise
 
-async def list_projects(session: Session = Depends(get_session)):
+async def list_projects(session: Optional[Session] = None):
     """
     プロジェクト一覧を取得する
     
@@ -70,6 +75,10 @@ async def list_projects(session: Session = Depends(get_session)):
     Returns:
         プロジェクト一覧
     """
+    # セッションがない場合は新しいセッションを作成
+    if session is None:
+        session = Session(engine)
+        
     try:
         projects = session.exec(select(Project)).all()
         logger.debug(f"Found {len(projects)} projects in database")
@@ -78,7 +87,7 @@ async def list_projects(session: Session = Depends(get_session)):
         logger.error(f"Error listing projects: {e}")
         return []
 
-async def create_project(project_id: str, name: str = None, description: str = None, session: Session = Depends(get_session)):
+async def create_project(project_id: str, name: str = None, description: str = None, session: Optional[Session] = None):
     """
     新規プロジェクトを作成する
     
@@ -91,6 +100,10 @@ async def create_project(project_id: str, name: str = None, description: str = N
     Returns:
         作成されたプロジェクト情報
     """
+    # セッションがない場合は新しいセッションを作成
+    if session is None:
+        session = Session(engine)
+        
     try:
         # プロジェクトの存在確認
         project_query = select(Project).where(Project.project_id == project_id)

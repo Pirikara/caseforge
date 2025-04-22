@@ -1,16 +1,29 @@
 import pytest
 import os
 from sqlmodel import SQLModel, create_engine, Session
-from app.models import Project, Schema, TestCase, TestRun, TestResult
 from app.config import settings
 
-# テスト用のデータベースURL
-TEST_DATABASE_URL = "sqlite:///./test.db"
+# テスト環境であることを示す環境変数を設定
+os.environ["TESTING"] = "1"
+
+# テスト用のディレクトリパスを設定
+os.environ["SCHEMA_DIR"] = "/tmp/test_caseforge/schemas"
+os.environ["TESTS_DIR"] = "/tmp/test_caseforge/generated_tests"
+os.environ["LOG_DIR"] = "/tmp/test_caseforge/test_runs"
+
+# テスト用ディレクトリを作成
+os.makedirs("/tmp/test_caseforge/schemas", exist_ok=True)
+os.makedirs("/tmp/test_caseforge/generated_tests", exist_ok=True)
+os.makedirs("/tmp/test_caseforge/test_runs", exist_ok=True)
+
+# モデルのインポートは環境変数設定後に行う
+from app.models import Project, Schema, TestCase, TestRun, TestResult
+from app.models.base import DATABASE_URL
 
 @pytest.fixture(name="engine")
 def engine_fixture():
     """テスト用のSQLiteエンジンを作成"""
-    engine = create_engine(TEST_DATABASE_URL)
+    engine = create_engine(DATABASE_URL)
     SQLModel.metadata.create_all(engine)
     yield engine
     SQLModel.metadata.drop_all(engine)
@@ -88,3 +101,13 @@ def mock_llm_fixture(monkeypatch):
     
     monkeypatch.setattr("langchain_openai.ChatOpenAI", MockLLM)
     return MockLLM
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_test_dirs():
+    """テスト終了時に一時ディレクトリをクリーンアップする"""
+    yield
+    import shutil
+    try:
+        shutil.rmtree("/tmp/test_caseforge", ignore_errors=True)
+    except Exception as e:
+        print(f"Failed to cleanup test directories: {e}")

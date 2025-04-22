@@ -19,7 +19,7 @@ async def upload_schema(project_id: str, file: UploadFile = File(...)):
             logger.warning(f"Invalid content type for schema upload: {file.content_type}")
             raise HTTPException(status_code=400, detail="Invalid content type")
         contents = await file.read()
-        save_and_index_schema(project_id, contents, file.filename)
+        await save_and_index_schema(project_id, contents, file.filename)
         logger.info(f"Schema uploaded and indexed successfully for project {project_id}")
         return {"message": "Schema uploaded and indexed successfully."}
     except Exception as e:
@@ -82,7 +82,7 @@ async def list_projects():
     logger.info("Listing all projects")
     try:
         from app.services.schema import list_projects
-        return list_projects()
+        return await list_projects()
     except Exception as e:
         logger.error(f"Error listing projects: {e}")
         raise HTTPException(status_code=500, detail=f"Error listing projects: {str(e)}")

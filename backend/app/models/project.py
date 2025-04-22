@@ -1,7 +1,11 @@
 from sqlmodel import Field, SQLModel, Relationship
-from typing import Optional, List
+from typing import Optional, List, ForwardRef
 from datetime import datetime
 from .base import TimestampModel
+
+# 循環インポートを避けるために ForwardRef を使用
+TestCase = ForwardRef("TestCase")
+TestRun = ForwardRef("TestRun")
 
 class Project(TimestampModel, table=True):
     """プロジェクトモデル"""
@@ -13,6 +17,7 @@ class Project(TimestampModel, table=True):
     # リレーションシップ
     schemas: List["Schema"] = Relationship(back_populates="project")
     test_runs: List["TestRun"] = Relationship(back_populates="project")
+    test_cases: List["TestCase"] = Relationship(back_populates="project")
 
 class Schema(TimestampModel, table=True):
     """OpenAPIスキーマモデル"""

@@ -1,13 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 client = TestClient(app)
 
 def test_list_projects():
     # サービス関数をモック化
-    with patch("app.api.projects.list_projects") as mock_list_projects:
+    with patch("app.services.schema.list_projects", new_callable=AsyncMock) as mock_list_projects:
         mock_list_projects.return_value = [
             {"id": "test1", "name": "Test Project 1"},
             {"id": "test2", "name": "Test Project 2"}
@@ -23,9 +23,10 @@ def test_list_projects():
         assert response.json()[1]["name"] == "Test Project 2"
 
 def test_create_project():
-    # サービス関数をモック化
-    with patch("app.api.projects.create_project") as mock_create_project:
-        mock_create_project.return_value = {"status": "created", "project_id": "new_project"}
+    # Path.mkdir をモック化して、ファイルシステムへの書き込みを回避
+    with patch("pathlib.Path.mkdir") as mock_mkdir, \
+         patch("pathlib.Path.exists") as mock_exists:
+        mock_exists.return_value = False
         
         # テスト実行
         response = client.post("/api/projects/?project_id=new_project")
@@ -34,6 +35,9 @@ def test_create_project():
         assert response.status_code == 200
         assert response.json()["status"] == "created"
         assert response.json()["project_id"] == "new_project"
+        
+        # Path.mkdir が呼ばれたことを確認
+        mock_mkdir.assert_called_once()
 
 def test_upload_schema():
     # サービス関数をモック化

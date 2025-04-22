@@ -1,18 +1,23 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.api import projects
 from app.logging_config import logger
 from app.config import settings
 from app.models import init_db
 
-app = FastAPI(title=settings.APP_NAME)
-
-# アプリケーション起動時にデータベースを初期化
-@app.on_event("startup")
-def on_startup():
+# lifespan イベントハンドラ
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # アプリケーション起動時
     logger.info("Initializing database...")
     init_db()
     logger.info("Database initialized")
+    yield
+    # アプリケーション終了時
+    logger.info("Shutting down...")
+
+app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
