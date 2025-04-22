@@ -6,7 +6,7 @@ uvicorn[standard]>=0.29.0
 celery[redis]>=5.4.0
 
 # --- LangChain / RAG ---
-langchain==0.1.14
+langchain==0.2.5
 langchain-community==0.2.19
 chromadb>=0.4.24
 sentence-transformers>=2.2.2
