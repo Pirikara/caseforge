@@ -1,103 +1,193 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import * as React from 'react';
+import { LayoutGridIcon, PlayIcon, CheckCircleIcon, ServerIcon } from 'lucide-react';
+
+// 相対パスでのインポート
+import { ProjectCard } from './components/molecules/ProjectCard';
+import { StatsCard } from './components/molecules/StatsCard';
+import { RecentTestRuns } from './components/molecules/RecentTestRuns';
+import { QuickActions } from './components/molecules/QuickActions';
+
+// 型定義
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+}
+
+interface TestRun {
+  run_id: string;
+  project_id: string;
+  status: string;
+  start_time: string;
+  end_time?: string;
+}
+
+interface RunStats {
+  totalTests: number;
+  totalRuns: number;
+  successRate: number;
+}
+
+// プロジェクト一覧を取得するカスタムフック
+function useProjects() {
+  const [projects, setProjects] = React.useState<Project[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<Error | null>(null);
+
+  React.useEffect(() => {
+    async function fetchProjects() {
+      try {
+        setIsLoading(true);
+        const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
+        const response = await fetch(`${API}/api/projects/`);
+        
+        if (!response.ok) {
+          throw new Error(`API ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setProjects(data);
+      } catch (err) {
+        console.error('プロジェクト一覧の取得に失敗しました:', err);
+        setError(err instanceof Error ? err : new Error('不明なエラー'));
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchProjects();
+  }, []);
+  
+  return { projects, isLoading, error };
+}
+
+// 最近のテスト実行を取得するカスタムフック
+function useRecentTestRuns() {
+  const [recentRuns, setRecentRuns] = React.useState<TestRun[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<Error | null>(null);
+  const [stats, setStats] = React.useState({
+    totalTests: 0,
+    totalRuns: 0,
+    successRate: 0,
+  });
+
+  React.useEffect(() => {
+    async function fetchRecentRuns() {
+      try {
+        setIsLoading(true);
+        const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
+        const response = await fetch(`${API}/api/projects/recent-runs?limit=5`);
+        
+        if (!response.ok) {
+          throw new Error(`API ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setRecentRuns(data.runs || []);
+        
+        // 統計情報も一緒に取得
+        setStats({
+          totalTests: data.stats?.totalTests || 0,
+          totalRuns: data.stats?.totalRuns || 0,
+          successRate: data.stats?.successRate || 0,
+        });
+      } catch (err) {
+        console.error('最近のテスト実行の取得に失敗しました:', err);
+        setError(err instanceof Error ? err : new Error('不明なエラー'));
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchRecentRuns();
+  }, []);
+  
+  return { recentRuns, isLoading, error, stats };
+}
+
+// メモ化されたコンポーネント
+const MemoizedProjectCard = React.memo(ProjectCard);
+const MemoizedStatsCard = React.memo(StatsCard);
+const MemoizedRecentTestRuns = React.memo(RecentTestRuns);
+const MemoizedQuickActions = React.memo(QuickActions);
+
+export default function Dashboard() {
+  const { projects, isLoading: isLoadingProjects } = useProjects();
+  const { recentRuns, isLoading: isLoadingRuns, stats: runStats } = useRecentTestRuns();
+  
+  // 統計情報を計算
+  const dashboardStats = React.useMemo(() => {
+    return {
+      totalProjects: projects?.length || 0,
+      totalTests: runStats.totalTests,
+      totalRuns: runStats.totalRuns,
+      successRate: runStats.successRate,
+    };
+  }, [projects, runStats]);
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold">ダッシュボード</h1>
+      
+      {/* 統計情報 */}
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+        <MemoizedStatsCard
+          title="プロジェクト数"
+          value={dashboardStats.totalProjects}
+          icon={<LayoutGridIcon />}
         />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <MemoizedStatsCard
+          title="テスト数"
+          value={dashboardStats.totalTests}
+          icon={<ServerIcon />}
+        />
+        <MemoizedStatsCard
+          title="テスト実行数"
+          value={dashboardStats.totalRuns}
+          icon={<PlayIcon />}
+        />
+        <MemoizedStatsCard
+          title="成功率"
+          value={`${dashboardStats.successRate}%`}
+          icon={<CheckCircleIcon />}
+        />
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* プロジェクト一覧 */}
+        <div className="md:col-span-2">
+          <h2 className="text-xl font-semibold mb-3 md:mb-4">プロジェクト</h2>
+          {isLoadingProjects ? (
+            <div className="text-center py-6 md:py-8">読み込み中...</div>
+          ) : projects && projects.length > 0 ? (
+            <div className="grid gap-3 grid-cols-1 xs:grid-cols-2 sm:gap-4">
+              {projects.map((project: Project) => (
+                <MemoizedProjectCard key={project.id} project={project} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 border rounded-lg bg-background">
+              <p className="text-muted-foreground">プロジェクトがありません</p>
+              <p className="mt-2">新しいプロジェクトを作成してください</p>
+            </div>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        
+        {/* サイドバー */}
+        <div className="space-y-6">
+          <MemoizedQuickActions />
+          
+          {isLoadingRuns ? (
+            <div className="text-center py-4">読み込み中...</div>
+          ) : (
+            <MemoizedRecentTestRuns testRuns={recentRuns} />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
