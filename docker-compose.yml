@@ -12,6 +12,10 @@ services:
       - redis
       - chroma
       - db
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   worker:
     build:
@@ -44,6 +48,10 @@ services:
     image: ghcr.io/chroma-core/chroma:0.6.3
     volumes:
       - chroma_data:/chroma/.chroma
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   db:
     image: postgres:16-alpine

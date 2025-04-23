@@ -3,52 +3,11 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { useProjects } from '../../../hooks/useProjects';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { ArrowLeftIcon, FileTextIcon, PlayIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
 import { toast } from 'sonner';
-
-// 型定義
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-}
-
-// プロジェクト情報を取得するカスタムフック
-function useProject(projectId: string) {
-  const [project, setProject] = React.useState<Project | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
-
-  React.useEffect(() => {
-    if (!projectId) return;
-
-    async function fetchProject() {
-      try {
-        setIsLoading(true);
-        const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-        const response = await fetch(`${API}/api/projects/${projectId}`);
-        
-        if (!response.ok) {
-          throw new Error(`API ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setProject(data);
-      } catch (err) {
-        console.error('プロジェクト情報の取得に失敗しました:', err);
-        setError(err instanceof Error ? err : new Error('不明なエラー'));
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    
-    fetchProject();
-  }, [projectId]);
-  
-  return { project, isLoading, error };
-}
 
 // メモ化されたステータスアイコンコンポーネント
 const StatusIcon = React.memo(({ status }: { status: string }) => {
@@ -68,7 +27,11 @@ export default function GenerateTestsPage() {
   const router = useRouter();
   const projectId = params.id as string;
   
-  const { project, isLoading: isLoadingProject } = useProject(projectId);
+  const { projects, isLoading: isLoadingProjects } = useProjects();
+  const project = React.useMemo(() => {
+    if (!projects) return null;
+    return projects.find(p => p.id === projectId);
+  }, [projects, projectId]);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [generationStatus, setGenerationStatus] = React.useState<'idle' | 'generating' | 'completed' | 'failed'>('idle');
   const [generatedCount, setGeneratedCount] = React.useState(0);

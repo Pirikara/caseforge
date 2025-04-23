@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from langchain.schema import Document
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 from chromadb.utils.embedding_functions import EmbeddingFunction
 from app.config import settings
 from app.logging_config import logger
@@ -42,7 +42,13 @@ class ChromaEmbeddingFunction(EmbeddingFunction):
         HuggingFaceの埋め込みモデルを初期化
         """
         try:
-            self.embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            # より軽量なモデルを使用し、キャッシュを有効にする
+            self.embedder = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                cache_folder="/tmp/huggingface_cache",
+                model_kwargs={"device": "cpu"},
+                encode_kwargs={"normalize_embeddings": True}
+            )
             logger.debug("Initialized HuggingFace embedding model")
         except Exception as e:
             logger.error(f"Error initializing embedding model: {e}")
@@ -103,18 +109,57 @@ def index_schema(project_id: str, path: str) -> None:
     try:
         logger.info(f"Indexing schema for project {project_id}: {path}")
         loader = OpenAPILoader(path)
+        logger.debug(f"Created OpenAPILoader for {path}")
+        
         docs = loader.load()
-        logger.debug(f"Loaded {len(docs)} documents")
-
-        vectordb = Chroma(
-            collection_name=project_id,
-            embedding_function=ChromaEmbeddingFunction(),
-            persist_directory=settings.CHROMA_PERSIST_DIR,
-        )
-
-        vectordb.add_documents(docs)
-        vectordb.persist()
+        logger.debug(f"Loaded {len(docs)} documents with size: {len(docs[0].page_content) if docs else 0} bytes")
+        
+        logger.debug(f"Initializing ChromaEmbeddingFunction")
+        embedding_function = ChromaEmbeddingFunction()
+        logger.debug(f"ChromaEmbeddingFunction initialized successfully")
+        
+        logger.debug(f"Connecting to ChromaDB at {settings.CHROMA_PERSIST_DIR}")
+        import time
+        from contextlib import contextmanager
+        
+        @contextmanager
+        def timeout(seconds, message="Operation timed out"):
+            def handle_timeout(signum, frame):
+                raise TimeoutError(message)
+            
+            import signal
+            signal.signal(signal.SIGALRM, handle_timeout)
+            signal.alarm(seconds)
+            try:
+                yield
+            finally:
+                signal.alarm(0)
+        
+        # タイムアウト設定（30秒）を追加
+        with timeout(30, "ChromaDB connection timed out"):
+            vectordb = Chroma(
+                collection_name=project_id,
+                embedding_function=embedding_function,
+                persist_directory=settings.CHROMA_PERSIST_DIR,
+            )
+        logger.debug(f"Connected to ChromaDB successfully")
+        
+        logger.debug(f"Adding documents to ChromaDB")
+        # ドキュメントを小さなバッチに分割して処理
+        batch_size = 1  # 一度に1つのドキュメントを処理
+        for i in range(0, len(docs), batch_size):
+            batch = docs[i:i+batch_size]
+            logger.debug(f"Processing batch {i//batch_size + 1}/{(len(docs) + batch_size - 1)//batch_size}")
+            with timeout(60, "Document embedding timed out"):
+                vectordb.add_documents(batch)
+            logger.debug(f"Batch {i//batch_size + 1} processed successfully")
+        logger.debug(f"All documents added to ChromaDB successfully")
+        
+        # 注: 最新のlangchain-chromaでは、persist_directoryを指定することで
+        # 自動的に永続化されるため、明示的なpersist()呼び出しは不要
+        logger.debug(f"Changes automatically persisted to ChromaDB via persist_directory")
+        
         logger.info(f"Successfully indexed schema for project {project_id}")
     except Exception as e:
-        logger.error(f"Error indexing schema for project {project_id}: {e}")
+        logger.error(f"Error indexing schema for project {project_id}: {e}", exc_info=True)
         raise
