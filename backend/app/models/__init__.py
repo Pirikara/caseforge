@@ -1,12 +1,14 @@
 from .base import TimestampModel, get_session, engine
 from .project import Project, Schema
 from .test import TestCase, TestRun, TestResult
+from .chain import TestChain, TestChainStep, ChainRun, StepResult
 
 # モデルをインポートしてSQLModelに認識させる
 __all__ = [
     "TimestampModel", "get_session", "engine",
     "Project", "Schema",
-    "TestCase", "TestRun", "TestResult"
+    "TestCase", "TestRun", "TestResult",
+    "TestChain", "TestChainStep", "ChainRun", "StepResult"
 ]
 
 # データベース初期化関数

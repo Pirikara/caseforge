@@ -135,9 +135,9 @@ export default function GenerateTestsPage() {
       
       <Card>
         <CardHeader>
-          <CardTitle>AIテスト生成</CardTitle>
+          <CardTitle>AIテストチェーン生成</CardTitle>
           <CardDescription>
-            OpenAPIスキーマに基づいてAIがテストケースを自動生成します。
+            OpenAPIスキーマに基づいてAIが依存関係を考慮したテストチェーンを自動生成します。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -154,23 +154,27 @@ export default function GenerateTestsPage() {
           </div>
           
           <div className="border rounded-lg p-4">
-            <h3 className="font-semibold mb-2">テスト生成について</h3>
+            <h3 className="font-semibold mb-2">テストチェーン生成について</h3>
             <ul className="space-y-2 text-sm">
               <li className="flex items-start gap-2">
                 <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span>OpenAPIスキーマの各エンドポイントに対してテストケースを生成します</span>
+                <span>OpenAPIスキーマから依存関係を抽出し、関連するエンドポイントをチェーン化します</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span>正常系・異常系の両方のテストケースを生成します</span>
+                <span>例: POST→PUT→GETのような一連のAPIの呼び出し順序を反映した統合テスト</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span>生成されたテストケースはプロジェクトに保存され、いつでも実行できます</span>
+                <span>前のステップのレスポンスから値を抽出し、次のステップのリクエストに使用します</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span>テスト生成には数分かかる場合があります</span>
+                <span>生成されたテストチェーンはプロジェクトに保存され、いつでも実行できます</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <span>テストチェーン生成には数分かかる場合があります</span>
               </li>
             </ul>
           </div>
@@ -183,7 +187,7 @@ export default function GenerateTestsPage() {
                 disabled={isGenerating}
               >
                 <FileTextIcon className="h-5 w-5 mr-2" />
-                テスト生成を開始
+                テストチェーン生成を開始
               </Button>
             </div>
           )}
@@ -193,9 +197,9 @@ export default function GenerateTestsPage() {
               <div className="flex justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
               </div>
-              <p className="font-medium">テスト生成中...</p>
+              <p className="font-medium">テストチェーン生成中...</p>
               <p className="text-sm text-muted-foreground">
-                OpenAPIスキーマを解析してテストケースを生成しています。
+                OpenAPIスキーマを解析して依存関係を抽出し、テストチェーンを生成しています。
                 <br />
                 この処理には数分かかる場合があります。
               </p>
@@ -207,15 +211,15 @@ export default function GenerateTestsPage() {
               <div className="flex justify-center">
                 <StatusIcon status="completed" />
               </div>
-              <p className="font-medium">テスト生成が完了しました</p>
+              <p className="font-medium">テストチェーン生成が完了しました</p>
               <p className="text-sm">
-                {generatedCount}件のテストケースが生成されました。
+                {generatedCount}件のテストチェーンが生成されました。
               </p>
               <div className="flex justify-center gap-2">
                 <Button asChild variant="outline">
                   <Link href={`/projects/${projectId}/tests`}>
                     <FileTextIcon className="h-4 w-4 mr-2" />
-                    テストケース一覧を表示
+                    テストチェーン一覧を表示
                   </Link>
                 </Button>
                 <Button asChild>
@@ -233,9 +237,9 @@ export default function GenerateTestsPage() {
               <div className="flex justify-center">
                 <StatusIcon status="failed" />
               </div>
-              <p className="font-medium">テスト生成に失敗しました</p>
+              <p className="font-medium">テストチェーン生成に失敗しました</p>
               <p className="text-sm text-muted-foreground">
-                エラーが発生したため、テスト生成を完了できませんでした。
+                エラーが発生したため、テストチェーン生成を完了できませんでした。
                 <br />
                 {errorMessage ? (
                   <span className="font-mono text-red-600 block mt-2 p-2 bg-red-100 dark:bg-red-900 rounded">

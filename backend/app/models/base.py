@@ -7,7 +7,9 @@ from app.config import settings
 # データベース接続設定
 # テスト環境の場合はSQLiteを使用
 if os.environ.get("TESTING") == "1":
-    DATABASE_URL = "sqlite:///./test.db"
+    # テスト用にファイルベースのデータベースを使用
+    TEST_DB_PATH = "/tmp/test_caseforge/test.db"
+    DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"
 else:
     DATABASE_URL = settings.DATABASE_URL
 

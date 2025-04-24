@@ -4,8 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useProjects } from '@/hooks/useProjects';
-import { useTestCases } from '@/hooks/useTestCases';
-import { useTestRuns } from '@/hooks/useTestRuns';
+import { useTestChains } from '@/hooks/useTestChains';
+import { useChainRuns } from '@/hooks/useTestRuns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -33,8 +33,8 @@ export default function ProjectDetailPage() {
   const projectId = params.id as string;
   
   const { projects } = useProjects();
-  const { testCases, isLoading: isLoadingTestCases } = useTestCases(projectId);
-  const { testRuns, isLoading: isLoadingTestRuns } = useTestRuns(projectId);
+  const { testChains, isLoading: isLoadingTestChains } = useTestChains(projectId);
+  const { chainRuns, isLoading: isLoadingChainRuns } = useChainRuns(projectId);
   
   const project = React.useMemo(() => {
     if (!projects) return null;
@@ -101,12 +101,12 @@ export default function ProjectDetailPage() {
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">テストケース数</dt>
-                <dd className="text-muted-foreground">{testCases?.length || 0}</dd>
+                <dt className="font-medium">テストチェーン数</dt>
+                <dd className="text-muted-foreground">{testChains?.length || 0}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="font-medium">テスト実行数</dt>
-                <dd className="text-muted-foreground">{testRuns?.length || 0}</dd>
+                <dd className="text-muted-foreground">{chainRuns?.length || 0}</dd>
               </div>
             </dl>
           </CardContent>
@@ -123,11 +123,11 @@ export default function ProjectDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingTestRuns ? (
+            {isLoadingChainRuns ? (
               <div className="text-center py-4">読み込み中...</div>
-            ) : testRuns && testRuns.length > 0 ? (
+            ) : chainRuns && chainRuns.length > 0 ? (
               <div className="space-y-2">
-                {testRuns.slice(0, 5).map((run) => (
+                {chainRuns.slice(0, 5).map((run) => (
                   <Link
                     key={run.id}
                     href={`/projects/${projectId}/runs/${run.run_id}`}
@@ -163,41 +163,54 @@ export default function ProjectDetailPage() {
         </Card>
       </div>
       
-      {/* テストケース一覧 */}
+      {/* テストチェーン一覧 */}
       <div>
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">テストケース</h2>
+          <h2 className="text-xl font-semibold">テストチェーン</h2>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/projects/${projectId}/tests`}>
+            <Link href={`/projects/${projectId}/chains`}>
               すべて表示
             </Link>
           </Button>
         </div>
         
-        {isLoadingTestCases ? (
+        {isLoadingTestChains ? (
           <div className="text-center py-6 md:py-8">読み込み中...</div>
-        ) : testCases && testCases.length > 0 ? (
+        ) : testChains && testChains.length > 0 ? (
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>タイトル</TableHead>
-                  <TableHead>メソッド</TableHead>
-                  <TableHead>パス</TableHead>
-                  <TableHead>期待するステータス</TableHead>
+                  <TableHead>チェーン名</TableHead>
+                  <TableHead>ステップ数</TableHead>
+                  <TableHead>メソッド順序</TableHead>
                   <TableHead className="w-[100px]">アクション</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {testCases.slice(0, 5).map((testCase) => (
-                  <TableRow key={testCase.id}>
-                    <TableCell className="font-medium">{testCase.title}</TableCell>
-                    <TableCell>{testCase.method}</TableCell>
-                    <TableCell>{testCase.path}</TableCell>
-                    <TableCell>{testCase.expected_status}</TableCell>
+                {testChains.slice(0, 5).map((chain) => (
+                  <TableRow key={chain.id}>
+                    <TableCell className="font-medium">{chain.name}</TableCell>
+                    <TableCell>{chain.steps.length}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {chain.steps.map((step, index) => (
+                          <span key={index} className={`px-2 py-1 rounded text-xs font-medium ${
+                            step.method === 'GET' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                            step.method === 'POST' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                            step.method === 'PUT' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
+                            step.method === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+                            'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+                          }`}>
+                            {step.method}
+                            {index < chain.steps.length - 1 && <span className="ml-1">→</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={`/projects/${projectId}/tests/${testCase.case_id}`}>
+                        <Link href={`/projects/${projectId}/chains/${chain.chain_id}`}>
                           詳細
                         </Link>
                       </Button>
@@ -209,8 +222,8 @@ export default function ProjectDetailPage() {
           </div>
         ) : (
           <div className="text-center py-8 border rounded-lg bg-background">
-            <p className="text-muted-foreground">テストケースがありません</p>
-            <p className="mt-2">テスト生成を実行してください</p>
+            <p className="text-muted-foreground">テストチェーンがありません</p>
+            <p className="mt-2">テストチェーン生成を実行してください</p>
           </div>
         )}
       </div>

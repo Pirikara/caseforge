@@ -2,8 +2,10 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from app.services.schema import save_and_index_schema
 from app.services.testgen import trigger_test_generation
 from app.services.teststore import list_testcases
-from app.services.runner import run_tests, list_test_runs, get_run_result, get_recent_runs
-from app.workers.tasks import generate_tests_task
+from app.services.runner import get_recent_runs
+from app.services.chain_generator import ChainStore
+from app.services.chain_runner import run_chains, list_chain_runs, get_chain_run
+from app.workers.tasks import generate_chains_task
 from fastapi.responses import JSONResponse
 from pathlib import Path
 from app.config import settings
@@ -29,7 +31,7 @@ async def upload_schema(project_id: str, file: UploadFile = File(...)):
 
 @router.post("/{project_id}/generate-tests")
 async def generate_tests(project_id: str):
-    logger.info(f"Triggering test generation for project {project_id}")
+    logger.info(f"Triggering test chain generation for project {project_id}")
     try:
         # プロジェクトの存在確認
         project_path = Path(f"{settings.SCHEMA_DIR}/{project_id}")
@@ -45,46 +47,63 @@ async def generate_tests(project_id: str):
         
         logger.info(f"Found schema files: {[f.name for f in schema_files]}")
         
-        # テスト生成タスクを開始
-        task_id = trigger_test_generation(project_id)
+        # テストチェーン生成タスクを開始
+        task_id = generate_chains_task.delay(project_id).id
         if not task_id:
-            logger.error(f"Failed to trigger test generation task for project {project_id}")
-            raise HTTPException(status_code=500, detail="Failed to start test generation task")
+            logger.error(f"Failed to trigger test chain generation task for project {project_id}")
+            raise HTTPException(status_code=500, detail="Failed to start test chain generation task")
             
-        logger.info(f"Test generation task started with ID: {task_id}")
-        return {"message": "Test generation started", "task_id": task_id, "status": "generating", "count": 0}
+        logger.info(f"Test chain generation task started with ID: {task_id}")
+        return {"message": "Test chain generation started", "task_id": task_id, "status": "generating"}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Unexpected error in generate_tests: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error generating tests: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating test chains: {str(e)}")
 
-@router.get("/{project_id}/tests")
-async def get_generated_tests(project_id: str):
-    logger.info(f"Fetching generated tests for project {project_id}")
+@router.get("/{project_id}/chains")
+async def get_chains(project_id: str):
+    logger.info(f"Fetching chains for project {project_id}")
     try:
-        tests = list_testcases(project_id)
-        return JSONResponse(content=tests)
+        chain_store = ChainStore()
+        chains = chain_store.list_chains(project_id)
+        return JSONResponse(content=chains)
     except Exception as e:
-        logger.error(f"Error fetching tests for project {project_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching tests: {str(e)}")
+        logger.error(f"Error fetching chains for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching chains: {str(e)}")
+
+@router.get("/{project_id}/chains/{chain_id}")
+async def get_chain_detail(project_id: str, chain_id: str):
+    logger.info(f"Fetching chain details for project {project_id}, chain {chain_id}")
+    try:
+        chain_store = ChainStore()
+        chain = chain_store.get_chain(project_id, chain_id)
+        if chain is None:
+            logger.warning(f"Chain not found: project {project_id}, chain {chain_id}")
+            raise HTTPException(status_code=404, detail="Chain not found")
+        return JSONResponse(content=chain)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching chain details for project {project_id}, chain {chain_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching chain details: {str(e)}")
 
 @router.post("/{project_id}/run")
-async def run_project_tests(project_id: str):
-    logger.info(f"Running tests for project {project_id}")
+async def run_project_chains(project_id: str, chain_id: str = None):
+    logger.info(f"Running chains for project {project_id}")
     try:
-        results = await run_tests(project_id)
-        logger.info(f"Test run completed for project {project_id}")
-        return {"message": "Test run complete", "results": results}
+        results = await run_chains(project_id, chain_id)
+        logger.info(f"Chain run completed for project {project_id}")
+        return {"message": "Chain run complete", "results": results}
     except Exception as e:
-        logger.error(f"Error running tests for project {project_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error running tests: {str(e)}")
+        logger.error(f"Error running chains for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error running chains: {str(e)}")
 
 @router.get("/{project_id}/runs")
-async def get_run_history(project_id: str):
+async def get_run_history(project_id: str, limit: int = 10):
     logger.info(f"Fetching run history for project {project_id}")
     try:
-        return list_test_runs(project_id)
+        return list_chain_runs(project_id, limit)
     except Exception as e:
         logger.error(f"Error fetching run history for project {project_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching run history: {str(e)}")
@@ -93,7 +112,7 @@ async def get_run_history(project_id: str):
 async def get_run_detail(project_id: str, run_id: str):
     logger.info(f"Fetching run details for project {project_id}, run {run_id}")
     try:
-        result = get_run_result(project_id, run_id)
+        result = get_chain_run(project_id, run_id)
         if result is None:
             logger.warning(f"Run not found: project {project_id}, run {run_id}")
             raise HTTPException(status_code=404, detail="Run not found")

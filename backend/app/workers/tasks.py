@@ -1,20 +1,23 @@
 from app.workers import celery_app
 from app.services.teststore import save_testcases
 from app.services.rag import ChromaEmbeddingFunction
+from app.services.chain_generator import DependencyAwareRAG, ChainStore
+from app.services.schema import get_schema_content
 from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import json
 import os
+import yaml
 import logging
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 @celery_app.task
-def generate_tests_task(project_id: str):
+def generate_chains_task(project_id: str):
     """
-    OpenAPIスキーマからテストケースを生成するCeleryタスク
+    OpenAPIスキーマから依存関係を考慮したリクエストチェーンを生成するCeleryタスク
     
     Args:
         project_id: プロジェクトID
@@ -22,47 +25,58 @@ def generate_tests_task(project_id: str):
     Returns:
         dict: 生成結果の情報
     """
-    logger.info(f"Generating tests for project {project_id}")
+    logger.info(f"Generating request chains for project {project_id}")
     
     try:
-        vectordb = Chroma(
-            collection_name=project_id,
-            embedding_function=ChromaEmbeddingFunction(),
-            persist_directory=settings.CHROMA_PERSIST_DIR,
-        )
+        # スキーマファイルの取得
+        schema_path = f"{settings.SCHEMA_DIR}/{project_id}"
+        schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
         
-        context_docs = vectordb.as_retriever(search_kwargs={"k": 10}).invoke("Generate test cases")
-        context = "".join(d.page_content[:800] for d in context_docs)
+        if not schema_files:
+            logger.error(f"No schema files found for project {project_id}")
+            return {"status": "error", "message": "No schema files found"}
         
-        # LLMの設定
-        model_name = settings.LLM_MODEL_NAME
-        api_base = settings.OPENAI_API_BASE
+        # 最初のスキーマファイルを使用
+        schema_file = schema_files[0]
+        schema_content = get_schema_content(project_id, schema_file)
         
-        llm = ChatOpenAI(
-            model_name=model_name,
-            openai_api_base=api_base,
-            temperature=0.2,
-        )
+        # スキーマのパース
+        if schema_file.endswith('.json'):
+            schema = json.loads(schema_content)
+        else:
+            schema = yaml.safe_load(schema_content)
         
-        prompt = ChatPromptTemplate.from_template(
-            """You are an API QA expert. Using the following OpenAPI snippet:
-{context}
-Generate EXACTLY 3 diverse test cases in JSON array with keys: id, title, request (method, path, body?), expected (status), purpose (functional|boundary|authZ|fuzz). Return ONLY JSON."""
-        )
+        # 依存関係を考慮したRAGの初期化
+        rag = DependencyAwareRAG(project_id, schema)
         
-        resp = (prompt | llm).invoke({"context": context}).content
+        # リクエストチェーンの生成
+        chains = rag.generate_request_chains()
+        logger.info(f"Successfully generated {len(chains)} request chains")
         
-        try:
-            cases = json.loads(resp)
-            logger.info(f"Successfully generated {len(cases)} test cases")
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM response as JSON: {e}")
-            logger.debug(f"Raw response: {resp}")
-            cases = []
+        # チェーンの保存
+        chain_store = ChainStore()
+        chain_store.save_chains(project_id, chains)
         
-        save_testcases(project_id, cases)
-        return {"status": "completed", "count": len(cases)}
+        return {"status": "completed", "count": len(chains)}
         
     except Exception as e:
-        logger.error(f"Error generating tests: {e}")
+        logger.error(f"Error generating request chains: {e}")
         return {"status": "error", "message": str(e)}
+
+# 既存のテストケース生成タスク（廃止予定）
+@celery_app.task
+def generate_tests_task(project_id: str):
+    """
+    OpenAPIスキーマからテストケースを生成するCeleryタスク（廃止予定）
+    
+    Args:
+        project_id: プロジェクトID
+        
+    Returns:
+        dict: 生成結果の情報
+    """
+    logger.info(f"Generating tests for project {project_id} (DEPRECATED)")
+    logger.warning("This function is deprecated. Use generate_chains_task instead.")
+    
+    # 新しいタスクを呼び出す
+    return generate_chains_task(project_id)

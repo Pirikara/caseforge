@@ -1,35 +1,51 @@
 import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
 
-export interface TestRun {
+export interface ChainRun {
   id: string;
   run_id: string;
+  chain_id: string;
   project_id: string;
   status: 'running' | 'completed' | 'failed';
   start_time: string;
   end_time?: string;
-  results?: TestResult[];
+  step_results?: StepResult[];
 }
 
-export interface TestResult {
+export interface StepResult {
   id: string;
-  test_run_id: string;
-  test_case_id: string;
-  status_code: number;
+  chain_run_id: string;
+  step_id: string;
+  sequence: number;
+  status_code?: number;
   passed: boolean;
-  response_time: number;
+  response_time?: number;
   error_message?: string;
   response_body?: any;
+  extracted_values?: Record<string, any>;
 }
 
-export function useTestRuns(projectId: string) {
-  const { data, error, isLoading, mutate } = useSWR<TestRun[]>(
+export function useChainRuns(projectId: string) {
+  const { data, error, isLoading, mutate } = useSWR<ChainRun[]>(
     projectId ? `/api/projects/${projectId}/runs` : null,
     fetcher
   );
   
   return {
-    testRuns: data,
+    chainRuns: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+// 後方互換性のために残す（非推奨）
+export function useTestRuns(projectId: string) {
+  console.warn('useTestRuns は非推奨です。代わりに useChainRuns を使用してください。');
+  const { chainRuns, isLoading, error, mutate } = useChainRuns(projectId);
+  
+  return {
+    testRuns: chainRuns,
     isLoading,
     error,
     mutate,
