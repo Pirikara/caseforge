@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     CHROMA_PERSIST_DIR: str = os.environ.get("CHROMA_PERSIST_DIR", "/chroma/.chroma")
     
     # LLM設定
-    LLM_MODEL_NAME: str = os.environ.get("LLM_MODEL_NAME", "Hermes-3-Llama-3.1-8B-GGUF")
+    LLM_MODEL_NAME: str = os.environ.get("LLM_MODEL_NAME", "Hermes-3-Llama-3.1-8B")
     OPENAI_API_BASE: str = os.environ.get("OPENAI_API_BASE", "http://192.168.2.101:1234/v1")
     OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "not-needed")
     
