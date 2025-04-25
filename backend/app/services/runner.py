@@ -2,7 +2,7 @@ import httpx
 import json
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from app.services.teststore import list_testcases
 from app.config import settings
 from app.logging_config import logger
@@ -17,7 +17,7 @@ async def run_tests(project_id: str) -> list[dict]:
             logger.warning(f"No tests found for project {project_id}")
             return []
             
-        timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         log_path = f"{settings.LOG_DIR}/{project_id}"
         os.makedirs(log_path, exist_ok=True)
     

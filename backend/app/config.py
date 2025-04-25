@@ -1,4 +1,5 @@
 import os
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -28,7 +29,6 @@ class Settings(BaseSettings):
     # データベース設定
     DATABASE_URL: str = os.environ.get("DATABASE_URL", "postgresql://caseforge:caseforge@db:5432/caseforge")
     
-    class Config:
-        env_file = ".env"
+    model_config = ConfigDict(env_file=".env")
 
 settings = Settings()

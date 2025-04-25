@@ -4,7 +4,7 @@ import os
 import uuid
 import re
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import jsonpath_ng
 from app.config import settings
 from app.logging_config import logger
@@ -34,7 +34,7 @@ class ChainRunner:
         """
         chain_result = {
             "name": chain.get("name", "Unnamed Chain"),
-            "start_time": datetime.utcnow().isoformat(),
+            "start_time": datetime.now(timezone.utc).isoformat(),
             "end_time": None,
             "status": "running",
             "steps": [],
@@ -68,7 +68,7 @@ class ChainRunner:
             chain_result["error"] = str(e)
             logger.error(f"Error running chain: {e}")
         
-        chain_result["end_time"] = datetime.utcnow().isoformat()
+        chain_result["end_time"] = datetime.now(timezone.utc).isoformat()
         return chain_result
     
     async def _execute_step(self, client: httpx.AsyncClient, step: Dict, extracted_values: Dict) -> Dict:
@@ -83,7 +83,7 @@ class ChainRunner:
         Returns:
             ステップの実行結果
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         step_result = {
             "name": step.get("name", "Unnamed Step"),
@@ -123,7 +123,7 @@ class ChainRunner:
             )
             
             # レスポンスの処理
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             response_time = (end_time - start_time).total_seconds() * 1000  # ミリ秒単位
             
             step_result["end_time"] = end_time.isoformat()
@@ -146,14 +146,14 @@ class ChainRunner:
                 step_result["success"] = 200 <= response.status_code < 300
             
         except httpx.RequestError as e:
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             step_result["end_time"] = end_time.isoformat()
             step_result["error"] = f"Request error: {str(e)}"
             step_result["response_time"] = (end_time - start_time).total_seconds() * 1000
             logger.error(f"Request error: {e}")
         
         except Exception as e:
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             step_result["end_time"] = end_time.isoformat()
             step_result["error"] = f"Unexpected error: {str(e)}"
             step_result["response_time"] = (end_time - start_time).total_seconds() * 1000
@@ -349,7 +349,7 @@ async def run_chains(project_id: str, chain_id: Optional[str] = None) -> Dict:
                     chain_id=db_chain.id,
                     project_id=db_project.id,
                     status="running",
-                    start_time=datetime.utcnow()
+                    start_time=datetime.now(timezone.utc)
                 )
                 session.add(chain_run)
                 session.commit()
@@ -361,7 +361,7 @@ async def run_chains(project_id: str, chain_id: Optional[str] = None) -> Dict:
                 
                 # 実行結果を更新
                 chain_run.status = result["status"]
-                chain_run.end_time = datetime.utcnow()
+                chain_run.end_time = datetime.now(timezone.utc)
                 
                 # ステップ結果を保存
                 for i, step_result in enumerate(result.get("steps", [])):
@@ -401,7 +401,7 @@ async def run_chains(project_id: str, chain_id: Optional[str] = None) -> Dict:
                 session.commit()
             
             # ファイルシステムにも保存（デバッグ用）
-            timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
             log_path = f"{settings.LOG_DIR}/{project_id}"
             os.makedirs(log_path, exist_ok=True)
             

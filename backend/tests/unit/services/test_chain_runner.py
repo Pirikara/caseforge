@@ -2,7 +2,7 @@ import pytest
 from app.services.chain_runner import ChainRunner, run_chains, list_chain_runs, get_chain_run
 from unittest.mock import patch, MagicMock, AsyncMock
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import httpx
 from sqlmodel import select
 
@@ -217,7 +217,7 @@ def test_list_chain_runs(session, test_project):
         chain_id=chain.id,
         project_id=test_project.id,
         status="completed",
-        start_time=datetime.utcnow()
+        start_time=datetime.now(timezone.utc)
     )
     session.add(run)
     session.commit()
@@ -261,7 +261,7 @@ def test_get_chain_run(session, test_project):
         chain_id=chain.id,
         project_id=test_project.id,
         status="completed",
-        start_time=datetime.utcnow()
+        start_time=datetime.now(timezone.utc)
     )
     session.add(run)
     session.flush()
