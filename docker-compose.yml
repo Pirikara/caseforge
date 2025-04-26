@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   backend:
     build:
@@ -21,6 +19,9 @@ services:
           memory: 2G
 
   worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     image: backend:latest
     command: ["celery", "-A", "app.workers", "worker", "--loglevel=info"]
     volumes:
