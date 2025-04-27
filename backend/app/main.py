@@ -17,6 +17,11 @@ async def lifespan(app: FastAPI):
     # アプリケーション終了時
     logger.info("Shutting down...")
 
+import debugpy
+
+debugpy.listen(("0.0.0.0", 4444))  # ポートは好きに（デフォ5678）
+print("⚡ debugpy waiting for attach...")
+
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 
 app.add_middleware(

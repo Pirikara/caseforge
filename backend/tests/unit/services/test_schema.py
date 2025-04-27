@@ -5,7 +5,7 @@ from sqlmodel import select
 import os
 
 # save_and_index_schemaのテスト
-async def test_save_and_index_schema(session, monkeypatch, mock_chroma):
+async def test_save_and_index_schema(session, monkeypatch, mock_faiss):
     # index_schemaをモック化
     def mock_index_schema(project_id, path):
         return True

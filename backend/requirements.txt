@@ -14,6 +14,7 @@ chromadb==0.6.3
 sentence-transformers>=2.2.2
 pyyaml>=6.0.1
 jsonpath-ng>=1.5.0  # レスポンスからの値抽出用
+faiss-cpu>=1.7.4
 
 httpx>=0.27.0
 pydantic-settings>=2.1.0
@@ -28,3 +29,6 @@ langchain-openai>=0.1.6
 # --- テスト用パッケージ ---
 pytest==7.4.0
 pytest-asyncio==0.21.1
+
+# --- デバッガー ---
+debugpy>=1.6.6

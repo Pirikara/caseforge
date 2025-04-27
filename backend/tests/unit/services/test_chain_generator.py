@@ -87,7 +87,7 @@ SAMPLE_CHAIN = {
     ]
 }
 
-def test_build_dependency_graph(mock_chroma, monkeypatch):
+def test_build_dependency_graph(mock_faiss, monkeypatch):
     """依存関係グラフ構築のテスト"""
     # OpenAPIAnalyzerのモック
     mock_analyzer = MagicMock()
@@ -110,7 +110,7 @@ def test_build_dependency_graph(mock_chroma, monkeypatch):
     assert "GET /users/{id}" in graph["POST /users"]["dependents"]
     assert "POST /users" in graph["GET /users/{id}"]["dependencies"]
 
-def test_identify_chain_candidates(mock_chroma, monkeypatch):
+def test_identify_chain_candidates(mock_faiss, monkeypatch):
     """チェーン候補特定のテスト"""
     # 依存関係グラフのモック
     mock_graph = {
@@ -139,7 +139,7 @@ def test_identify_chain_candidates(mock_chroma, monkeypatch):
     assert len(candidates) > 0
     assert ["POST /users", "GET /users/{id}"] in candidates
 
-def test_generate_chain_for_candidate(mock_chroma, mock_llm, monkeypatch):
+def test_generate_chain_for_candidate(mock_faiss, mock_llm, monkeypatch):
     """チェーン生成のテスト"""
     # LLMのレスポンスをモック
     class MockResponse:
@@ -161,7 +161,7 @@ def test_generate_chain_for_candidate(mock_chroma, mock_llm, monkeypatch):
     assert chain["steps"][0]["method"] == "POST"
     assert chain["steps"][1]["method"] == "GET"
 
-def test_generate_request_chains(mock_chroma, mock_llm, monkeypatch):
+def test_generate_request_chains(mock_faiss, mock_llm, monkeypatch):
     """リクエストチェーン生成のテスト"""
     # _build_dependency_graphをモック
     mock_graph = {

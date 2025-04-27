@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 client = TestClient(app)
 
-def test_chain_workflow(monkeypatch, mock_chroma, mock_llm, session):
+def test_chain_workflow(monkeypatch, mock_faiss, mock_llm, session):
     # ユニークなプロジェクト名を生成
     import uuid
     project_id = f"integration_test_{uuid.uuid4().hex[:8]}"

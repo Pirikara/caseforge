@@ -3,11 +3,11 @@ import json
 import os
 import uuid
 from datetime import datetime
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
+from app.services.rag import EmbeddingFunctionForCaseforge
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from app.services.schema_analyzer import OpenAPIAnalyzer
-from app.services.rag import ChromaEmbeddingFunction
 from app.config import settings
 from app.logging_config import logger
 from app.models import TestChain, TestChainStep, get_session, Project, engine
@@ -27,25 +27,20 @@ class DependencyAwareRAG:
         self.analyzer = OpenAPIAnalyzer(schema)
         self.dependencies = self.analyzer.extract_dependencies()
         
-        # ChromaDBの初期化
-        # テスト環境ではモックが使用されるため、実際には初期化されない
         is_testing = os.environ.get("TESTING") == "1"
         
         if is_testing:
-            # テスト環境では初期化をスキップ
-            logger.info("テスト環境のためChromaDBの初期化をスキップします")
+            logger.info("テスト環境のため初期化をスキップします")
             self.vectordb = None
         else:
             try:
-                # 本番環境では通常通り初期化
-                self.vectordb = Chroma(
-                    collection_name=project_id,
-                    embedding_function=ChromaEmbeddingFunction(),
-                    persist_directory=settings.CHROMA_PERSIST_DIR,
+                embedding_fn = EmbeddingFunctionForCaseforge()
+                self.vectordb = FAISS.from_texts(
+                    texts=[],
+                    embedding=embedding_fn
                 )
             except Exception as e:
-                logger.warning(f"ChromaDB初期化エラー: {e}")
-                # エラー時はダミーオブジェクト
+                logger.warning(f"初期化エラー: {e}")
                 self.vectordb = None
     
     def generate_request_chains(self) -> List[Dict]:

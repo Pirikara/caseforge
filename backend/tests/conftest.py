@@ -11,7 +11,6 @@ TEST_BASE_DIR = "/tmp/test_caseforge"
 os.environ["SCHEMA_DIR"] = f"{TEST_BASE_DIR}/schemas"
 os.environ["TESTS_DIR"] = f"{TEST_BASE_DIR}/generated_tests"
 os.environ["LOG_DIR"] = f"{TEST_BASE_DIR}/test_runs"
-os.environ["CHROMA_PERSIST_DIR"] = f"{TEST_BASE_DIR}/chroma"
 
 # アプリケーション設定を上書き
 import app.config
@@ -27,7 +26,6 @@ os.makedirs("/tmp/test_caseforge/schemas", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/schemas/test_project", exist_ok=True)  # テスト用プロジェクトディレクトリ
 os.makedirs("/tmp/test_caseforge/generated_tests", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/test_runs", exist_ok=True)
-os.makedirs("/tmp/test_caseforge/chroma", exist_ok=True)
 
 # テスト用のスキーマファイルを作成
 with open("/tmp/test_caseforge/schemas/test_project/test-schema.yaml", "w") as f:
@@ -200,31 +198,24 @@ def test_schema_fixture(session, test_project):
     session.refresh(schema)
     return schema
 
-@pytest.fixture(name="mock_chroma")
-def mock_chroma_fixture(monkeypatch):
-    """ChromaDBのモック"""
-    class MockChroma:
+@pytest.fixture(name="mock_faiss")
+def mock_faiss_fixture(monkeypatch):
+    """FAISSのモック"""
+    class MockFAISS:
         def __init__(self, *args, **kwargs):
             pass
             
-        def as_retriever(self, *args, **kwargs):
-            return self
-            
-        def invoke(self, *args, **kwargs):
+        @classmethod
+        def from_documents(cls, documents, embedding):
+            return cls()
+        
+        def similarity_search(self, query, k=1):
+            class MockDocument:
+                page_content = "test content"
             return [MockDocument()]
-            
-        def add_documents(self, *args, **kwargs):
-            pass
-            
-        def persist(self):
-            pass
     
-    class MockDocument:
-        def __init__(self):
-            self.page_content = "test content"
-    
-    monkeypatch.setattr("langchain_community.vectorstores.Chroma", MockChroma)
-    return MockChroma
+    monkeypatch.setattr("langchain_community.vectorstores.FAISS", MockFAISS)
+    return MockFAISS
 
 @pytest.fixture(name="mock_llm")
 def mock_llm_fixture(monkeypatch):

@@ -12,9 +12,6 @@ class Settings(BaseSettings):
     TESTS_DIR: str = os.environ.get("TESTS_DIR", "/code/data/generated_tests")
     LOG_DIR: str = os.environ.get("LOG_DIR", "/code/data/test_runs")
     
-    # ChromaDB設定
-    CHROMA_PERSIST_DIR: str = os.environ.get("CHROMA_PERSIST_DIR", "/chroma/.chroma")
-    
     # LLM設定
     LLM_MODEL_NAME: str = os.environ.get("LLM_MODEL_NAME", "Hermes-3-Llama-3.1-8B")
     OPENAI_API_BASE: str = os.environ.get("OPENAI_API_BASE", "http://192.168.2.101:1234/v1")

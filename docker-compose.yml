@@ -9,9 +9,9 @@ services:
     env_file: .env
     ports:
       - "8000:8000"
+      - "5678:5678"
     depends_on:
       - redis
-      - chroma
       - db
     deploy:
       resources:
@@ -47,15 +47,6 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
 
-  chroma:
-    image: ghcr.io/chroma-core/chroma:0.6.3
-    volumes:
-      - chroma_data:/chroma/.chroma
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-
   db:
     image: postgres:16-alpine
     environment:
@@ -69,4 +60,3 @@ services:
 
 volumes:
   pg_data:
-  chroma_data:

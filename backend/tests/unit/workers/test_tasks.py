@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import json
 import yaml
 
-def test_generate_tests_task(mock_chroma, mock_llm, monkeypatch):
+def test_generate_tests_task(mock_faiss, mock_llm, monkeypatch):
     # generate_chains_taskをモック化
     mock_generate_chains = MagicMock()
     mock_generate_chains.return_value = {"status": "completed", "count": 3}
@@ -18,7 +18,7 @@ def test_generate_tests_task(mock_chroma, mock_llm, monkeypatch):
     # 廃止予定の関数なので、generate_chains_taskが呼ばれたことを確認
     mock_generate_chains.assert_called_once_with("test_project")
 
-def test_generate_chains_task(mock_chroma, mock_llm, monkeypatch):
+def test_generate_chains_task(mock_faiss, mock_llm, monkeypatch):
     # get_schema_contentをモック化
     mock_get_schema = MagicMock()
     mock_get_schema.return_value = '{"openapi": "3.0.0", "paths": {"/users": {"post": {}}}}'

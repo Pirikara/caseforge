@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from langchain.schema import Document
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from chromadb.utils.embedding_functions import EmbeddingFunction
 from app.config import settings
@@ -33,9 +33,9 @@ class OpenAPILoader:
             logger.error(f"Error loading OpenAPI schema from {self.path}: {e}")
             raise
 
-class ChromaEmbeddingFunction(EmbeddingFunction):
+class EmbeddingFunctionForCaseforge(EmbeddingFunction):
     """
-    ChromaDBで使用するための埋め込み関数
+    DBで使用するための埋め込み関数
     """
     def __init__(self):
         """
@@ -56,7 +56,7 @@ class ChromaEmbeddingFunction(EmbeddingFunction):
 
     def __call__(self, input: List[str]) -> List[List[float]]:
         """
-        ChromaDBのEmbeddingFunction用の呼び出しメソッド
+        DBのEmbeddingFunction用の呼び出しメソッド
         
         Args:
             input: 埋め込むテキストのリスト
@@ -101,63 +101,20 @@ class ChromaEmbeddingFunction(EmbeddingFunction):
 def index_schema(project_id: str, path: str) -> None:
     """
     OpenAPIスキーマをベクトルDBにインデックスする
-    
-    Args:
-        project_id: プロジェクトID
-        path: OpenAPIスキーマファイルのパス
     """
     try:
         logger.info(f"Indexing schema for project {project_id}: {path}")
         loader = OpenAPILoader(path)
-        logger.debug(f"Created OpenAPILoader for {path}")
         
         docs = loader.load()
-        logger.debug(f"Loaded {len(docs)} documents with size: {len(docs[0].page_content) if docs else 0} bytes")
         
-        logger.debug(f"Initializing ChromaEmbeddingFunction")
-        embedding_function = ChromaEmbeddingFunction()
-        logger.debug(f"ChromaEmbeddingFunction initialized successfully")
+        embedding_function = EmbeddingFunctionForCaseforge()
         
-        logger.debug(f"Connecting to ChromaDB at {settings.CHROMA_PERSIST_DIR}")
-        import time
-        from contextlib import contextmanager
+        logger.debug("Embedding documents into FAISS")
+        vectordb = FAISS.from_documents(docs, embedding_function)
         
-        @contextmanager
-        def timeout(seconds, message="Operation timed out"):
-            def handle_timeout(signum, frame):
-                raise TimeoutError(message)
-            
-            import signal
-            signal.signal(signal.SIGALRM, handle_timeout)
-            signal.alarm(seconds)
-            try:
-                yield
-            finally:
-                signal.alarm(0)
-        
-        # タイムアウト設定（30秒）を追加
-        with timeout(30, "ChromaDB connection timed out"):
-            vectordb = Chroma(
-                collection_name=project_id,
-                embedding_function=embedding_function,
-                persist_directory=settings.CHROMA_PERSIST_DIR,
-            )
-        logger.debug(f"Connected to ChromaDB successfully")
-        
-        logger.debug(f"Adding documents to ChromaDB")
-        # ドキュメントを小さなバッチに分割して処理
-        batch_size = 1  # 一度に1つのドキュメントを処理
-        for i in range(0, len(docs), batch_size):
-            batch = docs[i:i+batch_size]
-            logger.debug(f"Processing batch {i//batch_size + 1}/{(len(docs) + batch_size - 1)//batch_size}")
-            with timeout(60, "Document embedding timed out"):
-                vectordb.add_documents(batch)
-            logger.debug(f"Batch {i//batch_size + 1} processed successfully")
-        logger.debug(f"All documents added to ChromaDB successfully")
-        
-        # 注: 最新のlangchain-chromaでは、persist_directoryを指定することで
-        # 自動的に永続化されるため、明示的なpersist()呼び出しは不要
-        logger.debug(f"Changes automatically persisted to ChromaDB via persist_directory")
+        # 保存したければ↓を使う（ただし今は不要かも）
+        # vectordb.save_local(f"/path/to/faiss/{project_id}")
         
         logger.info(f"Successfully indexed schema for project {project_id}")
     except Exception as e:

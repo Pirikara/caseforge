@@ -1,9 +1,7 @@
 from app.workers import celery_app
 from app.services.teststore import save_testcases
-from app.services.rag import ChromaEmbeddingFunction
 from app.services.chain_generator import DependencyAwareRAG, ChainStore
 from app.services.schema import get_schema_content
-from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import json
