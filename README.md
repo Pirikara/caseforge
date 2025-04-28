@@ -1,6 +1,6 @@
 # Caseforge
 
-OpenAPI スキーマから AI が QA / Security テストケースを生成・実行する OSS ツール。
+OpenAPI スキーマから AI が依存関係を考慮したリクエストチェーン形式のテストシナリオを生成・実行する OSS ツール。
 
 ## Quick start
 ```bash
