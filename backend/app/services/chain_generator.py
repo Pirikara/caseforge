@@ -72,7 +72,7 @@ class DependencyAwareRAG:
         # グラフの初期化
         for path, methods in self.schema.get("paths", {}).items():
             for method_name in methods:
-                if method_name != "parameters":  # OpenAPIの予約語をスキップ
+                if method_name != "parameters":
                     node_id = f"{method_name.upper()} {path}"
                     graph[node_id] = {
                         "path": path,

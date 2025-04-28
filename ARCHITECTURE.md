@@ -42,7 +42,7 @@ caseforge/
 | レイヤ | 技術 |
 |--------|------|
 | フロントエンド | Next.js (App Router) / Tailwind CSS / SWR / Recharts / shadcn/ui / Zod / React Hook Form |
-| バックエンド | FastAPI / Celery / LangChain (RAG) / ChromaDB / SQLModel / Pydantic Settings |
+| バックエンド | FastAPI / Celery / LangChain (RAG) / FAISS / SQLModel / Pydantic Settings |
 | インフラ | Docker Compose / Redis (Broker) / PostgreSQL |
 | テスト | Pytest / Pytest-asyncio |
 
@@ -61,7 +61,7 @@ graph TD;
   subgraph Backend
     B -- Celery Task --> C[Worker]
     C -- DB ORM --> D[PostgreSQL]
-    C -- Vector Search --> E[ChromaDB]
+    C -- Vector Search --> E[FAISS]
     
     F[Config] --> B
     F --> C
@@ -72,9 +72,10 @@ graph TD;
   subgraph Database
     D --- D1[Project]
     D --- D2[Schema]
-    D --- D3[TestCase]
-    D --- D4[TestRun]
-    D --- D5[TestResult]
+    D --- D3[TestChain]
+    D --- D4[TestChainStep]
+    D --- D5[TestRun]
+    D --- D6[TestResult]
   end
 
   R[Redis Broker]
@@ -87,16 +88,16 @@ graph TD;
 ## 動作フロー概要
 
 1. ユーザーが OpenAPI schema をアップロード
-2. スキーマをデータベースに保存し、LangChain を通じてベクトル化して Chroma に保存（RAGの準備）
-3. ユーザーが「テスト生成」を指示 → Celery 経由で非同期タスクを実行
-4. LLM を用いた RAG によりテストケースを生成し、データベースに保存
-5. テスト実行時、データベースからテストケースを読み込んで各 API を叩き、レスポンスを評価
+2. スキーマをデータベースに保存し、LangChain を通じてベクトル化して FAISS に保存（RAGの準備）
+3. ユーザーが「テストチェーン生成」を指示 → Celery 経由で非同期タスクを実行
+4. LLM を用いた RAG によりテストチェーンを生成し、データベースに保存
+5. テスト実行時、データベースからテストチェーンを読み込んで各 API を叩き、レスポンスを評価
 6. 実行結果をデータベースに保存し、UI 上で以下を可視化：
     - 実行結果の一覧・詳細
     - ステータス別フィルター
     - グラフ（成功率・応答時間など）
 
-### テスト生成詳細フロー
+### テストチェーン生成詳細フロー
 
 ```mermaid
 sequenceDiagram
@@ -105,21 +106,44 @@ sequenceDiagram
   participant API as FastAPI
   participant Worker as Celery Worker
   participant DB as PostgreSQL
-  participant Vector as ChromaDB
+  participant Vector as FAISS
   participant LLM as LLM API
 
-  User->>UI: テスト生成リクエスト
-  UI->>API: POST /api/projects/{id}/generate
-  API->>Worker: generate_tests_task
+  User->>UI: テストチェーン生成リクエスト
+  UI->>API: POST /api/projects/{id}/generate-tests
+  API->>Worker: generate_chains_task
   Worker->>DB: プロジェクト情報取得
   Worker->>Vector: スキーマベクトル検索
   Vector-->>Worker: 関連スキーマ情報
-  Worker->>LLM: テストケース生成リクエスト
-  LLM-->>Worker: 生成されたテストケース
-  Worker->>DB: テストケース保存
+  Worker->>LLM: テストチェーン生成リクエスト
+  LLM-->>Worker: 生成されたテストチェーン
+  Worker->>DB: テストチェーン保存
   Worker-->>API: タスク完了通知
   API-->>UI: 生成完了レスポンス
   UI->>User: 完了通知
+```
+
+### テストチェーン実行フロー
+
+```mermaid
+sequenceDiagram
+  participant User as ユーザー
+  participant UI as フロントエンド
+  participant API as FastAPI
+  participant DB as PostgreSQL
+  participant Target as 対象API
+
+  User->>UI: テストチェーン実行リクエスト
+  UI->>API: POST /api/projects/{id}/run
+  API->>DB: テストチェーン取得
+  API->>Target: リクエスト実行（ステップ1）
+  Target-->>API: レスポンス
+  API->>API: 変数抽出・評価
+  API->>Target: リクエスト実行（ステップ2...）
+  Target-->>API: レスポンス
+  API->>DB: 実行結果保存
+  API-->>UI: 実行結果レスポンス
+  UI->>User: 結果表示
 ```
 
 ---
@@ -133,6 +157,7 @@ sequenceDiagram
 - **環境変数管理**：Pydantic Settings を使用した型安全な設定管理
 - **エラーハンドリング**：構造化された例外処理と詳細なロギング
 - **データベース**：SQLModel による型安全なORM、マイグレーション対応
+- **デバッグ**：debugpy によるリモートデバッグ対応
 - **フロントエンド**：
   - ダークモード対応（next-themes）
   - レスポンシブデザイン
@@ -160,20 +185,34 @@ erDiagram
     datetime created_at
   }
   
-  TestCase {
+  TestChain {
     string id PK
     string project_id FK
+    string chain_id
+    string name
+    string description
+    datetime created_at
+  }
+  
+  TestChainStep {
+    string id PK
+    string chain_id FK
+    integer sequence
     string name
     string method
     string path
-    string request_body
-    string expected_response
+    json request_headers
+    json request_body
+    json request_params
+    json extract_rules
+    integer expected_status
     datetime created_at
   }
   
   TestRun {
     string id PK
     string project_id FK
+    string chain_id FK
     datetime started_at
     datetime completed_at
     string status
@@ -182,7 +221,7 @@ erDiagram
   TestResult {
     string id PK
     string test_run_id FK
-    string test_case_id FK
+    string step_id FK
     string status
     integer response_time
     string response_body
@@ -191,34 +230,61 @@ erDiagram
   }
   
   Project ||--o{ Schema : "has"
-  Project ||--o{ TestCase : "has"
+  Project ||--o{ TestChain : "has"
   Project ||--o{ TestRun : "has"
+  TestChain ||--o{ TestChainStep : "has"
+  TestChain ||--o{ TestRun : "has"
   TestRun ||--o{ TestResult : "has"
-  TestCase ||--o{ TestResult : "for"
+  TestChainStep ||--o{ TestResult : "for"
 ```
 
 ---
 
-## サンプルテストケース構造（JSON形式）
+## リクエストチェーン構造（JSON形式）
 
 ```json
-[
-  {
-    "name": "正常ログインができる",
-    "method": "POST",
-    "path": "/login",
-    "request": {
-      "headers": { "Content-Type": "application/json" },
-      "body": { "email": "user@example.com", "password": "secure123" }
+{
+  "name": "ユーザー作成と取得",
+  "steps": [
+    {
+      "method": "POST",
+      "path": "/users",
+      "request": {
+        "headers": { "Content-Type": "application/json" },
+        "body": { "name": "Test User", "email": "test@example.com" }
+      },
+      "response": {
+        "extract": { "user_id": "$.id" }
+      }
     },
-    "expected_response": {
-      "status": 200,
-      "body_contains": ["token"]
+    {
+      "method": "GET",
+      "path": "/users/{user_id}",
+      "request": {},
+      "response": {}
     }
-  },
-  ...
-]
+  ]
+}
 ```
+
+---
+
+## 依存関係を考慮したテストチェーン生成
+
+Caseforgeは、OpenAPIスキーマから依存関係を考慮したテストチェーンを自動生成します。
+
+1. **依存関係の抽出**：OpenAPIスキーマを解析し、エンドポイント間の依存関係を特定
+   - パスパラメータの依存関係（例：`POST /users` → `GET /users/{id}`）
+   - リソース操作の依存関係（例：作成→取得→更新→削除）
+
+2. **チェーン候補の特定**：依存関係グラフから有望なチェーン候補を特定
+   - 依存関係のないエンドポイントからスタート
+   - 最長のパスを優先的に選択
+
+3. **RAGによるチェーン生成**：LLMを使用して各チェーン候補に対するテストチェーンを生成
+   - リクエストボディの生成
+   - レスポンスからの変数抽出ルールの設定
+   - 後続リクエストでの変数利用
 
 ---
 
