@@ -34,14 +34,58 @@ class DependencyAwareRAG:
             self.vectordb = None
         else:
             try:
-                embedding_fn = EmbeddingFunctionForCaseforge()
-                self.vectordb = FAISS.from_texts(
-                    texts=[],
-                    embedding=embedding_fn
-                )
+                # タイムアウト処理を追加
+                import signal
+                
+                class TimeoutException(Exception):
+                    pass
+                
+                def timeout_handler(signum, frame):
+                    raise TimeoutException("FAISS initialization timed out")
+                
+                # 10秒のタイムアウトを設定
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(10)
+                
+                try:
+                    logger.info("DependencyAwareRAG: 埋め込み関数の初期化を開始")
+                    embedding_fn = EmbeddingFunctionForCaseforge()
+                    logger.info("DependencyAwareRAG: 埋め込み関数の初期化完了")
+                    
+                    # FAISSの初期化 - 空のテキストリストではなく、小さなサンプルテキストを使用
+                    logger.info("DependencyAwareRAG: FAISSの初期化を開始")
+                    self.vectordb = FAISS.from_texts(
+                        texts=["OpenAPI schema initialization text"],
+                        embedding=embedding_fn
+                    )
+                    logger.info("DependencyAwareRAG: FAISSの初期化完了")
+                    
+                    # 既存のベクトルDBがあれば読み込む
+                    faiss_path = f"/tmp/faiss/{project_id}"
+                    if os.path.exists(faiss_path):
+                        try:
+                            logger.info(f"DependencyAwareRAG: 既存のベクトルDBを読み込み: {faiss_path}")
+                            self.vectordb = FAISS.load_local(faiss_path, embedding_fn)
+                            logger.info("DependencyAwareRAG: 既存のベクトルDBの読み込み完了")
+                        except Exception as load_error:
+                            logger.warning(f"DependencyAwareRAG: 既存のベクトルDBの読み込みに失敗: {load_error}")
+                            # 読み込みに失敗した場合は、新しいインスタンスをそのまま使用
+                    
+                    # タイムアウトを解除
+                    signal.alarm(0)
+                    
+                except TimeoutException:
+                    logger.warning("DependencyAwareRAG: 初期化処理がタイムアウトしました")
+                    self.vectordb = None
+                    logger.info("DependencyAwareRAG: ベクトルDBなしで続行します")
+                finally:
+                    # 念のため、タイムアウトを解除
+                    signal.alarm(0)
+                    
             except Exception as e:
-                logger.warning(f"初期化エラー: {e}")
+                logger.warning(f"DependencyAwareRAG: 初期化エラー: {e}", exc_info=True)
                 self.vectordb = None
+                logger.info("DependencyAwareRAG: ベクトルDBなしで続行します")
     
     def generate_request_chains(self) -> List[Dict]:
         """

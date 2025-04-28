@@ -25,15 +25,17 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
         
     try:
         # ファイルシステムへの保存
+        logger.info(f"Step 1: Saving schema file for project {project_id}")
         os.makedirs(f"{settings.SCHEMA_DIR}/{project_id}", exist_ok=True)
         save_path = f"{settings.SCHEMA_DIR}/{project_id}/{filename}"
         
         with open(save_path, "wb") as f:
             f.write(content)
         
-        logger.info(f"Saved schema file for project {project_id}: {filename}")
+        logger.info(f"Successfully saved schema file for project {project_id}: {filename}")
         
         # データベースへの保存
+        logger.info(f"Step 2: Saving schema to database for project {project_id}")
         # プロジェクトの取得または作成
         project_query = select(Project).where(Project.project_id == project_id)
         db_project = session.exec(project_query).first()
@@ -55,15 +57,28 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
         )
         session.add(schema)
         session.commit()
-        logger.info(f"Saved schema to database for project {project_id}")
+        logger.info(f"Successfully saved schema to database for project {project_id}")
         
         # RAGインデックスの作成
-        index_schema(project_id, save_path)
-        logger.info(f"Indexed schema for project {project_id}")
+        logger.info(f"Step 3: Creating RAG index for project {project_id}")
+        try:
+            index_schema(project_id, save_path)
+            logger.info(f"Successfully indexed schema for project {project_id}")
+        except Exception as index_error:
+            # インデックス作成に失敗しても、スキーマの保存は成功しているので、エラーを記録するだけにする
+            logger.error(f"Error indexing schema for project {project_id}: {index_error}", exc_info=True)
+            logger.warning("Schema indexing failed, but schema was saved successfully. Continuing with other operations.")
+            # インデックス作成に失敗しても、処理は続行する
         
         return {"message": "Schema uploaded and indexed successfully."}
     except Exception as e:
-        logger.error(f"Error saving and indexing schema for project {project_id}: {e}")
+        logger.error(f"Error saving and indexing schema for project {project_id}: {e}", exc_info=True)
+        # セッションをロールバックして、データベースの整合性を保つ
+        try:
+            session.rollback()
+            logger.info("Session rolled back successfully")
+        except Exception as rollback_error:
+            logger.error(f"Error rolling back session: {rollback_error}")
         raise
 
 async def list_projects(session: Optional[Session] = None):

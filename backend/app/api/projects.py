@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
-from app.services.schema import save_and_index_schema
+from app.services.schema import save_and_index_schema, get_schema_content
 from app.services.testgen import trigger_test_generation
 from app.services.teststore import list_testcases
 from app.services.runner import get_recent_runs
@@ -52,6 +52,48 @@ def get_schema_files_or_400(project_id: str = None, project_path: Path = Depends
         raise HTTPException(status_code=400, detail="No schema files found for this project. Please upload a schema first.")
     logger.info(f"Found schema files: {[f.name for f in schema_files]}")
     return schema_files
+
+@router.get("/{project_id}/schema")
+async def get_schema(project_id: str, project_path: Path = Depends(get_project_or_404)):
+    """
+    プロジェクトのスキーマを取得する
+    
+    Args:
+        project_id: プロジェクトID
+        project_path: プロジェクトのパス
+        
+    Returns:
+        スキーマの内容
+    """
+    logger.info(f"Getting schema for project {project_id}")
+    try:
+        # プロジェクトディレクトリからスキーマファイルを検索
+        schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
+        if not schema_files:
+            logger.error(f"No schema files found in project directory: {project_path}")
+            raise HTTPException(status_code=404, detail="No schema files found for this project")
+        
+        # 最新のスキーマファイルを取得
+        latest_schema = max(schema_files, key=lambda x: x.stat().st_mtime)
+        logger.info(f"Found latest schema file: {latest_schema.name}")
+        
+        # スキーマファイルの内容を取得
+        content = get_schema_content(project_id, latest_schema.name)
+        
+        # ファイル形式に応じてContent-Typeを設定
+        content_type = "application/json" if latest_schema.name.endswith(".json") else "application/x-yaml"
+        
+        return {
+            "filename": latest_schema.name,
+            "content": content,
+            "content_type": content_type
+        }
+    except FileNotFoundError as e:
+        logger.error(f"Schema file not found for project {project_id}: {e}")
+        raise HTTPException(status_code=404, detail="Schema file not found")
+    except Exception as e:
+        logger.error(f"Error getting schema for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting schema: {str(e)}")
 
 @router.post("/{project_id}/schema")
 async def upload_schema(project_id: str, file: UploadFile = File(...)):
