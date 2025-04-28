@@ -168,6 +168,31 @@ async def get_chain_detail(
         logger.error(f"Error fetching chain details for project {project_id}, chain {chain_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching chain details: {str(e)}")
 
+@router.get("/{project_id}/tests")
+async def get_tests(
+    project_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
+    """
+    プロジェクトのテストケース一覧を取得する
+    
+    Args:
+        project_id: プロジェクトID
+        project_path: プロジェクトのパス
+        
+    Returns:
+        テストケースのリスト
+    """
+    logger.info(f"Getting tests for project {project_id}")
+    try:
+        # ChainStoreを使ってチェーンを取得
+        chain_store = ChainStore()
+        chains = chain_store.list_chains(project_id)
+        return JSONResponse(content=chains)
+    except Exception as e:
+        logger.error(f"Error getting tests for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting tests: {str(e)}")
+
 @router.post("/{project_id}/run")
 async def run_project_chains(
     project_id: str,
