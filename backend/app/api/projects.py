@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
 from app.services.schema import save_and_index_schema
 from app.services.testgen import trigger_test_generation
 from app.services.teststore import list_testcases
@@ -13,6 +13,45 @@ from app.logging_config import logger
 from app.schemas.project import ProjectCreate
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+def get_project_or_404(project_id: str) -> Path:
+    """
+    プロジェクトの存在を確認し、存在しない場合は404エラーを発生させる
+    
+    Args:
+        project_id: プロジェクトID
+        
+    Returns:
+        プロジェクトのパス
+        
+    Raises:
+        HTTPException: プロジェクトが存在しない場合
+    """
+    project_path = Path(f"{settings.SCHEMA_DIR}/{project_id}")
+    if not project_path.exists():
+        logger.error(f"Project directory not found: {project_path}")
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+    return project_path
+
+def get_schema_files_or_400(project_id: str = None, project_path: Path = Depends(get_project_or_404)) -> list:
+    """
+    プロジェクトのスキーマファイルを取得し、存在しない場合は400エラーを発生させる
+    
+    Args:
+        project_path: プロジェクトのパス
+        
+    Returns:
+        スキーマファイルのリスト
+        
+    Raises:
+        HTTPException: スキーマファイルが存在しない場合
+    """
+    schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
+    if not schema_files:
+        logger.error(f"No schema files found in project directory: {project_path}")
+        raise HTTPException(status_code=400, detail="No schema files found for this project. Please upload a schema first.")
+    logger.info(f"Found schema files: {[f.name for f in schema_files]}")
+    return schema_files
 
 @router.post("/{project_id}/schema")
 async def upload_schema(project_id: str, file: UploadFile = File(...)):
@@ -30,22 +69,14 @@ async def upload_schema(project_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error uploading schema: {str(e)}")
 
 @router.post("/{project_id}/generate-tests")
-async def generate_tests(project_id: str):
+async def generate_tests(
+    project_id: str,
+    project_path: Path = Depends(get_project_or_404),
+    schema_files: list = Depends(get_schema_files_or_400)
+):
     logger.info(f"Triggering test chain generation for project {project_id}")
     try:
-        # プロジェクトの存在確認
-        project_path = Path(f"{settings.SCHEMA_DIR}/{project_id}")
-        if not project_path.exists():
-            logger.error(f"Project directory not found: {project_path}")
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
-            
-        # スキーマファイルの存在確認
-        schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
-        if not schema_files:
-            logger.error(f"No schema files found in project directory: {project_path}")
-            raise HTTPException(status_code=400, detail="No schema files found for this project. Please upload a schema first.")
-        
-        logger.info(f"Found schema files: {[f.name for f in schema_files]}")
+        # プロジェクトとスキーマファイルの存在は既に検証済み
         
         # テストチェーン生成タスクを開始
         task_id = generate_chains_task.delay(project_id).id
@@ -62,7 +93,10 @@ async def generate_tests(project_id: str):
         raise HTTPException(status_code=500, detail=f"Error generating test chains: {str(e)}")
 
 @router.get("/{project_id}/chains")
-async def get_chains(project_id: str):
+async def get_chains(
+    project_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Fetching chains for project {project_id}")
     try:
         chain_store = ChainStore()
@@ -73,7 +107,11 @@ async def get_chains(project_id: str):
         raise HTTPException(status_code=500, detail=f"Error fetching chains: {str(e)}")
 
 @router.get("/{project_id}/chains/{chain_id}")
-async def get_chain_detail(project_id: str, chain_id: str):
+async def get_chain_detail(
+    project_id: str,
+    chain_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Fetching chain details for project {project_id}, chain {chain_id}")
     try:
         chain_store = ChainStore()
@@ -89,7 +127,11 @@ async def get_chain_detail(project_id: str, chain_id: str):
         raise HTTPException(status_code=500, detail=f"Error fetching chain details: {str(e)}")
 
 @router.post("/{project_id}/run")
-async def run_project_chains(project_id: str, chain_id: str = None):
+async def run_project_chains(
+    project_id: str,
+    chain_id: str = None,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Running chains for project {project_id}")
     try:
         results = await run_chains(project_id, chain_id)
@@ -100,7 +142,11 @@ async def run_project_chains(project_id: str, chain_id: str = None):
         raise HTTPException(status_code=500, detail=f"Error running chains: {str(e)}")
 
 @router.get("/{project_id}/runs")
-async def get_run_history(project_id: str, limit: int = 10):
+async def get_run_history(
+    project_id: str,
+    limit: int = 10,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Fetching run history for project {project_id}")
     try:
         return list_chain_runs(project_id, limit)
@@ -109,7 +155,11 @@ async def get_run_history(project_id: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=f"Error fetching run history: {str(e)}")
 
 @router.get("/{project_id}/runs/{run_id}")
-async def get_run_detail(project_id: str, run_id: str):
+async def get_run_detail(
+    project_id: str,
+    run_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Fetching run details for project {project_id}, run {run_id}")
     try:
         result = get_chain_run(project_id, run_id)

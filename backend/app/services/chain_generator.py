@@ -351,7 +351,18 @@ class ChainStore:
                     return
                 
                 # 既存のチェーンを削除（置き換え）
-                # TODO: 既存のチェーンを削除する処理を追加
+                existing_chains_query = select(TestChain).where(TestChain.project_id == db_project.id)
+                existing_chains = session.exec(existing_chains_query).all()
+                
+                for chain in existing_chains:
+                    # 関連するステップも削除
+                    steps_query = select(TestChainStep).where(TestChainStep.chain_id == chain.id)
+                    steps = session.exec(steps_query).all()
+                    for step in steps:
+                        session.delete(step)
+                    session.delete(chain)
+                
+                logger.info(f"Deleted {len(existing_chains)} existing chains for project {project_id}")
                 
                 # 新しいチェーンを保存
                 for chain_data in chains:

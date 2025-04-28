@@ -1,3 +1,5 @@
+import warnings
+import functools
 from app.workers import celery_app
 from app.services.teststore import save_testcases
 from app.services.chain_generator import DependencyAwareRAG, ChainStore
@@ -61,8 +63,22 @@ def generate_chains_task(project_id: str):
         logger.error(f"Error generating request chains: {e}")
         return {"status": "error", "message": str(e)}
 
+def deprecated(func):
+    """非推奨関数を示すデコレータ"""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        warnings.warn(
+            f"Function {func.__name__} is deprecated and will be removed in future versions. "
+            f"Use generate_chains_task instead.",
+            category=DeprecationWarning,
+            stacklevel=2
+        )
+        return func(*args, **kwargs)
+    return wrapper
+
 # 既存のテストケース生成タスク（廃止予定）
 @celery_app.task
+@deprecated
 def generate_tests_task(project_id: str):
     """
     OpenAPIスキーマからテストケースを生成するCeleryタスク（廃止予定）
