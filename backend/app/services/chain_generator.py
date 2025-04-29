@@ -383,8 +383,27 @@ class ChainStore:
         try:
             # ファイルシステムにも保存（デバッグ用）
             os.makedirs(f"{settings.TESTS_DIR}/{project_id}", exist_ok=True)
-            with open(f"{settings.TESTS_DIR}/{project_id}/chains.json", "w") as f:
-                json.dump(chains, f, indent=2)
+            
+            # overwriteがFalseの場合は、既存のファイルを読み込んで追加する
+            chains_file_path = f"{settings.TESTS_DIR}/{project_id}/chains.json"
+            if not overwrite and os.path.exists(chains_file_path):
+                try:
+                    with open(chains_file_path, "r") as f:
+                        existing_chains = json.load(f)
+                    # 既存のチェーンに新しいチェーンを追加
+                    all_chains = existing_chains + chains
+                    logger.info(f"Adding {len(chains)} new chains to {len(existing_chains)} existing chains")
+                    with open(chains_file_path, "w") as f:
+                        json.dump(all_chains, f, indent=2)
+                except Exception as e:
+                    logger.error(f"Error reading or updating existing chains file: {e}")
+                    # エラーが発生した場合は、新しいチェーンだけを書き込む
+                    with open(chains_file_path, "w") as f:
+                        json.dump(chains, f, indent=2)
+            else:
+                # overwriteがTrueまたはファイルが存在しない場合は、新しいチェーンだけを書き込む
+                with open(chains_file_path, "w") as f:
+                    json.dump(chains, f, indent=2)
             
             # データベースに保存
             with Session(engine) as session:

@@ -35,12 +35,21 @@ class EndpointChainGenerator:
         # LLMの設定 (ループの外で一度だけ行う)
         model_name = settings.LLM_MODEL_NAME
         api_base = settings.OPENAI_API_BASE
-        llm = ChatOpenAI(
-            model_name=model_name,
-            openai_api_base=api_base,
-            temperature=0.2,
-            api_key=settings.OPENAI_API_KEY,
-        )
+        
+        # LLMの設定をログに出力
+        logger.info(f"Using LLM model: {model_name}, API base: {api_base}")
+        
+        try:
+            llm = ChatOpenAI(
+                model_name=model_name,
+                openai_api_base=api_base,
+                temperature=0.2,
+                api_key=settings.OPENAI_API_KEY,
+            )
+            logger.info("LLM initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing LLM: {e}", exc_info=True)
+            raise
         
         # プロンプトの設定 (ループの外で一度だけ行う)
         prompt = ChatPromptTemplate.from_template(
@@ -116,21 +125,49 @@ class EndpointChainGenerator:
                 }
                 
                 # 4. LLMを呼び出してチェーンを生成
-                resp = (prompt | llm).invoke(context).content
-                chain = json.loads(resp)
+                logger.info(f"Invoking LLM for endpoint {target_endpoint.method} {target_endpoint.path}")
+                try:
+                    resp = (prompt | llm).invoke(context).content
+                    logger.info(f"Raw LLM response for {target_endpoint.method} {target_endpoint.path}: {resp[:200]}...")
+                except Exception as llm_error:
+                    logger.error(f"Error invoking LLM for endpoint {target_endpoint.method} {target_endpoint.path}: {llm_error}", exc_info=True)
+                    # LLM呼び出しエラーの場合は、シンプルなテストチェーンを生成
+                    logger.info(f"Generating fallback test chain for {target_endpoint.method} {target_endpoint.path}")
+                    chain = self._generate_fallback_chain(target_endpoint)
+                    generated_chains.append(chain)
+                    logger.info(f"Added fallback chain for {target_endpoint.method} {target_endpoint.path}")
+                    continue
                 
-                # 生成されたチェーンに名前を付ける (例: Test for GET /users/{user_id})
-                if not chain.get("name"):
-                     chain["name"] = f"Test for {target_endpoint.method.upper()} {target_endpoint.path}"
-
-                generated_chains.append(chain)
-                logger.info(f"Successfully generated chain for {target_endpoint.method} {target_endpoint.path} with {len(chain.get('steps', []))} steps")
+                try:
+                    chain = json.loads(resp)
+                    
+                    # 生成されたチェーンに名前を付ける (例: Test for GET /users/{user_id})
+                    if not chain.get("name"):
+                         chain["name"] = f"Test for {target_endpoint.method.upper()} {target_endpoint.path}"
+    
+                    generated_chains.append(chain)
+                    logger.info(f"Successfully generated chain for {target_endpoint.method} {target_endpoint.path} with {len(chain.get('steps', []))} steps")
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse LLM response as JSON for {target_endpoint.method} {target_endpoint.path}: {e}")
+                    logger.error(f"Raw response: {resp}")
+                    # JSONのパースに失敗した場合、レスポンスから JSON 部分を抽出してみる
+                    try:
+                        import re
+                        json_match = re.search(r'```json\s*(.*?)\s*```', resp, re.DOTALL)
+                        if json_match:
+                            json_str = json_match.group(1)
+                            chain = json.loads(json_str)
+                            if not chain.get("name"):
+                                chain["name"] = f"Test for {target_endpoint.method.upper()} {target_endpoint.path}"
+                            generated_chains.append(chain)
+                            logger.info(f"Successfully extracted and parsed JSON from markdown code block for {target_endpoint.method} {target_endpoint.path}")
+                        else:
+                            logger.error(f"Could not find JSON code block in response for {target_endpoint.method} {target_endpoint.path}")
+                    except Exception as extract_error:
+                        logger.error(f"Error extracting JSON from response: {extract_error}")
                 
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse LLM response as JSON for {target_endpoint.method} {target_endpoint.path}: {e}")
-                logger.debug(f"Raw response: {resp}")
             except Exception as e:
-                logger.error(f"Error generating chain for {target_endpoint.method} {target_endpoint.path}: {e}")
+                logger.error(f"Error generating chain for {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
                 
         return generated_chains # 複数のチェーンを返す
 
@@ -226,13 +263,22 @@ class EndpointChainGenerator:
         try:
             # ベクトルDBのロード
             faiss_path = f"/tmp/faiss/{self.project_id}"
-            embedding_fn = EmbeddingFunctionForCaseforge()
             
+            # ベクトルDBが存在するか確認
             if not os.path.exists(faiss_path):
                 logger.warning(f"FAISS vector DB not found for project {self.project_id} at {faiss_path}. Cannot perform RAG search.")
-                return "No relevant schema information found." # ベクトルDBがない場合は空の情報を返す
-
-            vectordb = FAISS.load_local(faiss_path, embedding_fn, allow_dangerous_deserialization=True) # allow_dangerous_deserialization=True を追加
+                
+                # ベクトルDBがない場合は、スキーマ全体から関連情報を抽出する
+                if self.schema:
+                    logger.info(f"Using schema directly for endpoint {target_endpoint.method} {target_endpoint.path}")
+                    return self._extract_schema_info_directly(target_endpoint)
+                else:
+                    return "No relevant schema information found."
+            
+            # ベクトルDBが存在する場合は通常通りRAG検索を行う
+            logger.info(f"Loading FAISS vector DB from {faiss_path}")
+            embedding_fn = EmbeddingFunctionForCaseforge()
+            vectordb = FAISS.load_local(faiss_path, embedding_fn, allow_dangerous_deserialization=True)
 
             # クエリの生成 (ターゲットエンドポイントの情報を使用)
             query = f"{target_endpoint.method.upper()} {target_endpoint.path} {target_endpoint.summary or ''} {target_endpoint.description or ''}"
@@ -268,4 +314,227 @@ class EndpointChainGenerator:
 
         except Exception as e:
             logger.error(f"Error during RAG search for endpoint {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
-            return "Error retrieving relevant schema information."
+            
+            # エラーが発生した場合は、スキーマから直接情報を抽出する
+            if self.schema:
+                logger.info(f"Falling back to direct schema extraction for endpoint {target_endpoint.method} {target_endpoint.path}")
+                return self._extract_schema_info_directly(target_endpoint)
+            else:
+                return "Error retrieving relevant schema information."
+    
+    def _extract_schema_info_directly(self, target_endpoint: Endpoint) -> str:
+        """
+        スキーマから直接ターゲットエンドポイントに関連する情報を抽出する
+        （ベクトルDBが利用できない場合のフォールバック）
+        
+        Args:
+            target_endpoint: ターゲットとなるエンドポイント
+            
+        Returns:
+            関連スキーマ情報のテキスト表現
+        """
+        if not self.schema:
+            return "No schema available for direct extraction."
+        
+        relevant_info_parts = []
+        
+        try:
+            # 1. ターゲットエンドポイントのパス情報を抽出
+            if target_endpoint.path in self.schema.get("paths", {}):
+                path_item = self.schema["paths"][target_endpoint.path]
+                relevant_info_parts.append(f"## Path: {target_endpoint.path}")
+                relevant_info_parts.append(f"```json\n{json.dumps(path_item, indent=2)}\n```\n")
+            
+            # 2. リクエストボディのスキーマ参照を解決
+            if target_endpoint.request_body:
+                for content_type, content in target_endpoint.request_body.get("content", {}).items():
+                    if "schema" in content:
+                        schema = content["schema"]
+                        if "$ref" in schema:
+                            ref_path = schema["$ref"]
+                            if ref_path.startswith("#/"):
+                                ref_parts = ref_path.lstrip("#/").split("/")
+                                ref_value = self.schema
+                                for part in ref_parts:
+                                    if part in ref_value:
+                                        ref_value = ref_value[part]
+                                
+                                relevant_info_parts.append(f"## Request Body Schema Reference: {ref_path}")
+                                relevant_info_parts.append(f"```json\n{json.dumps(ref_value, indent=2)}\n```\n")
+            
+            # 3. レスポンススキーマの参照を解決
+            if target_endpoint.responses:
+                for status, response in target_endpoint.responses.items():
+                    if "content" in response:
+                        for content_type, content in response["content"].items():
+                            if "schema" in content:
+                                schema = content["schema"]
+                                if "$ref" in schema:
+                                    ref_path = schema["$ref"]
+                                    if ref_path.startswith("#/"):
+                                        ref_parts = ref_path.lstrip("#/").split("/")
+                                        ref_value = self.schema
+                                        for part in ref_parts:
+                                            if part in ref_value:
+                                                ref_value = ref_value[part]
+                                        
+                                        relevant_info_parts.append(f"## Response Schema Reference for status {status}: {ref_path}")
+                                        relevant_info_parts.append(f"```json\n{json.dumps(ref_value, indent=2)}\n```\n")
+            
+            # 4. 関連するコンポーネントスキーマを抽出
+            if "components" in self.schema and "schemas" in self.schema["components"]:
+                # パスからリソース名を抽出（例: /users/{user_id} -> users）
+                path_parts = target_endpoint.path.strip("/").split("/")
+                resource_name = path_parts[0] if path_parts else ""
+                
+                # リソース名に関連するスキーマを探す
+                for schema_name, schema in self.schema["components"]["schemas"].items():
+                    if resource_name.lower() in schema_name.lower():
+                        relevant_info_parts.append(f"## Related Component Schema: {schema_name}")
+                        relevant_info_parts.append(f"```json\n{json.dumps(schema, indent=2)}\n```\n")
+            
+            relevant_info = "\n".join(relevant_info_parts)
+            
+            if not relevant_info.strip():
+                return "No relevant schema information found through direct extraction."
+            
+            return f"""
+# Relevant Schema Information for {target_endpoint.method.upper()} {target_endpoint.path} (Direct Extraction)
+
+{relevant_info}
+"""
+        except Exception as e:
+            logger.error(f"Error during direct schema extraction for endpoint {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
+            return "Error during direct schema extraction."
+            
+    def _generate_fallback_chain(self, target_endpoint: Endpoint) -> Dict:
+        """
+        LLM呼び出しエラーの場合のフォールバックとして、シンプルなテストチェーンを生成する
+        
+        Args:
+            target_endpoint: ターゲットとなるエンドポイント
+            
+        Returns:
+            シンプルなテストチェーン
+        """
+        method = target_endpoint.method.upper()
+        path = target_endpoint.path
+        
+        # チェーン名
+        chain_name = f"Test for {method} {path}"
+        
+        # ステップの初期化
+        steps = []
+        
+        # パスパラメータの抽出
+        path_params = []
+        param_pattern = r'\{([^}]+)\}'
+        import re
+        path_params = re.findall(param_pattern, path)
+        
+        # 前提ステップの追加（パスパラメータがある場合）
+        for param in path_params:
+            # パラメータの種類を推測
+            param_type = "id"
+            resource_name = "resource"
+            
+            # パスからリソース名を推測
+            path_parts = path.strip('/').split('/')
+            if len(path_parts) > 0:
+                resource_name = path_parts[0]
+                # 複数形を単数形に変換（簡易的な処理）
+                if resource_name.endswith('s'):
+                    resource_name = resource_name[:-1]
+            
+            # パラメータ名からリソース名を推測
+            if param.endswith('_id') or param == 'id':
+                param_parts = param.split('_')
+                if len(param_parts) > 1 and param_parts[-1] == 'id':
+                    resource_name = '_'.join(param_parts[:-1])
+            
+            # リソース作成ステップ（POSTリクエスト）
+            create_step = {
+                "method": "POST",
+                "path": f"/{resource_name}s",
+                "request": {
+                    "headers": {"Content-Type": "application/json"},
+                    "body": {"name": f"Test {resource_name}", "description": f"Test {resource_name} description"}
+                },
+                "response": {
+                    "extract": {param: f"$.id"}
+                }
+            }
+            steps.append(create_step)
+        
+        # ターゲットエンドポイントのステップ
+        target_step = {
+            "method": method,
+            "path": path,
+            "request": {}
+        }
+        
+        # リクエストボディの追加（POSTまたはPUTの場合）
+        if method in ["POST", "PUT", "PATCH"]:
+            # リクエストボディのスキーマがある場合は、それを基にサンプルを生成
+            if target_endpoint.request_body and "content" in target_endpoint.request_body:
+                for content_type, content in target_endpoint.request_body["content"].items():
+                    if "application/json" in content_type and "schema" in content:
+                        target_step["request"]["headers"] = {"Content-Type": "application/json"}
+                        # スキーマからサンプルボディを生成（簡易的な実装）
+                        sample_body = self._generate_sample_body_from_schema(content["schema"])
+                        target_step["request"]["body"] = sample_body
+                        break
+            else:
+                # スキーマがない場合は、シンプルなJSONを設定
+                target_step["request"]["headers"] = {"Content-Type": "application/json"}
+                target_step["request"]["body"] = {"name": "Test name", "description": "Test description"}
+        
+        # ステップの追加
+        steps.append(target_step)
+        
+        # チェーンの構築
+        chain = {
+            "name": chain_name,
+            "steps": steps
+        }
+        
+        return chain
+    
+    def _generate_sample_body_from_schema(self, schema: Dict) -> Dict:
+        """
+        スキーマからサンプルリクエストボディを生成する
+        
+        Args:
+            schema: JSONスキーマ
+            
+        Returns:
+            サンプルリクエストボディ
+        """
+        sample_body = {}
+        
+        # $refの解決
+        if "$ref" in schema:
+            # $refの解決は複雑なので、ここではシンプルなボディを返す
+            return {"name": "Test name", "description": "Test description"}
+        
+        # プロパティの処理
+        if "properties" in schema:
+            for prop_name, prop_schema in schema["properties"].items():
+                prop_type = prop_schema.get("type", "string")
+                
+                if prop_type == "string":
+                    sample_body[prop_name] = f"Test {prop_name}"
+                elif prop_type == "integer" or prop_type == "number":
+                    sample_body[prop_name] = 1
+                elif prop_type == "boolean":
+                    sample_body[prop_name] = True
+                elif prop_type == "array":
+                    sample_body[prop_name] = []
+                elif prop_type == "object":
+                    sample_body[prop_name] = {}
+        
+        # サンプルボディが空の場合は、デフォルト値を設定
+        if not sample_body:
+            sample_body = {"name": "Test name", "description": "Test description"}
+        
+        return sample_body

@@ -155,11 +155,17 @@ def generate_chains_for_endpoints_task(project_id: str, endpoint_ids: List[str])
             generated_chains_count = 0
             all_generated_chains = []
             
+            logger.info(f"Generating test chains for {len(selected_endpoints)} selected endpoints")
             # EndpointChainGeneratorを初期化
             generator = EndpointChainGenerator(project_id, selected_endpoints, schema)
             
             # 各エンドポイントに対してテストチェーンを生成
             generated_chains = generator.generate_chains()
+            logger.info(f"Generated {len(generated_chains)} chains for selected endpoints")
+            # 生成されたチェーンの詳細をログに出力
+            logger.info(f"Generated {len(generated_chains)} chains for {len(selected_endpoints)} endpoints")
+            for i, chain in enumerate(generated_chains):
+                logger.info(f"Chain {i+1}: {chain.get('name')} with {len(chain.get('steps', []))} steps")
             
             if generated_chains:
                 # 生成されたテストチェーンをデータベースに保存
