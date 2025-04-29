@@ -124,35 +124,37 @@ def generate_chains_for_endpoints_task(project_id: str, endpoint_ids: List[str])
             
             # 選択されたエンドポイントの取得
             selected_endpoints = []
-            for endpoint_id in endpoint_ids:
-                endpoint_query = select(Endpoint).where(
-                    Endpoint.project_id == db_project.id,
-                    Endpoint.endpoint_id == endpoint_id
-                )
-                endpoint = session.exec(endpoint_query).first()
-                
-                if endpoint:
-                    selected_endpoints.append(endpoint)
-            
+            # 選択されたエンドポイントを一括で取得
+            endpoints_query = select(Endpoint).where(
+                Endpoint.project_id == db_project.id,
+                Endpoint.endpoint_id.in_(endpoint_ids) # in_() を使用してリスト内のIDに一致するものを全て取得
+            )
+            selected_endpoints = session.exec(endpoints_query).all() # all() でリストとして取得
+
             if not selected_endpoints:
                 logger.error(f"No valid endpoints selected for project {project_id}")
                 return {"status": "error", "message": "No valid endpoints selected"}
             
-            # エンドポイントチェーン生成器の初期化
-            generator = EndpointChainGenerator(project_id, selected_endpoints)
-            
-            # テストチェーンの生成
-            chains = generator.generate_chains()
+            # エンドポイントチェーン生成器の初期化とチェーン生成
+            all_generated_chains = []
+            for endpoint in selected_endpoints:
+                logger.error(f"Generating chains for {endpoint} selected endpoints")
+                # 各エンドポイントに対してジェネレーターを初期化
+                generator = EndpointChainGenerator(project_id, [endpoint]) # ここで単一のエンドポイントをリストとして渡す
+                # テストチェーンを生成
+                generated_chain = generator.generate_chains() # generate_chainsはリストを返す
+                # 生成されたチェーンをリストに追加
+                all_generated_chains.extend(generated_chain) # extendでリストの要素を追加
             
             # 生成されたチェーンの保存
             chain_store = ChainStore()
-            chain_store.save_chains(project_id, chains)
+            chain_store.save_chains(project_id, all_generated_chains)
             
-            logger.info(f"Generated {len(chains)} test chains for project {project_id}")
+            logger.info(f"Generated {len(all_generated_chains)} test chains for project {project_id}")
             return {
                 "status": "success",
                 "message": "Test chains generated successfully",
-                "count": len(chains)
+                "count": len(all_generated_chains)
             }
     except Exception as e:
         logger.error(f"Error generating test chains for project {project_id}: {e}")

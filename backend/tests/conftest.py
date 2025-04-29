@@ -65,7 +65,7 @@ import stat
 os.chmod("/tmp/test_caseforge", stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
 
 # モデルのインポートは環境変数設定後に行う
-from app.models import Project, Schema, TestCase, TestRun, TestResult, TestChain, TestChainStep, ChainRun, StepResult
+from app.models import Project, Schema, TestRun, TestResult, TestChain, TestChainStep, ChainRun, StepResult
 from app.models.base import DATABASE_URL
 from sqlmodel import SQLModel
 

@@ -270,8 +270,9 @@ Return ONLY a JSON object with the following structure:
 Make sure to:
 1. Include proper JSONPath expressions in "extract" to get values from responses
 2. Use extracted values in subsequent requests by replacing path parameters or in request bodies
-3. Create a logical flow that tests the API endpoints thoroughly
-4. Return ONLY the JSON object, no explanations or other text."""
+3. If a request (such as GET, PUT, DELETE) requires an existing resource (e.g., a company ID), ensure to first create the necessary resource using the corresponding POST endpoint. Always set up required resources before accessing or modifying them.
+4. Create a logical flow that tests the API endpoints thoroughly
+5. Return ONLY the JSON object, no explanations or other text."""
             )
             
             # 4. LLMを呼び出してチェーンを生成

@@ -4,7 +4,6 @@ from datetime import datetime
 from .base import TimestampModel
 
 # 循環インポートを避けるために ForwardRef を使用
-TestCase = ForwardRef("TestCase")
 TestRun = ForwardRef("TestRun")
 TestChain = ForwardRef("TestChain")
 ChainRun = ForwardRef("ChainRun")
@@ -22,7 +21,6 @@ class Project(TimestampModel, table=True):
     schemas: List["Schema"] = Relationship(back_populates="project")
     # 既存のリレーションシップ（廃止予定）
     test_runs: List["TestRun"] = Relationship(back_populates="project")
-    test_cases: List["TestCase"] = Relationship(back_populates="project")
     # 新しいリレーションシップ
     test_chains: List["TestChain"] = Relationship(back_populates="project")
     chain_runs: List["ChainRun"] = Relationship(back_populates="project")

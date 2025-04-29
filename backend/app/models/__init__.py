@@ -1,6 +1,6 @@
 from .base import TimestampModel, get_session, engine
 from .project import Project, Schema
-from .test import TestCase, TestRun, TestResult
+from .test import TestRun, TestResult
 from .chain import TestChain, TestChainStep, ChainRun, StepResult
 from .endpoint import Endpoint
 
@@ -8,7 +8,7 @@ from .endpoint import Endpoint
 __all__ = [
     "TimestampModel", "get_session", "engine",
     "Project", "Schema",
-    "TestCase", "TestRun", "TestResult",
+    "TestRun", "TestResult",
     "TestChain", "TestChainStep", "ChainRun", "StepResult",
     "Endpoint"
 ]
