@@ -519,6 +519,7 @@ async def list_endpoints(
 async def generate_chain_for_endpoints(
     project_id: str,
     endpoint_ids: List[str] = Body(..., embed=True),
+    overwrite: bool = Body(True), # overwrite パラメータを追加
     project_path: Path = Depends(get_project_or_404)
 ):
     """
@@ -527,12 +528,16 @@ async def generate_chain_for_endpoints(
     Args:
         project_id: プロジェクトID
         endpoint_ids: 選択したエンドポイントIDのリスト
+        overwrite: 既存のチェーンを上書きするかどうか (デフォルト: True)
         project_path: プロジェクトのパス
         
     Returns:
         生成結果
     """
     # デバッグログを追加
+    logger.info(f"Received generate chain request for endpoints: {endpoint_ids}")
+    logger.info(f"Number of selected endpoints: {len(endpoint_ids)}")
+    logger.info(f"Overwrite flag received: {overwrite}")
     logger.info(f"Generating chain for selected endpoints in project {project_id}")
     try:
         with Session(engine) as session:

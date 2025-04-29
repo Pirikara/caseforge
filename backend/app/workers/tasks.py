@@ -145,10 +145,11 @@ def generate_chains_for_endpoints_task(project_id: str, endpoint_ids: List[str])
                 generated_chain = generator.generate_chains() # generate_chainsはリストを返す
                 # 生成されたチェーンをリストに追加
                 all_generated_chains.extend(generated_chain) # extendでリストの要素を追加
+                logger.info(f"Generated {len(generated_chain)} chains for current endpoint. Total chains generated so far: {len(all_generated_chains)}")
             
             # 生成されたチェーンの保存
             chain_store = ChainStore()
-            chain_store.save_chains(project_id, all_generated_chains)
+            chain_store.save_chains(project_id, all_generated_chains, overwrite=False)
             
             logger.info(f"Generated {len(all_generated_chains)} test chains for project {project_id}")
             return {

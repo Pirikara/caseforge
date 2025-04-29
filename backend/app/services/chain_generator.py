@@ -371,13 +371,14 @@ class ChainStore:
         """初期化"""
         pass
     
-    def save_chains(self, project_id: str, chains: List[Dict]) -> None:
+    def save_chains(self, project_id: str, chains: List[Dict], overwrite: bool = True) -> None:
         """
         生成されたリクエストチェーンをデータベースに保存する
         
         Args:
             project_id: プロジェクトID
             chains: 保存するリクエストチェーンのリスト
+            overwrite: 既存のチェーンを上書きするかどうか (デフォルト: True)
         """
         try:
             # ファイルシステムにも保存（デバッグ用）
@@ -395,19 +396,20 @@ class ChainStore:
                     logger.error(f"Project not found: {project_id}")
                     return
                 
-                # 既存のチェーンを削除（置き換え）
-                existing_chains_query = select(TestChain).where(TestChain.project_id == db_project.id)
-                existing_chains = session.exec(existing_chains_query).all()
-                
-                for chain in existing_chains:
-                    # 関連するステップも削除
-                    steps_query = select(TestChainStep).where(TestChainStep.chain_id == chain.id)
-                    steps = session.exec(steps_query).all()
-                    for step in steps:
-                        session.delete(step)
-                    session.delete(chain)
-                
-                logger.info(f"Deleted {len(existing_chains)} existing chains for project {project_id}")
+                # 既存のチェーンを削除（overwriteがTrueの場合のみ）
+                if overwrite:
+                    existing_chains_query = select(TestChain).where(TestChain.project_id == db_project.id)
+                    existing_chains = session.exec(existing_chains_query).all()
+                    
+                    for chain in existing_chains:
+                        # 関連するステップも削除
+                        steps_query = select(TestChainStep).where(TestChainStep.chain_id == chain.id)
+                        steps = session.exec(steps_query).all()
+                        for step in steps:
+                            session.delete(step)
+                        session.delete(chain)
+                    
+                    logger.info(f"Deleted {len(existing_chains)} existing chains for project {project_id}")
                 
                 # 新しいチェーンを保存
                 for chain_data in chains:
