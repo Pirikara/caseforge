@@ -81,12 +81,24 @@ class EndpointParser:
                     request_query_params = self._extract_parameters(operation, "query")
                     responses = operation.get("responses")
                     
+                    # レスポンススキーマ内の$refを解決
+                    resolved_responses = {}
+                    if responses:
+                        for status_code, response_obj in responses.items():
+                            resolved_response_obj = copy.deepcopy(response_obj)
+                            if isinstance(resolved_response_obj, dict) and "content" in resolved_response_obj:
+                                for media_type, media_type_obj in resolved_response_obj["content"].items():
+                                    if isinstance(media_type_obj, dict) and "schema" in media_type_obj:
+                                        # resolved_refs セットを渡して再帰呼び出し
+                                        resolved_response_obj["content"][media_type]["schema"] = self._resolve_references(media_type_obj["schema"])
+                            resolved_responses[status_code] = resolved_response_obj
+
                     # デバッグログを追加
                     logger.info(f"パース結果 - {path} {method_name.upper()}")
                     logger.info(f"  - request_body: {request_body is not None}")
                     logger.info(f"  - request_headers: {request_headers}")
                     logger.info(f"  - request_query_params: {request_query_params}")
-                    logger.info(f"  - responses: {responses is not None}")
+                    logger.info(f"  - responses: {resolved_responses is not None}")
                     
                     endpoint_data = {
                         "project_id": project_id,
@@ -97,7 +109,7 @@ class EndpointParser:
                         "request_body": request_body,
                         "request_headers": request_headers,
                         "request_query_params": request_query_params,
-                        "responses": responses
+                        "responses": resolved_responses # 解決済みのレスポンスを使用
                     }
                     
                     endpoints.append(endpoint_data)
@@ -152,16 +164,20 @@ class EndpointParser:
         
         return result
     
-    def _resolve_references(self, schema: Dict) -> Dict:
+    def _resolve_references(self, schema: Dict, resolved_refs: set = None) -> Dict:
         """
-        $refを再帰的に解決する（改善版）
+        $refを再帰的に解決する（循環参照対応版）
         
         Args:
             schema: 解決対象のスキーマ
+            resolved_refs: 既に解決を試みた$refパスのセット (循環参照検出用)
             
         Returns:
             $refが解決されたスキーマ
         """
+        if resolved_refs is None:
+            resolved_refs = set()
+
         if not schema or not isinstance(schema, dict):
             return {} if schema is None else schema
         
@@ -173,43 +189,84 @@ class EndpointParser:
             ref_path = resolved["$ref"]
             logger.debug(f"Resolving reference: {ref_path}")
             
+            # 循環参照の検出
+            if ref_path in resolved_refs:
+                logger.warning(f"Circular reference detected: {ref_path}")
+                # 循環参照の場合は解決をスキップし、現在の$refを残すか、エラーを示す値を返すなど検討
+                # ここでは$refを残したまま返す
+                return resolved
+                
+            # 解決を試みる前にパスを記録
+            resolved_refs.add(ref_path)
+            
             if ref_path.startswith("#/"):
                 parts = ref_path.lstrip("#/").split("/")
                 ref_value = self.schema
                 
-                for part in parts:
-                    if part in ref_value:
-                        ref_value = ref_value[part]
-                    else:
-                        logger.warning(f"Reference path not found: {ref_path}")
-                        return resolved
+                try:
+                    for part in parts:
+                        # 配列のインデックス参照に対応 (例: #/paths/~1items/get/parameters/0)
+                        if isinstance(ref_value, list) and re.match(r'^\d+$', part):
+                             index = int(part)
+                             if 0 <= index < len(ref_value):
+                                 ref_value = ref_value[index]
+                             else:
+                                 logger.warning(f"Reference path index out of bounds: {ref_path}")
+                                 return resolved # 参照が見つからない場合は解決をスキップ
+                        elif isinstance(ref_value, dict) and part in ref_value:
+                            ref_value = ref_value[part]
+                        else:
+                            logger.warning(f"Reference path not found: {ref_path}")
+                            return resolved # 参照が見つからない場合は解決をスキップ
+                except (ValueError, IndexError, TypeError) as e:
+                     logger.warning(f"Error resolving reference path {ref_path}: {e}")
+                     return resolved # パス解決中のエラーもスキップ
                 
                 # $refを解決した値で置き換え
                 del resolved["$ref"]
+                
+                # 解決した値自体にさらに$refがある可能性があるので、まずref_valueを再帰的に解決
+                if isinstance(ref_value, dict):
+                    # 解決済みのパスセットを渡して再帰呼び出し
+                    ref_value = self._resolve_references(ref_value, resolved_refs)
+                    
                 resolved.update(copy.deepcopy(ref_value))
                 
-                # 解決した結果にさらに$refがある可能性があるので再帰的に解決
-                resolved = self._resolve_references(resolved)
+                # 解決した結果（resolved）にさらにネストされた$refがある可能性があるので再帰的に解決
+                # この行は既存のネストされた$ref解決ロジックと連携する
+                # 解決済みのパスセットを渡して再帰呼び出し
+                resolved = self._resolve_references(resolved, resolved_refs)
         
         # ネストされたプロパティ内の$refも解決
         if "properties" in resolved and isinstance(resolved["properties"], dict):
             for prop_name, prop_schema in resolved["properties"].items():
                 if isinstance(prop_schema, dict):
-                    resolved["properties"][prop_name] = self._resolve_references(prop_schema)
+                    # 解決済みのパスセットを渡して再帰呼び出し
+                    resolved["properties"][prop_name] = self._resolve_references(prop_schema, resolved_refs)
         
         # 配列内の$refも解決（items内の$ref）
         if "items" in resolved and isinstance(resolved["items"], dict):
-            resolved["items"] = self._resolve_references(resolved["items"])
+            # 解決済みのパスセットを渡して再帰呼び出し
+            resolved["items"] = self._resolve_references(resolved["items"], resolved_refs)
         
         # allOf, anyOf, oneOfなどの複合型も解決
         for composite_key in ["allOf", "anyOf", "oneOf"]:
             if composite_key in resolved and isinstance(resolved[composite_key], list):
                 for i, item_schema in enumerate(resolved[composite_key]):
                     if isinstance(item_schema, dict):
-                        resolved[composite_key][i] = self._resolve_references(item_schema)
+                        # 解決済みのパスセットを渡して再帰呼び出し
+                        resolved[composite_key][i] = self._resolve_references(item_schema, resolved_refs)
         
         # additionalPropertiesも解決
         if "additionalProperties" in resolved and isinstance(resolved["additionalProperties"], dict):
-            resolved["additionalProperties"] = self._resolve_references(resolved["additionalProperties"])
-        
+            # 解決済みのパスセットを渡して再帰呼び出し
+            resolved["additionalProperties"] = self._resolve_references(resolved["additionalProperties"], resolved_refs)
+            
+        # 配列のインデックス参照に対応するためのparameters内の$ref解決
+        if "parameters" in resolved and isinstance(resolved["parameters"], list):
+             for i, param_schema in enumerate(resolved["parameters"]):
+                 if isinstance(param_schema, dict):
+                     # 解決済みのパスセットを渡して再帰呼び出し
+                     resolved["parameters"][i] = self._resolve_references(param_schema, resolved_refs)
+
         return resolved
