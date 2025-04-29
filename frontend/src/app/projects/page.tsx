@@ -6,6 +6,17 @@ import { useProjects } from '@/hooks/useProjects';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -18,14 +29,16 @@ import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 export default function ProjectsPage() {
-  const { projects, isLoading } = useProjects();
+  const { projects, isLoading, deleteProject } = useProjects(); // deleteProject を取得
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false); // state 定義を追加
+  const [projectToDelete, setProjectToDelete] = React.useState<string | null>(null); // state 定義を追加
   
   // 検索フィルター
   const filteredProjects = React.useMemo(() => {
     if (!projects) return [];
     
-    return projects.filter(project => 
+    return projects.filter(project =>
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.description && project.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
@@ -103,6 +116,32 @@ export default function ProjectsPage() {
           )}
         </div>
       )}
+
+      {/* 削除確認ダイアログ */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>プロジェクトを削除しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              この操作は元に戻せません。プロジェクトに関連する全てのデータ（スキーマ、テストチェーン、実行結果など）が完全に削除されます。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (projectToDelete) {
+                  await deleteProject(projectToDelete);
+                  setProjectToDelete(null);
+                  setShowDeleteDialog(false);
+                }
+              }}
+            >
+              削除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -18,14 +18,14 @@ class Project(TimestampModel, table=True):
     description: Optional[str] = None
     
     # リレーションシップ
-    schemas: List["Schema"] = Relationship(back_populates="project")
+    schemas: List["Schema"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
     # 既存のリレーションシップ（廃止予定）
-    test_runs: List["TestRun"] = Relationship(back_populates="project")
+    test_runs: List["TestRun"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
     # 新しいリレーションシップ
-    test_chains: List["TestChain"] = Relationship(back_populates="project")
-    chain_runs: List["ChainRun"] = Relationship(back_populates="project")
+    test_chains: List["TestChain"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
+    chain_runs: List["ChainRun"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
     # エンドポイント管理のリレーションシップ
-    endpoints: List["Endpoint"] = Relationship(back_populates="project")
+    endpoints: List["Endpoint"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
 
 class Schema(TimestampModel, table=True):
     """OpenAPIスキーマモデル"""

@@ -167,10 +167,37 @@ def index_schema(project_id: str, path: str) -> None:
                 
                 # 4. ベクトルDBの保存
                 logger.info("Step 4: Saving vector database")
-                save_dir = f"/tmp/faiss/{project_id}"
-                os.makedirs(os.path.dirname(save_dir), exist_ok=True)
-                vectordb.save_local(save_dir)
-                logger.info(f"Successfully saved vector database to {save_dir}")
+                
+                # 永続化されるディレクトリにベクトルDBを保存
+                data_dir = os.environ.get("DATA_DIR", "/app/data")
+                save_dir = f"{data_dir}/faiss/{project_id}"
+                
+                logger.info(f"Saving vector database to {save_dir}")
+                os.makedirs(save_dir, exist_ok=True)  # プロジェクトIDを含むディレクトリを作成
+                logger.info(f"Created directory: {save_dir}")
+                
+                try:
+                    vectordb.save_local(save_dir)
+                    logger.info(f"Successfully saved vector database to {save_dir}")
+                    
+                    # 互換性のために/tmpにもシンボリックリンクを作成
+                    tmp_dir = f"/tmp/faiss/{project_id}"
+                    os.makedirs(os.path.dirname(tmp_dir), exist_ok=True)
+                    
+                    # 既存のシンボリックリンクや古いディレクトリを削除
+                    if os.path.exists(tmp_dir):
+                        if os.path.islink(tmp_dir):
+                            os.unlink(tmp_dir)
+                        else:
+                            import shutil
+                            shutil.rmtree(tmp_dir)
+                    
+                    # 新しいシンボリックリンクを作成
+                    os.symlink(save_dir, tmp_dir)
+                    logger.info(f"Created symbolic link from {tmp_dir} to {save_dir}")
+                except Exception as save_error:
+                    logger.error(f"Error saving vector database to {save_dir}: {save_error}", exc_info=True)
+                    raise
                 
                 logger.info(f"Successfully indexed schema for project {project_id}")
             except TimeoutException:

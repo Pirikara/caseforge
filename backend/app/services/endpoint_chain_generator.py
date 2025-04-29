@@ -261,24 +261,42 @@ class EndpointChainGenerator:
             関連スキーマ情報のテキスト表現
         """
         try:
-            # ベクトルDBのロード
-            faiss_path = f"/tmp/faiss/{self.project_id}"
+            # 永続化されるディレクトリからベクトルDBをロード
+            data_dir = os.environ.get("DATA_DIR", "/app/data")
+            faiss_path = f"{data_dir}/faiss/{self.project_id}"
             
-            # ベクトルDBが存在するか確認
+            # 永続化ディレクトリにベクトルDBがない場合は、/tmpも確認
             if not os.path.exists(faiss_path):
-                logger.warning(f"FAISS vector DB not found for project {self.project_id} at {faiss_path}. Cannot perform RAG search.")
-                
-                # ベクトルDBがない場合は、スキーマ全体から関連情報を抽出する
-                if self.schema:
-                    logger.info(f"Using schema directly for endpoint {target_endpoint.method} {target_endpoint.path}")
-                    return self._extract_schema_info_directly(target_endpoint)
+                tmp_faiss_path = f"/tmp/faiss/{self.project_id}"
+                if os.path.exists(tmp_faiss_path):
+                    logger.info(f"FAISS vector DB found in temporary directory: {tmp_faiss_path}")
+                    faiss_path = tmp_faiss_path
                 else:
-                    return "No relevant schema information found."
+                    logger.warning(f"FAISS vector DB not found for project {self.project_id} at {faiss_path} or {tmp_faiss_path}. Cannot perform RAG search.")
+                    
+                    # ベクトルDBがない場合は、スキーマ全体から関連情報を抽出する
+                    if self.schema:
+                        logger.info(f"Using schema directly for endpoint {target_endpoint.method} {target_endpoint.path}")
+                        return self._extract_schema_info_directly(target_endpoint)
+                    else:
+                        return "No relevant schema information found."
             
             # ベクトルDBが存在する場合は通常通りRAG検索を行う
             logger.info(f"Loading FAISS vector DB from {faiss_path}")
             embedding_fn = EmbeddingFunctionForCaseforge()
-            vectordb = FAISS.load_local(faiss_path, embedding_fn, allow_dangerous_deserialization=True)
+            
+            try:
+                vectordb = FAISS.load_local(faiss_path, embedding_fn, allow_dangerous_deserialization=True)
+                logger.info(f"Successfully loaded FAISS vector DB from {faiss_path}")
+            except Exception as load_error:
+                logger.error(f"Error loading FAISS vector DB from {faiss_path}: {load_error}", exc_info=True)
+                
+                # ベクトルDBのロードに失敗した場合は、スキーマ全体から関連情報を抽出する
+                if self.schema:
+                    logger.info(f"Falling back to direct schema extraction due to FAISS load error")
+                    return self._extract_schema_info_directly(target_endpoint)
+                else:
+                    return "Error loading vector database. No relevant schema information found."
 
             # クエリの生成 (ターゲットエンドポイントの情報を使用)
             query = f"{target_endpoint.method.upper()} {target_endpoint.path} {target_endpoint.summary or ''} {target_endpoint.description or ''}"

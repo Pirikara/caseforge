@@ -111,7 +111,7 @@ class ChainRun(TimestampModel, table=True):
     # リレーションシップ
     chain: TestChain = Relationship(back_populates="runs")
     project: Project = Relationship(back_populates="chain_runs")
-    step_results: List["StepResult"] = Relationship(back_populates="chain_run")
+    step_results: List["StepResult"] = Relationship(back_populates="chain_run", sa_relationship_kwargs={"cascade": "delete, all"})
 
 class StepResult(TimestampModel, table=True):
     __tablename__ = "stepresult"

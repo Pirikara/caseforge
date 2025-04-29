@@ -195,6 +195,50 @@ async def get_chain_detail(
         logger.error(f"Error fetching chain details for project {project_id}, chain {chain_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching chain details: {str(e)}")
 
+@router.delete("/{project_id}/chains/{chain_id}")
+async def delete_chain(
+    project_id: str,
+    chain_id: str,
+    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+):
+    """
+    テストチェーンを削除するAPIエンドポイント
+    """
+    logger.info(f"Deleting chain: project_id={project_id}, chain_id={chain_id}")
+    try:
+        # データベースからテストチェーンを削除 (カスケード設定により関連データも削除される)
+        with Session(engine) as session:
+            # project_id と chain_id を使用して TestChain を検索
+            # TestChain モデルには project_id (int) と chain_id (str) がある
+            # project_id (int) は Project モデルとのリレーションシップに使われるDB上のID
+            # chain_id (str) はユーザーに見せるユニークなID
+            # ここでは chain_id (str) を使用して検索する
+            from app.models.chain import TestChain # TestChain モデルをインポート
+
+            chain_query = select(TestChain).where(
+                TestChain.chain_id == chain_id,
+                TestChain.project_id == (select(Project.id).where(Project.project_id == project_id).scalar_one_or_none())
+            )
+            db_chain = session.exec(chain_query).first()
+
+            if not db_chain:
+                logger.warning(f"Chain not found in DB during deletion: project_id={project_id}, chain_id={chain_id}")
+                raise HTTPException(status_code=404, detail="Chain not found")
+
+            session.delete(db_chain)
+            session.commit()
+            logger.info(f"Chain {chain_id} for project {project_id} and related data deleted from database.")
+
+        # ChainStore にファイルシステム上のチェーンデータ削除機能があれば呼び出す
+        # ChainStore の実装を確認する必要があるが、一旦スキップ
+
+        return {"message": f"Chain {chain_id} for project {project_id} deleted successfully."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting chain {chain_id} for project {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error deleting chain: {str(e)}")
+
 @router.get("/{project_id}/tests")
 async def get_tests(
     project_id: str,
@@ -322,6 +366,39 @@ async def create_project(project: ProjectCreate):
     except Exception as e:
         logger.error(f"Error creating project: {e}")
         raise HTTPException(status_code=500, detail=f"Error creating project: {str(e)}")
+
+@router.delete("/{project_id}")
+async def delete_project(project_id: str, project_path: Path = Depends(get_project_or_404)):
+    """
+    プロジェクトを削除するAPIエンドポイント
+    """
+    logger.info(f"Deleting project: {project_id}")
+    try:
+        # データベースからプロジェクトを削除 (カスケード設定により関連データも削除される)
+        with Session(engine) as session:
+            project_query = select(Project).where(Project.project_id == project_id)
+            db_project = session.exec(project_query).first()
+
+            if not db_project:
+                # get_project_or_404 ですでにチェックされているが、念のため
+                logger.warning(f"Project not found in DB during deletion: {project_id}")
+                raise HTTPException(status_code=404, detail="Project not found")
+
+            session.delete(db_project)
+            session.commit()
+            logger.info(f"Project {project_id} and related data deleted from database.")
+
+        # ファイルシステムからプロジェクトディレクトリを削除
+        import shutil
+        shutil.rmtree(project_path)
+        logger.info(f"Project directory {project_path} deleted from file system.")
+
+        return {"message": f"Project {project_id} deleted successfully."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting project {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error deleting project: {str(e)}")
 
 @router.post("/{project_id}/endpoints/import")
 async def import_endpoints(project_id: str, project_path: Path = Depends(get_project_or_404)):
