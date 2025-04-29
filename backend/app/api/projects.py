@@ -1,7 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends, Body
 from app.services.schema import save_and_index_schema, get_schema_content
-from app.services.testgen import trigger_test_generation
-from app.services.teststore import list_testcases
 from app.services.runner import get_recent_runs
 from app.services.chain_generator import ChainStore
 from app.services.chain_runner import run_chains, list_chain_runs, get_chain_run
@@ -12,9 +10,10 @@ from pathlib import Path
 from app.config import settings
 from app.logging_config import logger
 from app.schemas.project import ProjectCreate
-from app.models import Endpoint, Project, get_session, engine
+from app.models import Endpoint, Project, engine
 from sqlmodel import select, Session
 from typing import List
+import json
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -392,7 +391,17 @@ async def import_endpoints(project_id: str, project_path: Path = Depends(get_pro
                     if endpoint_data['responses']:
                         logger.info(f"  - responses type: {type(endpoint_data['responses'])}")
                     
-                    endpoint = Endpoint(**endpoint_data)
+                    endpoint = Endpoint(
+                        project_id=endpoint_data["project_id"],
+                        path=endpoint_data["path"],
+                        method=endpoint_data["method"],
+                        summary=endpoint_data.get("summary"),
+                        description=endpoint_data.get("description"),
+                        request_body_str=json.dumps(endpoint_data["request_body"]) if endpoint_data.get("request_body") is not None else None,
+                        request_headers_str=json.dumps(endpoint_data["request_headers"]) if endpoint_data.get("request_headers") is not None else None,
+                        request_query_params_str=json.dumps(endpoint_data["request_query_params"]) if endpoint_data.get("request_query_params") is not None else None,
+                        responses_str=json.dumps(endpoint_data["responses"]) if endpoint_data.get("responses") is not None else None,
+                    )
                     session.add(endpoint)
                 
                 session.commit()
@@ -524,7 +533,6 @@ async def generate_chain_for_endpoints(
         生成結果
     """
     # デバッグログを追加
-    logger.info(f"Received request to generate chain for endpoints: {endpoint_ids}")
     logger.info(f"Generating chain for selected endpoints in project {project_id}")
     try:
         with Session(engine) as session:
