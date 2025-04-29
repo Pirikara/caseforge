@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends, Body
 from app.services.schema import save_and_index_schema, get_schema_content
 from app.services.testgen import trigger_test_generation
 from app.services.teststore import list_testcases
@@ -509,7 +509,7 @@ async def list_endpoints(
 @router.post("/{project_id}/endpoints/generate-chain")
 async def generate_chain_for_endpoints(
     project_id: str,
-    endpoint_ids: List[str],
+    endpoint_ids: List[str] = Body(..., embed=True),
     project_path: Path = Depends(get_project_or_404)
 ):
     """
@@ -523,6 +523,8 @@ async def generate_chain_for_endpoints(
     Returns:
         生成結果
     """
+    # デバッグログを追加
+    logger.info(f"Received request to generate chain for endpoints: {endpoint_ids}")
     logger.info(f"Generating chain for selected endpoints in project {project_id}")
     try:
         with Session(engine) as session:

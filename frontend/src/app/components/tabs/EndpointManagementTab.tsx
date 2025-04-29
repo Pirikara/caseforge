@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/sheet';
 
 export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
+  const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
   const { endpoints, isLoading, mutate } = useEndpoints(projectId);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedEndpoints, setSelectedEndpoints] = React.useState<string[]>([]);
@@ -33,61 +34,6 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
   const [selectedEndpoint, setSelectedEndpoint] = React.useState<Endpoint | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   
-  // スキーマアップロード時にエンドポイントを自動インポート
-  React.useEffect(() => {
-    const importEndpoints = async () => {
-      try {
-        console.log('エンドポイントのインポート開始:', projectId);
-        const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-        // URLの構築方法を修正
-        const response = await fetch(`/api/projects/${projectId}/endpoints/import`, {
-          method: 'POST',
-        });
-        
-        // デバッグ情報を追加
-        console.log('エンドポイントインポートAPIレスポンス:', {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-          headers: Object.fromEntries([...response.headers.entries()])
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('エンドポイントインポートエラーレスポンス:', errorData);
-          throw new Error(errorData.detail || 'エンドポイントのインポートに失敗しました');
-        }
-        
-        const data = await response.json();
-        console.log('エンドポイントインポート成功:', data);
-        
-        toast.success('エンドポイントがインポートされました', {
-          description: `${data.imported_count}件のエンドポイントをインポートしました。`,
-        });
-        
-        // エンドポイント一覧を再取得
-        console.log('エンドポイント一覧を再取得します');
-        mutate();
-      } catch (error) {
-        console.error('エンドポイントインポートエラー:', error);
-        // エラーの詳細情報をログに出力
-        if (error instanceof Error) {
-          console.log('エラー詳細:', {
-            name: error.name,
-            message: error.message,
-            stack: error.stack
-          });
-        }
-        
-        toast.error('エラーが発生しました', {
-          description: error instanceof Error ? error.message : '不明なエラーが発生しました',
-        });
-      }
-    };
-    
-    // コンポーネントマウント時にインポート実行
-    importEndpoints();
-  }, [projectId, mutate]);
   
   // 検索フィルタリング（メモ化）
   const filteredEndpoints = React.useMemo(() => {
@@ -148,7 +94,7 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
       setIsGenerating(true);
       
       // URLの構築方法を修正
-      const response = await fetch(`/api/projects/${projectId}/endpoints/generate-chain`, {
+      const response = await fetch(`${API}/api/projects/${projectId}/endpoints/generate-chain`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

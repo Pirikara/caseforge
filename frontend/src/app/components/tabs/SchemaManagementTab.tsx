@@ -112,6 +112,32 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
       // スキーマを再取得
       fetchSchema();
       
+      // スキーマアップロード後にエンドポイントをインポート
+      try {
+        console.log('スキーマアップロード後のエンドポイントインポート開始:', projectId);
+        const importResponse = await fetch(`${API}/api/projects/${projectId}/endpoints/import`, {
+          method: 'POST',
+        });
+        
+        if (!importResponse.ok) {
+          const importErrorData = await importResponse.json();
+          console.error('エンドポイントインポートエラー:', importErrorData);
+          throw new Error(importErrorData.detail || 'エンドポイントのインポートに失敗しました');
+        }
+        
+        const importData = await importResponse.json();
+        console.log('エンドポイントインポート成功:', importData);
+        
+        toast.success('エンドポイントがインポートされました', {
+          description: `${importData.imported_count}件のエンドポイントをインポートしました。`,
+        });
+      } catch (importError) {
+        console.error('スキーマアップロード後のエンドポイントインポートエラー:', importError);
+        toast.error('エンドポイントのインポートに失敗しました', {
+          description: importError instanceof Error ? importError.message : '不明なエラーが発生しました',
+        });
+      }
+      
       // テストチェーン管理タブに自動遷移
       document.querySelector('[data-value="test-chains"]')?.dispatchEvent(
         new MouseEvent('click', { bubbles: true })
