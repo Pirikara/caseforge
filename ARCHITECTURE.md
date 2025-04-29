@@ -76,6 +76,7 @@ graph TD;
     D --- D4[TestChainStep]
     D --- D5[TestRun]
     D --- D6[TestResult]
+    D --- D7[Endpoint]
   end
 
   R[Redis Broker]
@@ -123,6 +124,46 @@ sequenceDiagram
   UI->>User: 完了通知
 ```
 
+### エンドポイント単位のテストチェーン生成フロー
+
+```mermaid
+sequenceDiagram
+  participant User as ユーザー
+  participant UI as フロントエンド
+  participant API as FastAPI
+  participant DB as PostgreSQL
+  participant Worker as Celery Worker
+  participant LLM as LLM API
+
+  User->>UI: スキーマアップロード
+  UI->>API: POST /api/projects/{id}/schema
+  API->>DB: スキーマ保存
+  
+  Note over API,DB: エンドポイント抽出処理
+  API->>API: EndpointParser
+  API->>DB: エンドポイント一括登録
+  
+  User->>UI: エンドポイント一覧表示
+  UI->>API: GET /api/projects/{id}/endpoints
+  API->>DB: エンドポイント取得
+  API-->>UI: エンドポイント一覧
+  UI-->>User: エンドポイント一覧表示
+  
+  User->>UI: エンドポイント選択
+  User->>UI: テストチェーン生成リクエスト
+  UI->>API: POST /api/projects/{id}/endpoints/generate-chain
+  API->>Worker: generate_chains_for_endpoints_task
+  
+  Worker->>DB: 選択されたエンドポイント取得
+  Worker->>LLM: エンドポイント情報を基にテストチェーン生成
+  LLM-->>Worker: 生成されたテストチェーン
+  Worker->>DB: テストチェーン保存
+  
+  Worker-->>API: タスク完了通知
+  API-->>UI: 生成完了レスポンス
+  UI-->>User: 完了通知
+```
+
 ### テストチェーン実行フロー
 
 ```mermaid
@@ -148,6 +189,124 @@ sequenceDiagram
 
 ---
 
+## エンドポイント単位のリクエストチェーン生成
+
+Caseforgeは、OpenAPIスキーマ全体からテストチェーンを生成する機能に加えて、エンドポイント単位でテストチェーンを生成する機能を提供します。この機能により、ユーザーは特定のエンドポイントに焦点を当てたテストを効率的に作成できます。
+
+### 1. 機能概要
+
+- OpenAPIスキーマからエンドポイント情報を抽出し、データベースに保存
+- ユーザーがUI上で特定のエンドポイントを選択可能
+- 選択したエンドポイントに対してテストチェーンを生成
+- 生成されたテストチェーンはスキーマ全体から生成したものと同様に実行可能
+
+### 2. 技術的実装詳細
+
+#### 2.1 エンドポイントパーサー（EndpointParser）
+
+EndpointParserは、OpenAPIスキーマからエンドポイント情報を抽出するクラスです。主な機能は以下の通りです：
+
+- **スキーマ解析**: YAMLまたはJSONフォーマットのOpenAPIスキーマを解析
+- **$ref解決**: スキーマ内の参照（$ref）を再帰的に解決し、完全なスキーマ構造を構築
+  ```python
+  def _resolve_references(self, schema: Dict) -> Dict:
+      # $refがあれば解決を試みる
+      if "$ref" in resolved:
+          ref_path = resolved["$ref"]
+          if ref_path.startswith("#/"):
+              parts = ref_path.lstrip("#/").split("/")
+              ref_value = self.schema
+              
+              for part in parts:
+                  if part in ref_value:
+                      ref_value = ref_value[part]
+              
+              # $refを解決した値で置き換え
+              del resolved["$ref"]
+              resolved.update(copy.deepcopy(ref_value))
+              
+              # 解決した結果にさらに$refがある可能性があるので再帰的に解決
+              resolved = self._resolve_references(resolved)
+  ```
+- **パラメータ抽出**: リクエストボディ、ヘッダー、クエリパラメータ、レスポンスなどの情報を抽出
+- **エンドポイント情報の構造化**: 抽出した情報をEndpointモデルに適した形式に変換
+
+#### 2.2 エンドポイントチェーン生成器（EndpointChainGenerator）
+
+EndpointChainGeneratorは、選択されたエンドポイントからテストチェーンを生成するクラスです：
+
+- **コンテキスト構築**: 選択されたエンドポイント情報からLLMのためのコンテキストを構築
+  ```python
+  def _build_context(self) -> str:
+      context_parts = []
+      
+      for endpoint in self.endpoints:
+          # エンドポイントの情報を整形
+          endpoint_info = f"Endpoint: {endpoint.method} {endpoint.path}\n"
+          
+          if endpoint.summary:
+              endpoint_info += f"Summary: {endpoint.summary}\n"
+          
+          # リクエストボディ、ヘッダー、クエリパラメータ、レスポンス情報を追加
+          # ...
+          
+          context_parts.append(endpoint_info)
+      
+      return "\n\n".join(context_parts)
+  ```
+
+- **LLMプロンプト設計**: エンドポイント情報を基にテストチェーンを生成するためのプロンプトを設計
+  ```python
+  prompt = ChatPromptTemplate.from_template(
+      """You are an API testing expert. Using the following OpenAPI endpoints:
+  {context}
+  
+  Generate a request chain that tests these endpoints in sequence. The chain should follow the dependencies between endpoints.
+  For example, if a POST creates a resource and returns an ID, use that ID in subsequent requests.
+  
+  Return ONLY a JSON object with the following structure:
+  {{
+    "name": "Descriptive name for the chain",
+    "steps": [
+      {{
+        "method": "HTTP method (GET, POST, PUT, DELETE)",
+        "path": "API path with placeholders for parameters",
+        "request": {{
+          "headers": {{"header-name": "value"}},
+          "body": {{"key": "value"}}
+        }},
+        "response": {{
+          "extract": {{"variable_name": "$.jsonpath.to.value"}}
+        }}
+      }}
+    ]
+  }}
+  """
+  )
+  ```
+
+- **チェーン生成**: LLMを呼び出してテストチェーンを生成し、JSONとして解析
+- **エラーハンドリング**: LLMレスポンスのパース失敗や呼び出しエラーに対する堅牢な処理
+
+#### 2.3 フロントエンドインターフェース
+
+エンドポイント管理のためのUIコンポーネントが実装されています：
+
+- **エンドポイント一覧表示**: メソッド、パス、概要などの情報を表形式で表示
+- **検索フィルタリング**: エンドポイントをパスやメソッドで検索可能
+- **エンドポイント選択**: チェックボックスによる複数選択
+- **詳細表示**: サイドパネルでエンドポイントの詳細情報（リクエストボディ、ヘッダー、クエリパラメータ、レスポンスなど）を表示
+- **テストチェーン生成**: 選択したエンドポイントからテストチェーンを生成するボタン
+
+### 3. 利点
+
+- **選択的テスト生成**: 全スキーマではなく、特定のエンドポイントに焦点を当てたテストを生成可能
+- **詳細な情報提供**: エンドポイントの詳細情報をUI上で確認可能
+- **効率的なテスト作成**: 関連するエンドポイントを選択してテストチェーンを生成することで、テストの網羅性と効率性を向上
+- **柔軟なテスト戦略**: 全体テストと特定機能テストを組み合わせた柔軟なテスト戦略の実現
+
+---
+
 ## 拡張設計ポイント
 
 - **LLM**：Claude / GPT / HuggingFace など、API呼び出し部分は差し替え可能
@@ -158,6 +317,7 @@ sequenceDiagram
 - **エラーハンドリング**：構造化された例外処理と詳細なロギング
 - **データベース**：SQLModel による型安全なORM、マイグレーション対応
 - **デバッグ**：debugpy によるリモートデバッグ対応
+- **エンドポイント管理**：OpenAPIスキーマからエンドポイント情報を抽出し、個別または選択的にテストチェーンを生成可能
 - **フロントエンド**：
   - ダークモード対応（next-themes）
   - レスポンシブデザイン
@@ -173,6 +333,22 @@ erDiagram
     string id PK
     string name
     string description
+    datetime created_at
+    datetime updated_at
+  }
+  
+  Endpoint {
+    string id PK
+    string endpoint_id
+    string project_id FK
+    string path
+    string method
+    string summary
+    string description
+    json request_body
+    json request_headers
+    json request_query_params
+    json responses
     datetime created_at
     datetime updated_at
   }
@@ -232,6 +408,7 @@ erDiagram
   Project ||--o{ Schema : "has"
   Project ||--o{ TestChain : "has"
   Project ||--o{ TestRun : "has"
+  Project ||--o{ Endpoint : "has"
   TestChain ||--o{ TestChainStep : "has"
   TestChain ||--o{ TestRun : "has"
   TestRun ||--o{ TestResult : "has"

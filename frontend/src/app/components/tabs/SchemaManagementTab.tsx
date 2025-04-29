@@ -24,9 +24,20 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
       const response = await fetch(`${API}/api/projects/${projectId}/schema`);
       
+      // デバッグ情報を追加
+      console.log('Schema API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries([...response.headers.entries()])
+      });
+      
       if (!response.ok) {
         if (response.status === 404) {
-          // スキーマが見つからない場合は、エラーメッセージを表示せずに終了
+          // スキーマが見つからない場合は、nullをセットして正常に表示
+          console.log('404エラーを検出: スキーマが存在しません');
+          setSchema(null);
+          setError(null); // エラーを明示的にnullに設定
           setIsLoading(false);
           return;
         }
@@ -38,7 +49,23 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
       setSchema(data);
     } catch (error) {
       console.error('スキーマ取得エラー:', error);
-      setError(error instanceof Error ? error.message : '不明なエラーが発生しました');
+      // エラーの詳細情報をログに出力
+      if (error instanceof Error) {
+        console.log('エラー詳細:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
+      }
+      
+      // 404エラーの場合は特別な処理
+      if (error instanceof Error && error.message.includes('404')) {
+        console.log('catchブロックで404エラーを検出');
+        setSchema(null);
+        setError(null);
+      } else {
+        setError(error instanceof Error ? error.message : '不明なエラーが発生しました');
+      }
     } finally {
       setIsLoading(false);
     }
