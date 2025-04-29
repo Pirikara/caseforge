@@ -1,7 +1,10 @@
+import warnings
+import functools
 from app.workers import celery_app
 from app.services.teststore import save_testcases
 from app.services.chain_generator import DependencyAwareRAG, ChainStore
 from app.services.schema import get_schema_content
+from app.services.endpoint_chain_generator import EndpointChainGenerator
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 import json
@@ -9,6 +12,10 @@ import os
 import yaml
 import logging
 from app.config import settings
+from app.models import Endpoint, Project
+from sqlmodel import select, Session
+from app.models import get_session, engine
+from typing import List, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +68,22 @@ def generate_chains_task(project_id: str):
         logger.error(f"Error generating request chains: {e}")
         return {"status": "error", "message": str(e)}
 
+def deprecated(func):
+    """非推奨関数を示すデコレータ"""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        warnings.warn(
+            f"Function {func.__name__} is deprecated and will be removed in future versions. "
+            f"Use generate_chains_task instead.",
+            category=DeprecationWarning,
+            stacklevel=2
+        )
+        return func(*args, **kwargs)
+    return wrapper
+
 # 既存のテストケース生成タスク（廃止予定）
 @celery_app.task
+@deprecated
 def generate_tests_task(project_id: str):
     """
     OpenAPIスキーマからテストケースを生成するCeleryタスク（廃止予定）
@@ -78,3 +99,61 @@ def generate_tests_task(project_id: str):
     
     # 新しいタスクを呼び出す
     return generate_chains_task(project_id)
+
+@celery_app.task
+def generate_chains_for_endpoints_task(project_id: str, endpoint_ids: List[str]) -> Dict:
+    """
+    選択したエンドポイントからテストチェーンを生成するタスク
+    
+    Args:
+        project_id: プロジェクトID
+        endpoint_ids: 選択したエンドポイントIDのリスト
+        
+    Returns:
+        生成結果
+    """
+    logger.info(f"Starting test chain generation for selected endpoints in project {project_id}")
+    try:
+        with Session(engine) as session:
+            project_query = select(Project).where(Project.project_id == project_id)
+            db_project = session.exec(project_query).first()
+            
+            if not db_project:
+                logger.error(f"Project not found: {project_id}")
+                return {"status": "error", "message": "Project not found"}
+            
+            # 選択されたエンドポイントの取得
+            selected_endpoints = []
+            for endpoint_id in endpoint_ids:
+                endpoint_query = select(Endpoint).where(
+                    Endpoint.project_id == db_project.id,
+                    Endpoint.endpoint_id == endpoint_id
+                )
+                endpoint = session.exec(endpoint_query).first()
+                
+                if endpoint:
+                    selected_endpoints.append(endpoint)
+            
+            if not selected_endpoints:
+                logger.error(f"No valid endpoints selected for project {project_id}")
+                return {"status": "error", "message": "No valid endpoints selected"}
+            
+            # エンドポイントチェーン生成器の初期化
+            generator = EndpointChainGenerator(project_id, selected_endpoints)
+            
+            # テストチェーンの生成
+            chains = generator.generate_chains()
+            
+            # 生成されたチェーンの保存
+            chain_store = ChainStore()
+            chain_store.save_chains(project_id, chains)
+            
+            logger.info(f"Generated {len(chains)} test chains for project {project_id}")
+            return {
+                "status": "success",
+                "message": "Test chains generated successfully",
+                "count": len(chains)
+            }
+    except Exception as e:
+        logger.error(f"Error generating test chains for project {project_id}: {e}")
+        return {"status": "error", "message": str(e)}

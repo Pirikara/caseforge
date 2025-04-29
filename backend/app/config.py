@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     # アプリケーション設定
     APP_NAME: str = "Caseforge"
     DEBUG: bool = os.environ.get("DEBUG", "False").lower() == "true"
+    DEBUG_PORT: int = int(os.environ.get("DEBUG_PORT", "4444"))
     
     # データパス設定
     SCHEMA_DIR: str = os.environ.get("SCHEMA_DIR", "/code/data/schemas")

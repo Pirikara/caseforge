@@ -1,18 +1,103 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
-from app.services.schema import save_and_index_schema
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends, Body
+from app.services.schema import save_and_index_schema, get_schema_content
 from app.services.testgen import trigger_test_generation
 from app.services.teststore import list_testcases
 from app.services.runner import get_recent_runs
 from app.services.chain_generator import ChainStore
 from app.services.chain_runner import run_chains, list_chain_runs, get_chain_run
-from app.workers.tasks import generate_chains_task
+from app.services.endpoint_parser import EndpointParser
+from app.workers.tasks import generate_chains_task, generate_chains_for_endpoints_task
 from fastapi.responses import JSONResponse
 from pathlib import Path
 from app.config import settings
 from app.logging_config import logger
 from app.schemas.project import ProjectCreate
+from app.models import Endpoint, Project, get_session, engine
+from sqlmodel import select, Session
+from typing import List
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+def get_project_or_404(project_id: str) -> Path:
+    """
+    プロジェクトの存在を確認し、存在しない場合は404エラーを発生させる
+    
+    Args:
+        project_id: プロジェクトID
+        
+    Returns:
+        プロジェクトのパス
+        
+    Raises:
+        HTTPException: プロジェクトが存在しない場合
+    """
+    project_path = Path(f"{settings.SCHEMA_DIR}/{project_id}")
+    if not project_path.exists():
+        logger.error(f"Project directory not found: {project_path}")
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+    return project_path
+
+def get_schema_files_or_400(project_id: str = None, project_path: Path = Depends(get_project_or_404)) -> list:
+    """
+    プロジェクトのスキーマファイルを取得し、存在しない場合は400エラーを発生させる
+    
+    Args:
+        project_path: プロジェクトのパス
+        
+    Returns:
+        スキーマファイルのリスト
+        
+    Raises:
+        HTTPException: スキーマファイルが存在しない場合
+    """
+    schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
+    if not schema_files:
+        logger.error(f"No schema files found in project directory: {project_path}")
+        raise HTTPException(status_code=400, detail="No schema files found for this project. Please upload a schema first.")
+    logger.info(f"Found schema files: {[f.name for f in schema_files]}")
+    return schema_files
+
+@router.get("/{project_id}/schema")
+async def get_schema(project_id: str, project_path: Path = Depends(get_project_or_404)):
+    """
+    プロジェクトのスキーマを取得する
+    
+    Args:
+        project_id: プロジェクトID
+        project_path: プロジェクトのパス
+        
+    Returns:
+        スキーマの内容
+    """
+    logger.info(f"Getting schema for project {project_id}")
+    try:
+        # プロジェクトディレクトリからスキーマファイルを検索
+        schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
+        if not schema_files:
+            logger.error(f"No schema files found in project directory: {project_path}")
+            raise HTTPException(status_code=404, detail="No schema files found for this project")
+        
+        # 最新のスキーマファイルを取得
+        latest_schema = max(schema_files, key=lambda x: x.stat().st_mtime)
+        logger.info(f"Found latest schema file: {latest_schema.name}")
+        
+        # スキーマファイルの内容を取得
+        content = get_schema_content(project_id, latest_schema.name)
+        
+        # ファイル形式に応じてContent-Typeを設定
+        content_type = "application/json" if latest_schema.name.endswith(".json") else "application/x-yaml"
+        
+        return {
+            "filename": latest_schema.name,
+            "content": content,
+            "content_type": content_type
+        }
+    except FileNotFoundError as e:
+        logger.error(f"Schema file not found for project {project_id}: {e}")
+        raise HTTPException(status_code=404, detail="Schema file not found")
+    except Exception as e:
+        logger.error(f"Error getting schema for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting schema: {str(e)}")
 
 @router.post("/{project_id}/schema")
 async def upload_schema(project_id: str, file: UploadFile = File(...)):
@@ -30,22 +115,14 @@ async def upload_schema(project_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error uploading schema: {str(e)}")
 
 @router.post("/{project_id}/generate-tests")
-async def generate_tests(project_id: str):
+async def generate_tests(
+    project_id: str,
+    project_path: Path = Depends(get_project_or_404),
+    schema_files: list = Depends(get_schema_files_or_400)
+):
     logger.info(f"Triggering test chain generation for project {project_id}")
     try:
-        # プロジェクトの存在確認
-        project_path = Path(f"{settings.SCHEMA_DIR}/{project_id}")
-        if not project_path.exists():
-            logger.error(f"Project directory not found: {project_path}")
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
-            
-        # スキーマファイルの存在確認
-        schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
-        if not schema_files:
-            logger.error(f"No schema files found in project directory: {project_path}")
-            raise HTTPException(status_code=400, detail="No schema files found for this project. Please upload a schema first.")
-        
-        logger.info(f"Found schema files: {[f.name for f in schema_files]}")
+        # プロジェクトとスキーマファイルの存在は既に検証済み
         
         # テストチェーン生成タスクを開始
         task_id = generate_chains_task.delay(project_id).id
@@ -62,7 +139,10 @@ async def generate_tests(project_id: str):
         raise HTTPException(status_code=500, detail=f"Error generating test chains: {str(e)}")
 
 @router.get("/{project_id}/chains")
-async def get_chains(project_id: str):
+async def get_chains(
+    project_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Fetching chains for project {project_id}")
     try:
         chain_store = ChainStore()
@@ -73,7 +153,11 @@ async def get_chains(project_id: str):
         raise HTTPException(status_code=500, detail=f"Error fetching chains: {str(e)}")
 
 @router.get("/{project_id}/chains/{chain_id}")
-async def get_chain_detail(project_id: str, chain_id: str):
+async def get_chain_detail(
+    project_id: str,
+    chain_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Fetching chain details for project {project_id}, chain {chain_id}")
     try:
         chain_store = ChainStore()
@@ -88,8 +172,37 @@ async def get_chain_detail(project_id: str, chain_id: str):
         logger.error(f"Error fetching chain details for project {project_id}, chain {chain_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching chain details: {str(e)}")
 
+@router.get("/{project_id}/tests")
+async def get_tests(
+    project_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
+    """
+    プロジェクトのテストケース一覧を取得する
+    
+    Args:
+        project_id: プロジェクトID
+        project_path: プロジェクトのパス
+        
+    Returns:
+        テストケースのリスト
+    """
+    logger.info(f"Getting tests for project {project_id}")
+    try:
+        # ChainStoreを使ってチェーンを取得
+        chain_store = ChainStore()
+        chains = chain_store.list_chains(project_id)
+        return JSONResponse(content=chains)
+    except Exception as e:
+        logger.error(f"Error getting tests for project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting tests: {str(e)}")
+
 @router.post("/{project_id}/run")
-async def run_project_chains(project_id: str, chain_id: str = None):
+async def run_project_chains(
+    project_id: str,
+    chain_id: str = None,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Running chains for project {project_id}")
     try:
         results = await run_chains(project_id, chain_id)
@@ -100,7 +213,11 @@ async def run_project_chains(project_id: str, chain_id: str = None):
         raise HTTPException(status_code=500, detail=f"Error running chains: {str(e)}")
 
 @router.get("/{project_id}/runs")
-async def get_run_history(project_id: str, limit: int = 10):
+async def get_run_history(
+    project_id: str,
+    limit: int = 10,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Fetching run history for project {project_id}")
     try:
         return list_chain_runs(project_id, limit)
@@ -109,7 +226,11 @@ async def get_run_history(project_id: str, limit: int = 10):
         raise HTTPException(status_code=500, detail=f"Error fetching run history: {str(e)}")
 
 @router.get("/{project_id}/runs/{run_id}")
-async def get_run_detail(project_id: str, run_id: str):
+async def get_run_detail(
+    project_id: str,
+    run_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
     logger.info(f"Fetching run details for project {project_id}, run {run_id}")
     try:
         result = get_chain_run(project_id, run_id)
@@ -178,3 +299,277 @@ async def create_project(project: ProjectCreate):
     except Exception as e:
         logger.error(f"Error creating project: {e}")
         raise HTTPException(status_code=500, detail=f"Error creating project: {str(e)}")
+
+@router.post("/{project_id}/endpoints/import")
+async def import_endpoints(project_id: str, project_path: Path = Depends(get_project_or_404)):
+    """
+    スキーマからエンドポイントを抽出してDBに一括登録する
+    
+    Args:
+        project_id: プロジェクトID
+        project_path: プロジェクトのパス
+        
+    Returns:
+        インポート結果
+    """
+    logger.info(f"Importing endpoints for project {project_id}")
+    try:
+        # プロジェクトの取得
+        with Session(engine) as session:
+            project_query = select(Project).where(Project.project_id == project_id)
+            db_project = session.exec(project_query).first()
+            
+            if not db_project:
+                logger.error(f"Project not found: {project_id}")
+                raise HTTPException(status_code=404, detail="Project not found")
+            
+            logger.info(f"Found project: {db_project.name} (ID: {db_project.id}, project_id: {db_project.project_id})")
+            
+            # スキーマファイルの取得
+            schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
+            if not schema_files:
+                logger.error(f"No schema files found in project directory: {project_path}")
+                raise HTTPException(status_code=400, detail="No schema files found for this project")
+            
+            logger.info(f"Found schema files: {[f.name for f in schema_files]}")
+            
+            # 最新のスキーマファイルを取得
+            latest_schema = max(schema_files, key=lambda x: x.stat().st_mtime)
+            logger.info(f"Found latest schema file: {latest_schema.name}")
+            
+            # スキーマファイルの内容を取得
+            try:
+                with open(latest_schema, "r") as f:
+                    schema_content = f.read()
+                logger.info(f"Read schema content: {len(schema_content)} characters")
+            except Exception as e:
+                logger.error(f"Error reading schema file: {e}")
+                raise HTTPException(status_code=500, detail=f"Error reading schema file: {str(e)}")
+            
+            # エンドポイントのパース
+            try:
+                parser = EndpointParser(schema_content)
+                endpoints = parser.parse_endpoints(db_project.id)
+                logger.info(f"Parsed {len(endpoints)} endpoints from schema")
+                
+                # デバッグ用に最初の数個のエンドポイントを出力
+                if endpoints:
+                    logger.info(f"First endpoint: {endpoints[0]}")
+                else:
+                    logger.warning("No endpoints parsed from schema")
+            except Exception as e:
+                logger.error(f"Error parsing endpoints: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"Error parsing endpoints: {str(e)}")
+            
+            # 既存のエンドポイントを削除
+            try:
+                existing_endpoints_query = select(Endpoint).where(Endpoint.project_id == db_project.id)
+                existing_endpoints = session.exec(existing_endpoints_query).all()
+                
+                for endpoint in existing_endpoints:
+                    session.delete(endpoint)
+                
+                logger.info(f"Deleted {len(existing_endpoints)} existing endpoints for project {project_id}")
+            except Exception as e:
+                logger.error(f"Error deleting existing endpoints: {e}")
+                raise HTTPException(status_code=500, detail=f"Error deleting existing endpoints: {str(e)}")
+            
+            # 新しいエンドポイントを登録
+            try:
+                for endpoint_data in endpoints:
+                    # デバッグログを追加
+                    logger.info(f"エンドポイントデータ（保存前）: {endpoint_data['path']} {endpoint_data['method']}")
+                    logger.info(f"  - request_body: {endpoint_data['request_body'] is not None}")
+                    if endpoint_data['request_body']:
+                        logger.info(f"  - request_body type: {type(endpoint_data['request_body'])}")
+                    logger.info(f"  - request_headers: {endpoint_data['request_headers'] is not None}")
+                    if endpoint_data['request_headers']:
+                        logger.info(f"  - request_headers type: {type(endpoint_data['request_headers'])}")
+                    logger.info(f"  - request_query_params: {endpoint_data['request_query_params'] is not None}")
+                    if endpoint_data['request_query_params']:
+                        logger.info(f"  - request_query_params type: {type(endpoint_data['request_query_params'])}")
+                    logger.info(f"  - responses: {endpoint_data['responses'] is not None}")
+                    if endpoint_data['responses']:
+                        logger.info(f"  - responses type: {type(endpoint_data['responses'])}")
+                    
+                    endpoint = Endpoint(**endpoint_data)
+                    session.add(endpoint)
+                
+                session.commit()
+                logger.info(f"Imported {len(endpoints)} endpoints for project {project_id}")
+            except Exception as e:
+                logger.error(f"Error saving endpoints: {e}", exc_info=True)
+                session.rollback()
+                raise HTTPException(status_code=500, detail=f"Error saving endpoints: {str(e)}")
+            
+            return {"success": True, "imported_count": len(endpoints)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error importing endpoints for project {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error importing endpoints: {str(e)}")
+
+@router.get("/{project_id}/endpoints")
+async def list_endpoints(
+    project_id: str,
+    project_path: Path = Depends(get_project_or_404)
+):
+    """
+    プロジェクトのエンドポイント一覧を取得する
+    
+    Args:
+        project_id: プロジェクトID
+        project_path: プロジェクトのパス
+        
+    Returns:
+        エンドポイントのリスト
+    """
+    logger.info(f"Listing endpoints for project {project_id}")
+    try:
+        with Session(engine) as session:
+            # プロジェクトの取得
+            try:
+                project_query = select(Project).where(Project.project_id == project_id)
+                db_project = session.exec(project_query).first()
+                
+                if not db_project:
+                    logger.error(f"Project not found: {project_id}")
+                    raise HTTPException(status_code=404, detail="Project not found")
+                
+                logger.info(f"Found project: {db_project.name} (ID: {db_project.id}, project_id: {db_project.project_id})")
+            except Exception as e:
+                logger.error(f"Error retrieving project: {e}")
+                raise HTTPException(status_code=500, detail=f"Error retrieving project: {str(e)}")
+            
+            # エンドポイントの取得
+            try:
+                endpoints_query = select(Endpoint).where(Endpoint.project_id == db_project.id)
+                endpoints = session.exec(endpoints_query).all()
+                logger.info(f"Found {len(endpoints)} endpoints for project {project_id}")
+            except Exception as e:
+                logger.error(f"Error querying endpoints: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"Error querying endpoints: {str(e)}")
+            
+            # レスポンスの構築
+            result = []
+            for endpoint in endpoints:
+                try:
+                    # エンドポイントの詳細情報も含める
+                    endpoint_data = {
+                        "id": endpoint.endpoint_id,
+                        "path": endpoint.path,
+                        "method": endpoint.method,
+                        "summary": endpoint.summary,
+                        "description": endpoint.description,
+                        "request_body": endpoint.request_body,
+                        "request_headers": endpoint.request_headers,
+                        "request_query_params": endpoint.request_query_params,
+                        "responses": endpoint.responses
+                    }
+                    
+                    # デバッグログを追加
+                    logger.info(f"エンドポイント詳細データ（取得後）: {endpoint.endpoint_id}")
+                    logger.info(f"  - request_body_str: {endpoint.request_body_str is not None}")
+                    if endpoint.request_body_str:
+                        logger.info(f"  - request_body_str length: {len(endpoint.request_body_str)}")
+                        logger.info(f"  - request_body_str sample: {endpoint.request_body_str[:100] if len(endpoint.request_body_str) > 100 else endpoint.request_body_str}")
+                    logger.info(f"  - request_body: {endpoint.request_body is not None}")
+                    if endpoint.request_body:
+                        logger.info(f"  - request_body type: {type(endpoint.request_body)}")
+                    
+                    logger.info(f"  - request_headers_str: {endpoint.request_headers_str is not None}")
+                    logger.info(f"  - request_headers: {endpoint.request_headers is not None}")
+                    if endpoint.request_headers:
+                        logger.info(f"  - request_headers type: {type(endpoint.request_headers)}")
+                    
+                    logger.info(f"  - request_query_params_str: {endpoint.request_query_params_str is not None}")
+                    logger.info(f"  - request_query_params: {endpoint.request_query_params is not None}")
+                    if endpoint.request_query_params:
+                        logger.info(f"  - request_query_params type: {type(endpoint.request_query_params)}")
+                    
+                    logger.info(f"  - responses_str: {endpoint.responses_str is not None}")
+                    logger.info(f"  - responses: {endpoint.responses is not None}")
+                    if endpoint.responses:
+                        logger.info(f"  - responses type: {type(endpoint.responses)}")
+                    
+                    result.append(endpoint_data)
+                except Exception as e:
+                    logger.error(f"Error processing endpoint {endpoint.endpoint_id}: {e}")
+                    # 個別のエンドポイント処理エラーはスキップして続行
+                    continue
+            
+            logger.info(f"Returning {len(result)} endpoints for project {project_id}")
+            return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing endpoints for project {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error listing endpoints: {str(e)}")
+
+@router.post("/{project_id}/endpoints/generate-chain")
+async def generate_chain_for_endpoints(
+    project_id: str,
+    endpoint_ids: List[str] = Body(..., embed=True),
+    project_path: Path = Depends(get_project_or_404)
+):
+    """
+    選択したエンドポイントからテストチェーンを生成する
+    
+    Args:
+        project_id: プロジェクトID
+        endpoint_ids: 選択したエンドポイントIDのリスト
+        project_path: プロジェクトのパス
+        
+    Returns:
+        生成結果
+    """
+    # デバッグログを追加
+    logger.info(f"Received request to generate chain for endpoints: {endpoint_ids}")
+    logger.info(f"Generating chain for selected endpoints in project {project_id}")
+    try:
+        with Session(engine) as session:
+            project_query = select(Project).where(Project.project_id == project_id)
+            db_project = session.exec(project_query).first()
+            
+            if not db_project:
+                logger.error(f"Project not found: {project_id}")
+                raise HTTPException(status_code=404, detail="Project not found")
+            
+            # 選択されたエンドポイントの取得
+            selected_endpoints = []
+            for endpoint_id in endpoint_ids:
+                endpoint_query = select(Endpoint).where(
+                    Endpoint.project_id == db_project.id,
+                    Endpoint.endpoint_id == endpoint_id
+                )
+                endpoint = session.exec(endpoint_query).first()
+                
+                if endpoint:
+                    selected_endpoints.append(endpoint)
+            
+            if not selected_endpoints:
+                logger.error(f"No valid endpoints selected for project {project_id}")
+                raise HTTPException(status_code=400, detail="No valid endpoints selected")
+            
+            # テストチェーン生成タスクを開始
+            task_id = generate_chains_for_endpoints_task.delay(
+                project_id,
+                [endpoint.endpoint_id for endpoint in selected_endpoints]
+            ).id
+            
+            if not task_id:
+                logger.error(f"Failed to trigger test chain generation task for project {project_id}")
+                raise HTTPException(status_code=500, detail="Failed to start test chain generation task")
+                
+            logger.info(f"Test chain generation task started with ID: {task_id}")
+            return {
+                "message": "Test chain generation started",
+                "task_id": task_id,
+                "status": "generating",
+                "endpoint_count": len(selected_endpoints)
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating chain for endpoints in project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating chain: {str(e)}")

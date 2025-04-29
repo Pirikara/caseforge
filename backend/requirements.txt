@@ -6,11 +6,11 @@ uvicorn[standard]>=0.29.0
 celery[redis]>=5.4.0
 
 # --- LangChain / RAG ---
-langchain==0.3.23
+langchain==0.3.24
 langchain-community==0.3.22
 langchain-huggingface>=0.0.6
 langchain-chroma>=0.1.2
-chromadb==0.6.3
+chromadb==1.0.7
 sentence-transformers>=2.2.2
 pyyaml>=6.0.1
 jsonpath-ng>=1.5.0  # レスポンスからの値抽出用
@@ -28,7 +28,7 @@ langchain-openai>=0.1.6
 
 # --- テスト用パッケージ ---
 pytest==7.4.0
-pytest-asyncio==0.21.1
+pytest-asyncio==0.26.0
 
 # --- デバッガー ---
 debugpy>=1.6.6
