@@ -16,14 +16,15 @@ export interface TestChainStep {
 
 export interface TestChain {
   id: string;
-  chain_id: string;
-  project_id: string;
+  chain_id?: string;
+  project_id?: string;
   name: string;
   description?: string;
   tags?: string[];
-  steps: TestChainStep[];
+  steps?: TestChainStep[];
+  steps_count?: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export function useTestChains(projectId: string) {

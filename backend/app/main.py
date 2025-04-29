@@ -17,10 +17,11 @@ async def lifespan(app: FastAPI):
     # アプリケーション終了時
     logger.info("Shutting down...")
 
-import debugpy
-
-debugpy.listen(("0.0.0.0", 4444))  # ポートは好きに（デフォ5678）
-print("⚡ debugpy waiting for attach...")
+# デバッグモードの場合のみdebugpyを有効化
+if settings.DEBUG:
+    import debugpy
+    debugpy.listen(("0.0.0.0", settings.DEBUG_PORT))
+    logger.info(f"⚡ debugpy waiting for attach on port {settings.DEBUG_PORT}...")
 
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 

@@ -8,6 +8,7 @@ TestCase = ForwardRef("TestCase")
 TestRun = ForwardRef("TestRun")
 TestChain = ForwardRef("TestChain")
 ChainRun = ForwardRef("ChainRun")
+Endpoint = ForwardRef("Endpoint")
 
 class Project(TimestampModel, table=True):
     __tablename__ = "project"
@@ -25,6 +26,8 @@ class Project(TimestampModel, table=True):
     # 新しいリレーションシップ
     test_chains: List["TestChain"] = Relationship(back_populates="project")
     chain_runs: List["ChainRun"] = Relationship(back_populates="project")
+    # エンドポイント管理のリレーションシップ
+    endpoints: List["Endpoint"] = Relationship(back_populates="project")
 
 class Schema(TimestampModel, table=True):
     """OpenAPIスキーマモデル"""
