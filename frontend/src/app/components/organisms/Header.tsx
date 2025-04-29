@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react';
-import { MoonIcon, SunIcon, MenuIcon } from 'lucide-react';
+import { MoonIcon, SunIcon, MenuIcon, XIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { Button } from '../ui/button';
@@ -10,7 +10,8 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger
+  SheetTrigger,
+  SheetClose
 } from '../ui/sheet';
 import { Sidebar } from './Sidebar';
 import { useState } from 'react';
@@ -32,7 +33,12 @@ export function Header() {
               </SheetTrigger>
               <SheetContent side="left" className="p-0">
                 <SheetHeader className="p-4 border-b">
-                  <SheetTitle>メニュー</SheetTitle>
+                  <div className="flex items-center justify-between">
+                    <SheetTitle>メニュー</SheetTitle>
+                    <SheetClose className="rounded-full hover:bg-muted p-2 transition-colors">
+                      <XIcon className="h-4 w-4" />
+                    </SheetClose>
+                  </div>
                 </SheetHeader>
                 <div className="py-4">
                   <nav className="flex flex-col space-y-1 px-4">
