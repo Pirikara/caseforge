@@ -2,14 +2,19 @@ import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
 
 export interface TestChainStep {
-  id: string;
+  id?: string;
   sequence: number;
   name?: string;
   method: string;
   path: string;
-  request_headers?: Record<string, string>;
-  request_body?: any;
-  request_params?: Record<string, string>;
+  request?: {
+    headers?: Record<string, string>;
+    body?: any;
+    params?: Record<string, string>;
+  };
+  request_headers?: Record<string, string>; // 後方互換性のため残す
+  request_body?: any; // 後方互換性のため残す
+  request_params?: Record<string, string>; // 後方互換性のため残す
   expected_status?: number;
   extract_rules?: Record<string, string>;
 }
@@ -35,6 +40,20 @@ export function useTestChains(projectId: string) {
   
   return {
     testChains: data,
+    isLoading,
+    error,
+    mutate,
+  };
+}
+
+export function useTestChainDetail(projectId: string, chainId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<TestChain>(
+    projectId && chainId ? `/api/projects/${projectId}/chains/${chainId}` : null,
+    fetcher
+  );
+  
+  return {
+    testChain: data,
     isLoading,
     error,
     mutate,

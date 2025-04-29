@@ -75,10 +75,23 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
         id: selectedEndpoint.id,
         path: selectedEndpoint.path,
         method: selectedEndpoint.method,
-        request_body: selectedEndpoint.request_body,
-        request_headers: selectedEndpoint.request_headers,
-        request_query_params: selectedEndpoint.request_query_params,
-        responses: selectedEndpoint.responses
+        request_body: selectedEndpoint.request_body !== undefined ? 'あり' : 'なし',
+        request_body_type: selectedEndpoint.request_body !== undefined ? typeof selectedEndpoint.request_body : 'undefined',
+        request_body_value: selectedEndpoint.request_body !== undefined ?
+          JSON.stringify(selectedEndpoint.request_body).substring(0, 100) + '...' : 'undefined',
+        request_headers: selectedEndpoint.request_headers !== undefined ? 'あり' : 'なし',
+        request_headers_type: selectedEndpoint.request_headers !== undefined ? typeof selectedEndpoint.request_headers : 'undefined',
+        request_headers_keys: selectedEndpoint.request_headers !== undefined ?
+          Object.keys(selectedEndpoint.request_headers || {}).length : 'undefined',
+        request_query_params: selectedEndpoint.request_query_params !== undefined ? 'あり' : 'なし',
+        request_query_params_type: selectedEndpoint.request_query_params !== undefined ?
+          typeof selectedEndpoint.request_query_params : 'undefined',
+        request_query_params_keys: selectedEndpoint.request_query_params !== undefined ?
+          Object.keys(selectedEndpoint.request_query_params || {}).length : 'undefined',
+        responses: selectedEndpoint.responses !== undefined ? 'あり' : 'なし',
+        responses_type: selectedEndpoint.responses !== undefined ? typeof selectedEndpoint.responses : 'undefined',
+        responses_keys: selectedEndpoint.responses !== undefined ?
+          Object.keys(selectedEndpoint.responses || {}).length : 'undefined'
       });
     }
   }, [selectedEndpoint]);
@@ -281,7 +294,7 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
               )}
 
               {/* リクエストパラメータ */}
-              {selectedEndpoint.request_query_params && typeof selectedEndpoint.request_query_params === 'object' && Object.keys(selectedEndpoint.request_query_params).length > 0 && (
+              {selectedEndpoint.request_query_params !== undefined && typeof selectedEndpoint.request_query_params === 'object' && Object.keys(selectedEndpoint.request_query_params || {}).length > 0 && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search">
@@ -321,7 +334,7 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
               )}
 
               {/* リクエストヘッダー */}
-              {selectedEndpoint.request_headers && typeof selectedEndpoint.request_headers === 'object' && Object.keys(selectedEndpoint.request_headers).length > 0 && (
+              {selectedEndpoint.request_headers !== undefined && typeof selectedEndpoint.request_headers === 'object' && Object.keys(selectedEndpoint.request_headers || {}).length > 0 && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-file-text">
@@ -360,7 +373,7 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
               )}
 
               {/* リクエストボディ */}
-              {selectedEndpoint.request_body && typeof selectedEndpoint.request_body === 'object' && (
+              {selectedEndpoint.request_body !== undefined && typeof selectedEndpoint.request_body === 'object' && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-code">
@@ -378,7 +391,7 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
               )}
 
               {/* レスポンス */}
-              {selectedEndpoint.responses && typeof selectedEndpoint.responses === 'object' && Object.keys(selectedEndpoint.responses).length > 0 && (
+              {selectedEndpoint.responses !== undefined && typeof selectedEndpoint.responses === 'object' && Object.keys(selectedEndpoint.responses || {}).length > 0 && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-arrow-left-right">

@@ -1,6 +1,8 @@
 import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
 
+const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
+
 export interface Endpoint {
   id: string;
   path: string;
@@ -16,37 +18,53 @@ export interface Endpoint {
 export function useEndpoints(projectId: string) {
   const { data, error, isLoading, mutate } = useSWR<Endpoint[]>(
     `/api/projects/${projectId}/endpoints`,
-    fetcher
+    async (url: string) => {
+      console.log('Fetching endpoints from:', `${API}${url}`);
+      const response = await fetch(`${API}${url}`);
+      
+      // レスポンスのステータスとヘッダーをログ出力
+      console.log('Endpoints API response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries([...response.headers.entries()])
+      });
+      
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      
+      const jsonData = await response.json();
+      console.log('Endpoints API data (first few):', jsonData.slice(0, 2));
+      
+      // 詳細なデータ構造を確認
+      if (jsonData && jsonData.length > 0) {
+        const firstEndpoint = jsonData[0];
+        console.log('First endpoint structure:', {
+          keys: Object.keys(firstEndpoint),
+          id: firstEndpoint.id,
+          path: firstEndpoint.path,
+          method: firstEndpoint.method,
+          request_body: firstEndpoint.request_body !== undefined ? 'あり' : 'なし',
+          request_body_type: firstEndpoint.request_body !== undefined ? typeof firstEndpoint.request_body : 'undefined',
+          request_body_value: firstEndpoint.request_body !== undefined ?
+            JSON.stringify(firstEndpoint.request_body).substring(0, 100) + '...' : 'undefined',
+          request_headers: firstEndpoint.request_headers !== undefined ? 'あり' : 'なし',
+          request_headers_type: firstEndpoint.request_headers !== undefined ? typeof firstEndpoint.request_headers : 'undefined',
+          request_headers_keys: firstEndpoint.request_headers !== undefined ?
+            Object.keys(firstEndpoint.request_headers).length : 'undefined',
+          request_query_params: firstEndpoint.request_query_params !== undefined ? 'あり' : 'なし',
+          request_query_params_type: firstEndpoint.request_query_params !== undefined ?
+            typeof firstEndpoint.request_query_params : 'undefined',
+          request_query_params_keys: firstEndpoint.request_query_params !== undefined ?
+            Object.keys(firstEndpoint.request_query_params).length : 'undefined',
+          responses: firstEndpoint.responses !== undefined ? 'あり' : 'なし',
+          responses_type: firstEndpoint.responses !== undefined ? typeof firstEndpoint.responses : 'undefined',
+          responses_keys: firstEndpoint.responses !== undefined ?
+            Object.keys(firstEndpoint.responses).length : 'undefined'
+        });
+      }
+      
+      return jsonData;
+    }
   );
-
-  // デバッグログを追加
-  console.log('useEndpoints hook:', {
-    projectId,
-    data,
-    error,
-    isLoading
-  });
-
-  // 詳細なデータログ
-  if (data && data.length > 0) {
-    console.log('最初のエンドポイントの詳細データ:', {
-      id: data[0].id,
-      path: data[0].path,
-      method: data[0].method,
-      request_body: data[0].request_body ? 'あり' : 'なし',
-      request_body_type: data[0].request_body ? typeof data[0].request_body : 'N/A',
-      request_body_value: data[0].request_body ? JSON.stringify(data[0].request_body).substring(0, 100) + '...' : 'N/A',
-      request_headers: data[0].request_headers ? 'あり' : 'なし',
-      request_headers_type: data[0].request_headers ? typeof data[0].request_headers : 'N/A',
-      request_headers_keys: data[0].request_headers ? Object.keys(data[0].request_headers) : 'N/A',
-      request_query_params: data[0].request_query_params ? 'あり' : 'なし',
-      request_query_params_type: data[0].request_query_params ? typeof data[0].request_query_params : 'N/A',
-      request_query_params_keys: data[0].request_query_params ? Object.keys(data[0].request_query_params) : 'N/A',
-      responses: data[0].responses ? 'あり' : 'なし',
-      responses_type: data[0].responses ? typeof data[0].responses : 'N/A',
-      responses_keys: data[0].responses ? Object.keys(data[0].responses) : 'N/A'
-    });
-  }
 
   return {
     endpoints: data,
