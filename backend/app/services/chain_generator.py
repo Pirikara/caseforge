@@ -496,7 +496,7 @@ class ChainStore:
                 return chains
                 
         except Exception as e:
-            logger.error(f"Error listing chains for project {project_id}: {e}")
+            logger.error(f"Error listing chains for project {project_id}: {e}", exc_info=True) # exc_info=True を追加
             
             # ファイルシステムからの読み込みを試みる（フォールバック）
             try:
@@ -506,9 +506,94 @@ class ChainStore:
                         chains = json.load(f)
                     return chains
             except Exception as fallback_error:
-                logger.error(f"Fallback error: {fallback_error}")
+                logger.error(f"Fallback error reading chains from file system for project {project_id}: {fallback_error}", exc_info=True) # 詳細なログに変更
             
             return []
+
+    # End of list_chains method
+
+    def merge_and_save_chains(self, project_id: str, new_chains: List[Dict]) -> None:
+        """
+        新しいチェーンリストを既存のチェーンとマージしてデータベースに保存する。
+        新しいチェーンリストに含まれる名前のチェーンは既存のもので置き換え、
+        新しいチェーンリストにない名前の既存チェーンはそのまま残す。
+        
+        Args:
+            project_id: プロジェクトID
+            new_chains: 新しく生成されたリクエストチェーンのリスト
+        """
+        try:
+            with Session(engine) as session:
+                # プロジェクトの取得
+                project_query = select(Project).where(Project.project_id == project_id)
+                db_project = session.exec(project_query).first()
+                
+                if not db_project:
+                    logger.error(f"Project not found: {project_id}")
+                    return
+                
+                # 既存のチェーンを名前をキーとした辞書に変換
+                existing_chains_dict = {chain.name: chain for chain in db_project.test_chains}
+                
+                chains_to_save = []
+                
+                for chain_data in new_chains:
+                    chain_name = chain_data.get("name", "Unnamed Chain")
+                    
+                    # 既存のチェーンに同じ名前のものがあるか確認
+                    if chain_name in existing_chains_dict:
+                        # 既存のチェーンとそのステップを削除
+                        existing_chain = existing_chains_dict[chain_name]
+                        steps_query = select(TestChainStep).where(TestChainStep.chain_id == existing_chain.id)
+                        steps = session.exec(steps_query).all()
+                        for step in steps:
+                            session.delete(step)
+                        session.delete(existing_chain)
+                        logger.info(f"Deleted existing chain with name: {chain_name}")
+                    
+                    # 新しいチェーンを追加
+                    chain_id = str(uuid.uuid4())
+                    chain = TestChain(
+                        chain_id=chain_id,
+                        project_id=db_project.id,
+                        name=chain_name,
+                        description=chain_data.get("description", "")
+                    )
+                    session.add(chain)
+                    session.flush()  # IDを生成するためにflush
+                    
+                    # チェーンのステップを保存
+                    for i, step_data in enumerate(chain_data.get("steps", [])):
+                        step = TestChainStep(
+                            chain_id=chain.id,
+                            sequence=i,
+                            name=step_data.get("name"),
+                            method=step_data.get("method"),
+                            path=step_data.get("path"),
+                            expected_status=step_data.get("expected_status")
+                        )
+                        
+                        # リクエスト情報を設定
+                        request = step_data.get("request", {})
+                        step.request_headers = request.get("headers")
+                        step.request_body = request.get("body")
+                        step.request_params = request.get("params")
+                        
+                        # 抽出ルールを設定
+                        response = step_data.get("response", {})
+                        step.extract_rules = response.get("extract")
+                        
+                        session.add(step)
+                    
+                    chains_to_save.append(chain) # マージ後のリストには追加しないが、ログのために保持
+
+                session.commit()
+                logger.info(f"Merged and saved {len(new_chains)} new/updated chains for project {project_id}")
+                
+        except Exception as e:
+            logger.error(f"Error merging and saving chains for project {project_id}: {e}", exc_info=True)
+            session.rollback()
+            raise
     
     def get_chain(self, project_id: str, chain_id: str) -> Optional[Dict]:
         """

@@ -12,7 +12,7 @@ from app.logging_config import logger
 from app.schemas.project import ProjectCreate
 from app.models import Endpoint, Project, engine
 from sqlmodel import select, Session
-from typing import List
+from typing import List, Optional # Optional をインポート
 import json
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -117,20 +117,44 @@ async def upload_schema(project_id: str, file: UploadFile = File(...)):
 async def generate_tests(
     project_id: str,
     project_path: Path = Depends(get_project_or_404),
-    schema_files: list = Depends(get_schema_files_or_400)
+    schema_files: list = Depends(get_schema_files_or_400), # スキーマファイルの存在チェックのために残す
+    endpoint_ids: Optional[List[str]] = Body(None, description="生成対象のエンドポイントIDのリスト。指定しない場合はスキーマ全体から生成します。")
 ):
-    logger.info(f"Triggering test chain generation for project {project_id}")
-    try:
-        # プロジェクトとスキーマファイルの存在は既に検証済み
+    """
+    プロジェクトのテストチェーンを生成するAPIエンドポイント。
+    エンドポイントIDのリストが指定された場合は、それらのエンドポイントごとにチェーンを生成します。
+    指定されない場合は、スキーマ全体から依存関係を考慮したチェーンを生成します。
+    
+    Args:
+        project_id: プロジェクトID
+        project_path: プロジェクトのパス (Depends)
+        schema_files: スキーマファイルのリスト (Depends)
+        endpoint_ids: 生成対象のエンドポイントIDのリスト (Optional)
         
-        # テストチェーン生成タスクを開始
-        task_id = generate_chains_task.delay(project_id).id
+    Returns:
+        dict: 生成タスクの情報
+    """
+    logger.info(f"Triggering test chain generation for project {project_id}")
+    
+    try:
+        if endpoint_ids:
+            # エンドポイントIDが指定された場合、エンドポイントごとの生成タスクを呼び出す
+            logger.info(f"Generating chains for selected endpoints: {endpoint_ids}")
+            task_id = generate_chains_for_endpoints_task.delay(project_id, endpoint_ids).id
+            task_type = "endpoints"
+        else:
+            # エンドポイントIDが指定されない場合、スキーマ全体からの生成タスクを呼び出す (既存の挙動)
+            logger.info("Generating chains from entire schema.")
+            task_id = generate_chains_task.delay(project_id).id
+            task_type = "full_schema"
+            
         if not task_id:
             logger.error(f"Failed to trigger test chain generation task for project {project_id}")
             raise HTTPException(status_code=500, detail="Failed to start test chain generation task")
             
-        logger.info(f"Test chain generation task started with ID: {task_id}")
-        return {"message": "Test chain generation started", "task_id": task_id, "status": "generating"}
+        logger.info(f"Test chain generation task ({task_type}) started with ID: {task_id}")
+        return {"message": f"Test chain generation ({task_type}) started", "task_id": task_id, "status": "generating"}
+        
     except HTTPException:
         raise
     except Exception as e:

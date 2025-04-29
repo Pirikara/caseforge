@@ -123,40 +123,63 @@ def generate_chains_for_endpoints_task(project_id: str, endpoint_ids: List[str])
                 return {"status": "error", "message": "Project not found"}
             
             # 選択されたエンドポイントの取得
-            selected_endpoints = []
-            # 選択されたエンドポイントを一括で取得
             endpoints_query = select(Endpoint).where(
                 Endpoint.project_id == db_project.id,
-                Endpoint.endpoint_id.in_(endpoint_ids) # in_() を使用してリスト内のIDに一致するものを全て取得
+                Endpoint.endpoint_id.in_(endpoint_ids)
             )
-            selected_endpoints = session.exec(endpoints_query).all() # all() でリストとして取得
+            selected_endpoints = session.exec(endpoints_query).all()
 
             if not selected_endpoints:
                 logger.error(f"No valid endpoints selected for project {project_id}")
                 return {"status": "error", "message": "No valid endpoints selected"}
+
+            # スキーマファイルの取得
+            schema_path = f"{settings.SCHEMA_DIR}/{project_id}"
+            schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
             
-            # エンドポイントチェーン生成器の初期化とチェーン生成
+            if not schema_files:
+                logger.error(f"No schema files found for project {project_id}")
+                return {"status": "error", "message": "No schema files found"}
+            
+            # 最初のスキーマファイルを使用
+            schema_file = schema_files[0]
+            schema_content = get_schema_content(project_id, schema_file)
+            
+            # スキーマのパース
+            if schema_file.endswith('.json'):
+                schema = json.loads(schema_content)
+            else:
+                schema = yaml.safe_load(schema_content)
+
+            # エンドポイントごとにテストチェーンを生成
+            generated_chains_count = 0
             all_generated_chains = []
-            for endpoint in selected_endpoints:
-                logger.error(f"Generating chains for {endpoint} selected endpoints")
-                # 各エンドポイントに対してジェネレーターを初期化
-                generator = EndpointChainGenerator(project_id, [endpoint]) # ここで単一のエンドポイントをリストとして渡す
-                # テストチェーンを生成
-                generated_chain = generator.generate_chains() # generate_chainsはリストを返す
-                # 生成されたチェーンをリストに追加
-                all_generated_chains.extend(generated_chain) # extendでリストの要素を追加
-                logger.info(f"Generated {len(generated_chain)} chains for current endpoint. Total chains generated so far: {len(all_generated_chains)}")
             
-            # 生成されたチェーンの保存
-            chain_store = ChainStore()
-            chain_store.save_chains(project_id, all_generated_chains, overwrite=False)
+            # EndpointChainGeneratorを初期化
+            generator = EndpointChainGenerator(project_id, selected_endpoints, schema)
             
-            logger.info(f"Generated {len(all_generated_chains)} test chains for project {project_id}")
-            return {
-                "status": "success",
-                "message": "Test chains generated successfully",
-                "count": len(all_generated_chains)
-            }
+            # 各エンドポイントに対してテストチェーンを生成
+            generated_chains = generator.generate_chains()
+            
+            if generated_chains:
+                # 生成されたテストチェーンをデータベースに保存
+                chain_store = ChainStore()
+                # overwrite=Falseを指定して既存のチェーンを上書きしないようにする
+                chain_store.save_chains(project_id, generated_chains, overwrite=False)
+                generated_chains_count = len(generated_chains)
+                logger.info(f"Successfully generated and saved {generated_chains_count} test chains")
+
+        if generated_chains_count == 0:
+                return {"status": "warning", "message": "No test chains were generated for the selected endpoints."}
+
+        return {"status": "success", "message": f"Successfully generated and saved {generated_chains_count} test chains."}
+
     except Exception as e:
-        logger.error(f"Error generating test chains for project {project_id}: {e}")
+        logger.error(f"Error generating test chains for project {project_id}: {e}", exc_info=True)
+        # タスク全体の失敗時はロールバック
+        try:
+            session.rollback()
+            logger.info("Session rolled back successfully due to task error")
+        except Exception as rollback_error:
+            logger.error(f"Error rolling back session after task error: {rollback_error}")
         return {"status": "error", "message": str(e)}
