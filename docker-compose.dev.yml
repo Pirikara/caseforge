@@ -2,13 +2,15 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    image: backend:prod
+      dockerfile: Dockerfile.dev
+    image: backend:dev
     volumes:
+      - ./backend:/code
       - ./data:/app/data
     env_file: .env
     ports:
       - "8000:8000"
+      - "5678:5678"
     depends_on:
       - redis
       - db
@@ -16,10 +18,11 @@ services:
   worker:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    image: backend:prod
+      dockerfile: Dockerfile.dev
+    image: backend:dev
     command: ["celery", "-A", "app.workers", "worker", "--loglevel=info"]
     volumes:
+      - ./backend:/code
       - ./data:/app/data
     env_file: .env
     depends_on:
@@ -29,8 +32,11 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-    image: frontend:prod
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file: .env
     ports:
       - "3000:3000"
     depends_on:

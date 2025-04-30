@@ -6,5 +6,5 @@ OpenAPI スキーマから AI が依存関係を考慮したリクエストチ�
 ```bash
 git clone --template https://github.com/<you>/caseforge.git
 cp .env.example .env
-docker compose up --build
+docker compose -f docker-compose.dev.yml up --build
 ```

@@ -68,6 +68,17 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
     }
   };
 
+  // エンドポイントリストが更新された際に、選択状態を検証しクリーンアップ
+  React.useEffect(() => {
+    if (endpoints) {
+      // 現在選択されているエンドポイントIDのうち、
+      // 新しいエンドポイントリストに存在するものだけを残す
+      setSelectedEndpoints(prevSelected =>
+        prevSelected.filter(id => endpoints.some(endpoint => endpoint.id === id))
+      );
+    }
+  }, [endpoints]); // endpoints が変更されたときに実行
+
   // エンドポイント詳細表示時のデバッグログ
   React.useEffect(() => {
     if (selectedEndpoint) {
