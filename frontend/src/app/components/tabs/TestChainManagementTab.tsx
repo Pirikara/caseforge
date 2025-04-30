@@ -11,7 +11,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { FileTextIcon, CheckCircleIcon, XCircleIcon, XIcon } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { FileTextIcon, CheckCircleIcon, XCircleIcon, XIcon, Trash2Icon } from 'lucide-react';
 import { useTestChains, useTestChainDetail } from '@/hooks/useTestChains';
 import { toast } from 'sonner';
 import {
@@ -24,7 +35,7 @@ import {
 } from '@/components/ui/sheet';
 
 export const TestChainManagementTab = ({ projectId, project }: { projectId: string, project: any }) => {
-  const { testChains, isLoading: isLoadingTestChains } = useTestChains(projectId);
+  const { testChains, isLoading: isLoadingTestChains, deleteChain } = useTestChains(projectId);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [generationStatus, setGenerationStatus] = React.useState<'idle' | 'generating' | 'completed' | 'failed'>('idle');
   const [generatedCount, setGeneratedCount] = React.useState(0);
@@ -32,6 +43,9 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
   const [selectedChainId, setSelectedChainId] = React.useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const { testChain, isLoading: isLoadingChainDetail } = useTestChainDetail(projectId, selectedChainId);
+  
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [chainToDelete, setChainToDelete] = React.useState<string | null>(null);
 
   // テスト生成を開始
   const handleGenerateTests = async () => {
@@ -210,7 +224,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                           ))}
                         </div>
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell onClick={(e) => e.stopPropagation()} className="flex space-x-2">
                         <Button variant="outline" size="sm" onClick={() => {
                           // テスト実行タブに遷移し、このチェーンを選択状態にする
                           document.querySelector('[data-value="test-execution"]')?.dispatchEvent(
@@ -218,6 +232,16 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                           );
                         }}>
                           実行
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setChainToDelete(chain.id);
+                            setShowDeleteDialog(true);
+                          }}
+                        >
+                          <Trash2Icon className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -233,6 +257,58 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
           )}
         </CardContent>
       </Card>
+
+      {/* 削除確認ダイアログ */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>テストチェーンを削除しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              この操作は元に戻せません。テストチェーンに関連する全てのデータ（実行結果など）が完全に削除されます。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (chainToDelete) {
+                  await deleteChain(chainToDelete);
+                  setChainToDelete(null);
+                  setShowDeleteDialog(false);
+                }
+              }}
+            >
+              削除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 削除確認ダイアログ */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>テストチェーンを削除しますか？</AlertDialogTitle>
+            <AlertDialogDescription>
+              この操作は元に戻せません。テストチェーンに関連する全てのデータ（実行結果など）が完全に削除されます。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (chainToDelete) {
+                  await deleteChain(chainToDelete);
+                  setChainToDelete(null);
+                  setShowDeleteDialog(false);
+                }
+              }}
+            >
+              削除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* テストチェーン詳細表示用のサイドパネル */}
       <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>

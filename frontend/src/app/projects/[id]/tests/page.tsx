@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SearchIcon, PlayIcon, FileTextIcon } from 'lucide-react';
+import { SearchIcon, PlayIcon, FileTextIcon, Trash2Icon } from 'lucide-react';
 
 export default function TestCasesPage() {
   const params = useParams();
@@ -183,6 +183,7 @@ export default function TestCasesPage() {
                           setShowDeleteDialog(true);
                         }}
                       >
+                        <Trash2Icon className="h-4 w-4 mr-2" />
                         削除
                       </Button>
                     </TableCell>
