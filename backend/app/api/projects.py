@@ -217,7 +217,7 @@ async def delete_chain(
 
             chain_query = select(TestChain).where(
                 TestChain.chain_id == chain_id,
-                TestChain.project_id == (select(Project.id).where(Project.project_id == project_id).scalar_one_or_none())
+                TestChain.project_id == session.scalar(select(Project.id).where(Project.project_id == project_id))
             )
             db_chain = session.exec(chain_query).first()
 
