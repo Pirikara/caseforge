@@ -255,8 +255,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                   <TableRow>
                     <TableHead className="w-[50px]"></TableHead> {/* チェックボックス用の列を追加 */}
                     <TableHead className="w-[300px]">チェーン名</TableHead> {/* 幅を調整 */}
-                    <TableHead className="w-[150px]">メソッド順序</TableHead> {/* 幅を調整 */}
-                    <TableHead>パス</TableHead> {/* パス列を追加 */}
+                    <TableHead className="w-[200px]">対象エンドポイント</TableHead> {/* 対象エンドポイント列を追加 */}
                     <TableHead className="w-[100px]">ステップ数</TableHead> {/* 幅を調整 */}
                     <TableHead className="w-[100px]">アクション</TableHead>
                   </TableRow>
@@ -278,36 +277,23 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                         />
                       </TableCell>
                       <TableCell className="font-medium">{chain.name}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {chain.steps && chain.steps.map((step: any, index: number) => (
-                            <span key={index} className={`px-2 py-1 rounded text-xs font-medium ${
-                              step.method === 'GET' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                              step.method === 'POST' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                              step.method === 'PUT' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
-                              step.method === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+                      <TableCell className="font-mono text-sm"> {/* 対象エンドポイント列 */}
+                        {chain.last_step_method && chain.last_step_path && (
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              chain.last_step_method === 'GET' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                              chain.last_step_method === 'POST' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                              chain.last_step_method === 'PUT' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' :
+                              chain.last_step_method === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
                               'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
                             }`}>
-                              {step.method}
-                              {chain.steps && index < chain.steps.length - 1 && <span className="ml-1">→</span>}
+                              {chain.last_step_method}
                             </span>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm"> {/* パス列 */}
-                        {chain.steps && chain.steps.length > 0 && (
-                          <div className="flex flex-col gap-1">
-                            <span>{chain.steps[0].path}</span>
-                            {chain.steps.length > 1 && (
-                              <span className="text-muted-foreground">→ {chain.steps[chain.steps.length - 1].path}</span>
-                            )}
-                            {chain.steps.length > 2 && (
-                              <span className="text-muted-foreground text-xs">+ {chain.steps.length - 2} more steps</span>
-                            )}
+                            <span>{chain.last_step_path}</span>
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{chain.steps_count || chain.steps?.length || 0} ステップ</TableCell> {/* ステップ数 */}
+                      <TableCell>{chain.steps_count || 0} ステップ</TableCell> {/* ステップ数 */}
                       <TableCell onClick={(e) => e.stopPropagation()} className="flex space-x-2">
                         {/* 個別の実行ボタンは削除し、一括実行ボタンを使用 */}
                         <Button

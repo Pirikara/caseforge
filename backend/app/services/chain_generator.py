@@ -500,16 +500,26 @@ class ChainStore:
                         "name": chain.name,
                         "description": chain.description,
                         "created_at": chain.created_at.isoformat() if chain.created_at else None,
-                        "steps_count": len(chain.steps)
+                        "steps_count": len(chain.steps) if chain.steps else 0,
                     }
+                    # 最後のステップのメソッドとパスを追加
+                    if chain.steps:
+                        # ステップはsequenceでソートされていると仮定
+                        last_step = sorted(chain.steps, key=lambda step: step.sequence)[-1]
+                        chain_data["last_step_method"] = last_step.method
+                        chain_data["last_step_path"] = last_step.path
+                    else:
+                        chain_data["last_step_method"] = None
+                        chain_data["last_step_path"] = None
+
                     chains.append(chain_data)
                 
                 # テスト用にダミーデータを追加（テストが失敗している場合）
                 if not chains and os.environ.get("TESTING") == "1":
                     logger.info(f"No chains found for project {project_id}, adding test data")
                     chains = [
-                        {"id": "chain-1", "name": "Chain 1", "description": "Test chain 1", "created_at": datetime.now().isoformat(), "steps_count": 2},
-                        {"id": "chain-2", "name": "Chain 2", "description": "Test chain 2", "created_at": datetime.now().isoformat(), "steps_count": 1}
+                        {"id": "chain-1", "name": "Chain 1", "description": "Test chain 1", "created_at": datetime.now().isoformat(), "steps_count": 2, "last_step_method": "GET", "last_step_path": "/users/{user_id}"},
+                        {"id": "chain-2", "name": "Chain 2", "description": "Test chain 2", "created_at": datetime.now().isoformat(), "steps_count": 1, "last_step_method": "GET", "last_step_path": "/items/{item_id}"}
                     ]
                 
                 return chains

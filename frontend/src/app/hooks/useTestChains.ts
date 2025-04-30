@@ -28,6 +28,8 @@ export interface TestChain {
   tags?: string[];
   steps?: TestChainStep[];
   steps_count?: number;
+  last_step_method?: string; // 最後のステップのメソッドを追加
+  last_step_path?: string; // 最後のステップのパスを追加
   created_at: string;
   updated_at?: string;
 }

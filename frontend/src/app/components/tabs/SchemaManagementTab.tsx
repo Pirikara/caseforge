@@ -9,6 +9,7 @@ import { FileUpload } from '@/components/molecules/FileUpload';
 import { toast } from 'sonner';
 
 export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
+  const [activeTab, setActiveTab] = React.useState('view');
   const [isUploading, setIsUploading] = React.useState(false);
   const [schema, setSchema] = React.useState<{ filename: string; content: string; content_type: string } | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -154,7 +155,7 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="view">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="view">スキーマ表示</TabsTrigger>
           <TabsTrigger value="upload">スキーマアップロード</TabsTrigger>
@@ -176,12 +177,7 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
               ) : !schema ? (
                 <div className="py-8 text-center">
                   <p className="mb-4">スキーマがまだアップロードされていません。</p>
-                  <Button onClick={() => {
-                    const element = document.querySelector('[data-value="upload"]');
-                    if (element instanceof HTMLElement) {
-                      element.click();
-                    }
-                  }}>
+                  <Button onClick={() => setActiveTab('upload')}>
                     スキーマをアップロード
                   </Button>
                 </div>
