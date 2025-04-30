@@ -94,11 +94,21 @@ export default function ProjectsPage() {
                   <TableCell>
                     {formatDistanceToNow(new Date(project.created_at), { addSuffix: true, locale: ja })}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="flex items-center space-x-2">
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/projects/${project.id}`}>
                         詳細
                       </Link>
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setProjectToDelete(project.id);
+                        setShowDeleteDialog(true);
+                      }}
+                    >
+                      削除
                     </Button>
                   </TableCell>
                 </TableRow>

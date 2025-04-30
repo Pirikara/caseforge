@@ -17,8 +17,8 @@ class TestChain(TimestampModel, table=True):
     
     # リレーションシップ
     project: Project = Relationship(back_populates="test_chains")
-    steps: List["TestChainStep"] = Relationship(back_populates="chain")
-    runs: List["ChainRun"] = Relationship(back_populates="chain")
+    steps: List["TestChainStep"] = Relationship(back_populates="chain", sa_relationship_kwargs={"cascade": "delete, all"})
+    runs: List["ChainRun"] = Relationship(back_populates="chain", sa_relationship_kwargs={"cascade": "delete, all"})
     
     @property
     def tag_list(self) -> List[str]:

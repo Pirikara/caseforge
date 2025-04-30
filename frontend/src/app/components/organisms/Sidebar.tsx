@@ -25,38 +25,7 @@ interface TestRun {
   end_time?: string;
 }
 
-// プロジェクト一覧を取得するためのカスタムフック
-function useProjects() {
-  const [projects, setProjects] = React.useState<Project[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
-
-  React.useEffect(() => {
-    async function fetchProjects() {
-      try {
-        setIsLoading(true);
-        const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-        const response = await fetch(`${API}/api/projects/`);
-        
-        if (!response.ok) {
-          throw new Error(`API ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setProjects(data);
-      } catch (err) {
-        console.error('プロジェクト一覧の取得に失敗しました:', err);
-        setError(err instanceof Error ? err : new Error('不明なエラー'));
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    
-    fetchProjects();
-  }, []);
-  
-  return { projects, isLoading, error };
-}
+import { useProjects } from '@/hooks/useProjects';
 
 // 最近のテスト実行を取得するためのカスタムフック
 function useRecentTestRuns() {
