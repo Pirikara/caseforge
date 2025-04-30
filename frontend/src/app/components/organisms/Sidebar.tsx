@@ -39,11 +39,11 @@ function useRecentTestRuns() {
         setIsLoading(true);
         const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
         const response = await fetch(`${API}/api/projects/recent-runs?limit=5`);
-        
+
         if (!response.ok) {
           throw new Error(`API ${response.status}`);
         }
-        
+
         const data = await response.json();
         setRecentRuns(data);
       } catch (err) {
@@ -53,17 +53,17 @@ function useRecentTestRuns() {
         setIsLoading(false);
       }
     }
-    
+
     fetchRecentRuns();
   }, []);
-  
+
   return { recentRuns, isLoading, error };
 }
 
 export function Sidebar({ className }: { className?: string }) {
   const { projects, isLoading: projectsLoading, error: projectsError } = useProjects();
   const { recentRuns, isLoading: runsLoading, error: runsError } = useRecentTestRuns();
-  
+
   return (
     <aside className={`w-64 border-r border-border bg-background p-4 ${className}`}>
       <div className="flex items-center justify-between mb-4">
@@ -75,7 +75,7 @@ export function Sidebar({ className }: { className?: string }) {
           </Link>
         </Button>
       </div>
-      
+
       {projectsLoading ? (
         <div>読み込み中...</div>
       ) : projectsError ? (
@@ -85,7 +85,7 @@ export function Sidebar({ className }: { className?: string }) {
           {projects?.map((project) => (
             <li key={project.id}>
               <Link
-                href={`/projects/${project.id}`}
+                href={`/projects/${project.id}?tab=test-chains`}
                 className="block p-2 rounded hover:bg-accent hover:text-accent-foreground"
               >
                 {project.name}
@@ -94,7 +94,7 @@ export function Sidebar({ className }: { className?: string }) {
           ))}
         </ul>
       )}
-      
+
       <div className="mt-8">
         <h3 className="text-sm font-semibold mb-2">最近のテスト実行</h3>
         {runsLoading ? (

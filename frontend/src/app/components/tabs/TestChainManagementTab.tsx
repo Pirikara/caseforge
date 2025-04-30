@@ -1,8 +1,12 @@
 "use client"
 
 import * as React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -22,9 +26,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { FileTextIcon, CheckCircleIcon, XCircleIcon, XIcon, Trash2Icon } from 'lucide-react';
-import { useTestChains, useTestChainDetail } from '@/hooks/useTestChains';
-import { toast } from 'sonner';
 import {
   Sheet,
   SheetContent,
@@ -33,106 +34,168 @@ import {
   SheetTitle,
   SheetClose,
 } from '@/components/ui/sheet';
+import {
+  PlayIcon,
+  SearchIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
+  XIcon,
+  Trash2Icon
+} from 'lucide-react'; // FileTextIcon は不要になったので削除
+import { useTestChains, useTestChainDetail } from '@/hooks/useTestChains';
+import { useChainRuns } from '@/hooks/useTestRuns';
+import { formatDistanceToNow } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 export const TestChainManagementTab = ({ projectId, project }: { projectId: string, project: any }) => {
+  const router = useRouter();
   const { testChains, isLoading: isLoadingTestChains, deleteChain } = useTestChains(projectId);
-  const [isGenerating, setIsGenerating] = React.useState(false);
-  const [generationStatus, setGenerationStatus] = React.useState<'idle' | 'generating' | 'completed' | 'failed'>('idle');
-  const [generatedCount, setGeneratedCount] = React.useState(0);
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const { chainRuns, isLoading: isLoadingChainRuns } = useChainRuns(projectId);
+
+  // テスト生成関連のstateは削除
+  // const [isGenerating, setIsGenerating] = React.useState(false);
+  // const [generationStatus, setGenerationStatus] = React.useState<'idle' | 'generating' | 'completed' | 'failed'>('idle');
+  // const [generatedCount, setGeneratedCount] = React.useState(0);
+  // const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  // テストチェーン詳細関連のstate
   const [selectedChainId, setSelectedChainId] = React.useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const { testChain, isLoading: isLoadingChainDetail } = useTestChainDetail(projectId, selectedChainId);
-  
+
+  // 削除確認ダイアログ関連のstate
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [chainToDelete, setChainToDelete] = React.useState<string | null>(null);
 
-  // テスト生成を開始
-  const handleGenerateTests = async () => {
+  // テスト実行関連のstate
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedChains, setSelectedChains] = React.useState<string[]>([]);
+  const [isRunning, setIsRunning] = React.useState(false);
+
+  // 検索フィルタリング（メモ化）
+  const filteredChains = React.useMemo(() => {
+    if (!testChains) return [];
+
+    if (!searchQuery) return testChains;
+
+    const query = searchQuery.toLowerCase();
+    return testChains.filter(chain =>
+      chain.name.toLowerCase().includes(query) ||
+      chain.description?.toLowerCase().includes(query) ||
+      chain.steps?.some((step: any) =>
+        step.path.toLowerCase().includes(query) ||
+        step.method.toLowerCase().includes(query)
+      )
+    );
+  }, [testChains, searchQuery]);
+
+  // すべて選択/解除
+  const toggleSelectAll = () => {
+    if (selectedChains.length === filteredChains.length) {
+      setSelectedChains([]);
+    } else {
+      setSelectedChains(filteredChains.map(tc => tc.id));
+    }
+  };
+
+  // 個別のテストチェーン選択/解除
+  const toggleTestChain = (id: string) => {
+    if (selectedChains.includes(id)) {
+      setSelectedChains(selectedChains.filter(tcId => tcId !== id));
+    } else {
+      setSelectedChains([...selectedChains, id]);
+    }
+  };
+
+  // テスト生成を開始 (削除)
+  // const handleGenerateTests = async () => { ... };
+
+  // テスト実行
+  const handleRunTests = async () => {
+    if (selectedChains.length === 0) {
+      toast.error('テストチェーンが選択されていません');
+      return;
+    }
+
     try {
-      setIsGenerating(true);
-      setGenerationStatus('generating');
-      setErrorMessage(null);
-      
-      console.log(`Sending test generation request for project: ${projectId}`);
+      setIsRunning(true);
+
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-      const url = `${API}/api/projects/${projectId}/generate-tests`;
-      console.log(`API URL: ${url}`);
-      
-      const response = await fetch(url, {
+      const response = await fetch(`${API}/api/projects/${projectId}/run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          chain_ids: selectedChains,
+        }),
       });
-      
-      console.log(`Response status: ${response.status}`);
-      const responseText = await response.text();
-      console.log(`Response text: ${responseText}`);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Failed to parse response as JSON:', e);
-        throw new Error(`Invalid response format: ${responseText}`);
-      }
-      
+
       if (!response.ok) {
-        const errorMsg = data?.detail || 'テスト生成に失敗しました';
-        console.error('API error:', errorMsg);
-        setErrorMessage(errorMsg);
-        throw new Error(errorMsg);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'テスト実行に失敗しました');
       }
-      
-      if (data.status === 'error') {
-        const errorMsg = data.message || 'テスト生成に失敗しました';
-        console.error('Task error:', errorMsg);
-        setErrorMessage(errorMsg);
-        throw new Error(errorMsg);
-      }
-      
-      console.log('Test generation task started successfully:', data);
-      
-      // 非同期タスクの場合は、ここでは完了とみなさない
-      // 実際のアプリケーションでは、WebSocketやポーリングで状態を確認する必要がある
-      // ここではデモのために、タスクが開始されたら成功とみなす
-      setGenerationStatus('completed');
-      setGeneratedCount(data.count || 0);
-      
-      toast.success('テスト生成タスクが開始されました', {
-        description: 'バックグラウンドでテスト生成が実行されています。しばらくしてからテストケース一覧を確認してください。',
+
+      const data = await response.json();
+
+      toast.success('テスト実行が開始されました', {
+        description: `実行ID: ${data.run_id}`,
       });
+
+      // テスト実行詳細ページにリダイレクト
+      router.push(`/projects/${projectId}/runs/${data.run_id}`);
     } catch (error) {
-      console.error('テスト生成エラー:', error);
-      setGenerationStatus('failed');
-      
+      console.error('テスト実行エラー:', error);
+
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });
     } finally {
-      setIsGenerating(false);
+      setIsRunning(false);
     }
   };
+
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>テストチェーン一覧</CardTitle>
+          <CardTitle>テストチェーン管理・実行</CardTitle> {/* タイトルを変更 */}
           <CardDescription>
-            生成されたテストチェーンの一覧です。
+            生成されたテストチェーンの一覧です。実行したいチェーンを選択して実行ボタンを押してください。
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex justify-end mb-4">
-            <Button onClick={handleGenerateTests} disabled={isGenerating}>
+        <CardContent className="space-y-4"> {/* space-y-4を追加 */}
+          <div className="flex flex-col md:flex-row gap-4 items-end"> {/* 検索バーと生成ボタンを横並びに */}
+            <div className="relative flex-1"> {/* 検索バー */}
+              <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="テストチェーンを検索..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2"> {/* すべて選択チェックボックス */}
+              <Checkbox
+                id="select-all"
+                checked={filteredChains.length > 0 && selectedChains.length === filteredChains.length}
+                onCheckedChange={toggleSelectAll}
+              />
+              <label htmlFor="select-all" className="text-sm">すべて選択</label>
+            </div>
+            {/* テストチェーン生成ボタンは削除 */}
+            {/* <Button onClick={handleGenerateTests} disabled={isGenerating}>
               <FileTextIcon className="h-4 w-4 mr-2" />
               {isGenerating ? 'テスト生成中...' : 'テストチェーン生成'}
-            </Button>
+            </Button> */}
           </div>
 
-          {generationStatus === 'generating' && (
+          {/* テスト生成ステータス表示は削除 */}
+          {/* {generationStatus === 'generating' && (
             <div className="text-center p-6 space-y-4 mb-4 bg-muted rounded-lg">
               <div className="flex justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -144,9 +207,9 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                 この処理には数分かかる場合があります。
               </p>
             </div>
-          )}
+          )} */}
 
-          {generationStatus === 'completed' && (
+          {/* {generationStatus === 'completed' && (
             <div className="text-center p-6 space-y-4 mb-4 bg-green-50 dark:bg-green-950 rounded-lg">
               <div className="flex justify-center">
                 <CheckCircleIcon className="h-12 w-12 text-green-500" />
@@ -156,9 +219,9 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                 {generatedCount}件のテストチェーンが生成されました。
               </p>
             </div>
-          )}
+          )} */}
 
-          {generationStatus === 'failed' && (
+          {/* {generationStatus === 'failed' && (
             <div className="text-center p-6 space-y-4 mb-4 bg-red-50 dark:bg-red-950 rounded-lg">
               <div className="flex justify-center">
                 <XCircleIcon className="h-12 w-12 text-red-500" />
@@ -181,23 +244,25 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                 </Button>
               </div>
             </div>
-          )}
-          
+          )} */}
+
           {isLoadingTestChains ? (
             <div className="text-center py-6 md:py-8">読み込み中...</div>
-          ) : testChains && testChains.length > 0 ? (
+          ) : filteredChains && filteredChains.length > 0 ? (
             <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>チェーン名</TableHead>
-                    <TableHead>ステップ数</TableHead>
-                    <TableHead>メソッド順序</TableHead>
+                    <TableHead className="w-[50px]"></TableHead> {/* チェックボックス用の列を追加 */}
+                    <TableHead className="w-[300px]">チェーン名</TableHead> {/* 幅を調整 */}
+                    <TableHead className="w-[150px]">メソッド順序</TableHead> {/* 幅を調整 */}
+                    <TableHead>パス</TableHead> {/* パス列を追加 */}
+                    <TableHead className="w-[100px]">ステップ数</TableHead> {/* 幅を調整 */}
                     <TableHead className="w-[100px]">アクション</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {testChains.map((chain) => (
+                  {filteredChains.map((chain) => (
                     <TableRow
                       key={chain.id}
                       className="cursor-pointer hover:bg-muted/50"
@@ -206,8 +271,13 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                         setIsDetailOpen(true);
                       }}
                     >
+                      <TableCell onClick={(e) => e.stopPropagation()}> {/* チェックボックス列 */}
+                        <Checkbox
+                          checked={selectedChains.includes(chain.id)}
+                          onCheckedChange={() => toggleTestChain(chain.id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{chain.name}</TableCell>
-                      <TableCell>{chain.steps_count}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           {chain.steps && chain.steps.map((step: any, index: number) => (
@@ -224,15 +294,22 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                           ))}
                         </div>
                       </TableCell>
+                      <TableCell className="font-mono text-sm"> {/* パス列 */}
+                        {chain.steps && chain.steps.length > 0 && (
+                          <div className="flex flex-col gap-1">
+                            <span>{chain.steps[0].path}</span>
+                            {chain.steps.length > 1 && (
+                              <span className="text-muted-foreground">→ {chain.steps[chain.steps.length - 1].path}</span>
+                            )}
+                            {chain.steps.length > 2 && (
+                              <span className="text-muted-foreground text-xs">+ {chain.steps.length - 2} more steps</span>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>{chain.steps_count || chain.steps?.length || 0} ステップ</TableCell> {/* ステップ数 */}
                       <TableCell onClick={(e) => e.stopPropagation()} className="flex space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => {
-                          // テスト実行タブに遷移し、このチェーンを選択状態にする
-                          document.querySelector('[data-value="test-execution"]')?.dispatchEvent(
-                            new MouseEvent('click', { bubbles: true })
-                          );
-                        }}>
-                          実行
-                        </Button>
+                        {/* 個別の実行ボタンは削除し、一括実行ボタンを使用 */}
                         <Button
                           variant="destructive"
                           size="sm"
@@ -252,37 +329,79 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
           ) : (
             <div className="text-center py-8 border rounded-lg bg-background">
               <p className="text-muted-foreground">テストチェーンがありません</p>
-              <p className="mt-2">テストチェーン生成を実行してください</p>
+              {searchQuery ? (
+                <p className="mt-2">検索条件を変更してください</p>
+              ) : (
+                <p className="mt-2">テストチェーン生成はエンドポイント管理タブから実行してください。</p>
+              )}
+            </div>
+          )}
+
+          {/* 選択したチェーンの実行ボタン */}
+          {filteredChains.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                onClick={handleRunTests}
+                disabled={isRunning || selectedChains.length === 0}
+              >
+                <PlayIcon className="h-4 w-4 mr-2" />
+                {isRunning ? 'テスト実行中...' : `選択したチェーンを実行 (${selectedChains.length}件)`}
+              </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* 削除確認ダイアログ */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>テストチェーンを削除しますか？</AlertDialogTitle>
-            <AlertDialogDescription>
-              この操作は元に戻せません。テストチェーンに関連する全てのデータ（実行結果など）が完全に削除されます。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                if (chainToDelete) {
-                  await deleteChain(chainToDelete);
-                  setChainToDelete(null);
-                  setShowDeleteDialog(false);
-                }
-              }}
-            >
-              削除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* 最近のテスト実行 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>最近のテスト実行</CardTitle>
+          <CardDescription>
+            <Link href={`/projects/${projectId}/runs`} className="text-sm hover:underline">
+              すべて表示
+            </Link>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingChainRuns ? (
+            <div className="text-center py-4">読み込み中...</div>
+          ) : chainRuns && chainRuns.length > 0 ? (
+            <div className="space-y-2">
+              {chainRuns.slice(0, 5).map((run) => (
+                <Link
+                  key={run.id}
+                  href={`/projects/${projectId}/runs/${run.run_id}`}
+                  className="flex items-center justify-between p-2 rounded-md hover:bg-accent"
+                >
+                  <div className="flex items-center gap-2">
+                    {run.status === 'completed' ? (
+                      <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                    ) : run.status === 'failed' ? (
+                      <XCircleIcon className="h-5 w-5 text-red-500" />
+                    ) : (
+                      <ClockIcon className="h-5 w-5 text-yellow-500" />
+                    )}
+                    <div>
+                      <div className="font-medium">実行 #{run.run_id}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(run.start_time), { addSuffix: true, locale: ja })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-sm">
+                    {run.status === 'completed' ? '完了' : run.status === 'failed' ? '失敗' : '実行中'}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              テスト実行履歴がありません
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
 
       {/* 削除確認ダイアログ */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -359,7 +478,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
                         </div>
                         <span className="text-xs text-muted-foreground">ステップ {index + 1}</span>
                       </div>
-                      
+
                       {step.name && (
                         <p className="text-sm font-medium mb-2">{step.name}</p>
                       )}
