@@ -4,7 +4,7 @@ import time
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
-from chromadb.utils.embedding_functions import EmbeddingFunction
+from langchain_core.embeddings import Embeddings
 from app.config import settings
 from app.logging_config import logger
 
@@ -35,7 +35,7 @@ class OpenAPILoader:
             logger.error(f"Error loading OpenAPI schema from {self.path}: {e}")
             raise
 
-class EmbeddingFunctionForCaseforge(EmbeddingFunction):
+class EmbeddingFunctionForCaseforge(Embeddings):
     """
     DBで使用するための埋め込み関数
     """
@@ -46,7 +46,6 @@ class EmbeddingFunctionForCaseforge(EmbeddingFunction):
         """
         try:
             logger.info("Using simplified embedding function instead of HuggingFace model")
-            # HuggingFaceモデルを使用しない簡易的な実装
             self.embedder = None
             logger.info("Successfully initialized simplified embedding function")
         except Exception as e:
@@ -77,22 +76,16 @@ class EmbeddingFunctionForCaseforge(EmbeddingFunction):
         """
         try:
             logger.info(f"Creating simplified embeddings for {len(input)} documents")
-            # 簡易的な埋め込み: 各テキストの長さに基づいて固定次元のベクトルを生成
-            # 実際の意味的な埋め込みではないが、FAISSの動作テスト用には十分
             import hashlib
             
             result = []
             for text in input:
-                # テキストのハッシュ値を計算し、それを浮動小数点数のリストに変換
                 hash_obj = hashlib.md5(text.encode())
                 hash_bytes = hash_obj.digest()
                 
-                # 384次元のベクトルを生成（HuggingFaceモデルと同じ次元数）
                 vector = []
                 for i in range(384):
-                    # ハッシュバイトを循環させて使用
                     byte_val = hash_bytes[i % len(hash_bytes)]
-                    # -1.0から1.0の範囲に正規化
                     vector.append((byte_val / 128.0) - 1.0)
                 
                 result.append(vector)
@@ -101,7 +94,6 @@ class EmbeddingFunctionForCaseforge(EmbeddingFunction):
             return result
         except Exception as e:
             logger.error(f"Error creating simplified embeddings: {e}", exc_info=True)
-            # エラーが発生した場合は、ダミーのベクトルを返す
             return [[0.0] * 384 for _ in range(len(input))]
     
     def embed_query(self, input: str) -> List[float]:
@@ -140,7 +132,9 @@ def index_schema(project_id: str, path: str) -> None:
         
         # 2. 埋め込み関数の初期化
         logger.info("Step 2: Initializing embedding function")
-        embedding_function = EmbeddingFunctionForCaseforge()
+        embedding_function = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
         logger.info("Successfully initialized embedding function")
         
         # 3. FAISSへのドキュメント埋め込み
