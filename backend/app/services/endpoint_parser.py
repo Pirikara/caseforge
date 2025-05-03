@@ -3,7 +3,6 @@ import yaml
 import json
 import re
 import copy
-from app.models import Endpoint
 from app.logging_config import logger
 
 class EndpointParser:

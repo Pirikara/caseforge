@@ -126,7 +126,7 @@ def test_chain_workflow(monkeypatch, mock_faiss, mock_llm, session):
     response = client.post(f"/api/projects/{project_id}/generate-tests")
     assert response.status_code == 200
     assert "task_id" in response.json()
-    assert response.json()["message"] == "Test chain generation started"
+    assert response.json()["message"] == "Test chain generation (full_schema) started"
     
     # 4. チェーン一覧取得
     response = client.get(f"/api/projects/{project_id}/chains")

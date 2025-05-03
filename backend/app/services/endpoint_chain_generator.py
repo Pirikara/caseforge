@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict
 import json
 import os
 from app.models import Endpoint

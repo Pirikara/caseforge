@@ -1,6 +1,5 @@
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Tuple, Optional
 import re
-import logging
 from app.logging_config import logger
 
 class OpenAPIAnalyzer:

@@ -1,12 +1,9 @@
 import warnings
 import functools
 from app.workers import celery_app
-from app.services.teststore import save_testcases
 from app.services.chain_generator import DependencyAwareRAG, ChainStore
 from app.services.schema import get_schema_content
 from app.services.endpoint_chain_generator import EndpointChainGenerator
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 import json
 import os
 import yaml
@@ -14,7 +11,7 @@ import logging
 from app.config import settings
 from app.models import Endpoint, Project
 from sqlmodel import select, Session
-from app.models import get_session, engine
+from app.models import engine
 from typing import List, Dict
 
 logger = logging.getLogger(__name__)

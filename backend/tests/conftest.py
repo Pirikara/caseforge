@@ -1,7 +1,6 @@
 import pytest
 import os
 from sqlmodel import SQLModel, create_engine, Session
-from app.config import settings
 
 # テスト環境であることを示す環境変数を設定
 os.environ["TESTING"] = "1"

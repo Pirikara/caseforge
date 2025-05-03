@@ -1,5 +1,4 @@
 from sqlmodel import Field, SQLModel, create_engine, Session
-from typing import Optional, List
 from datetime import datetime, UTC
 import os
 from app.config import settings

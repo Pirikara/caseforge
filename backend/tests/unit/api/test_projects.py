@@ -66,7 +66,7 @@ def test_generate_tests():
         
         # 検証
         assert response.status_code == 200
-        assert response.json()["message"] == "Test chain generation started"
+        assert response.json()["message"] == "Test chain generation (full_schema) started"
         assert response.json()["task_id"] == "task-123"
 
 def test_get_chains():

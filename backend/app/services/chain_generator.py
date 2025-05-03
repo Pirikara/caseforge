@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Optional
 import json
 import os
 import uuid
@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 from app.services.schema_analyzer import OpenAPIAnalyzer
 from app.config import settings
 from app.logging_config import logger
-from app.models import TestChain, TestChainStep, get_session, Project, engine
+from app.models import TestChain, TestChainStep, Project, engine
 from sqlmodel import select, Session
 
 class DependencyAwareRAG:

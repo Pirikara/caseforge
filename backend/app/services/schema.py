@@ -1,9 +1,8 @@
 from app.config import settings
 from app.logging_config import logger
-from app.models import get_session, Project, Schema, engine
+from app.models import Project, Schema, engine
 from app.services.rag import index_schema
 from sqlmodel import Session, select
-from fastapi import Depends
 from pathlib import Path
 import os
 from typing import Optional

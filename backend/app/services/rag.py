@@ -1,6 +1,5 @@
-from typing import List, Dict, Any, Optional
+from typing import List
 import os
-import time
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings

@@ -1,6 +1,5 @@
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, Relationship
 from typing import Optional, List, ForwardRef
-from datetime import datetime
 from .base import TimestampModel
 
 # 循環インポートを避けるために ForwardRef を使用

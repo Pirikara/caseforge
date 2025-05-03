@@ -1,6 +1,4 @@
 import pytest
-import yaml
-import json
 from app.services.endpoint_parser import EndpointParser
 
 # ダミーのプロジェクトID

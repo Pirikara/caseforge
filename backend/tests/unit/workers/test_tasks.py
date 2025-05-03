@@ -1,8 +1,6 @@
 import pytest
 from app.workers.tasks import generate_tests_task, generate_chains_task
 from unittest.mock import patch, MagicMock
-import json
-import yaml
 
 def test_generate_tests_task(mock_faiss, mock_llm, monkeypatch):
     # generate_chains_taskをモック化

@@ -1,6 +1,5 @@
-from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, Dict, List
-from datetime import datetime
+from sqlmodel import Field, Relationship
+from typing import Optional, Dict
 import json
 from uuid import uuid4
 from .base import TimestampModel

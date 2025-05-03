@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.api import projects
@@ -16,12 +16,6 @@ async def lifespan(app: FastAPI):
     yield
     # アプリケーション終了時
     logger.info("Shutting down...")
-
-# デバッグモードの場合のみdebugpyを有効化
-if settings.DEBUG:
-    import debugpy
-    debugpy.listen(("0.0.0.0", settings.DEBUG_PORT))
-    logger.info(f"⚡ debugpy waiting for attach on port {settings.DEBUG_PORT}...")
 
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 

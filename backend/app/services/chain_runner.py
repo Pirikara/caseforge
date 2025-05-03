@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import jsonpath_ng
 from app.config import settings
 from app.logging_config import logger
-from app.models import get_session, Project, TestChain, ChainRun, StepResult, TestChainStep, engine
+from app.models import Project, TestChain, ChainRun, StepResult, TestChainStep, engine
 from sqlmodel import Session, select
 from app.services.chain_generator import ChainStore
 

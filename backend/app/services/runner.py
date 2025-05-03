@@ -1,7 +1,6 @@
 import httpx
 import json
 import os
-import logging
 from datetime import datetime, timezone
 from app.services.teststore import list_testcases
 from app.config import settings

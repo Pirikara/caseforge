@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends, Body
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body
 from app.services.schema import save_and_index_schema, get_schema_content
 from app.services.runner import get_recent_runs
 from app.services.chain_generator import ChainStore
@@ -12,7 +12,7 @@ from app.logging_config import logger
 from app.schemas.project import ProjectCreate
 from app.models import Endpoint, Project, engine
 from sqlmodel import select, Session
-from typing import List, Optional # Optional をインポート
+from typing import List, Optional
 import json
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])

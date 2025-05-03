@@ -1,4 +1,4 @@
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, Relationship
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import json
