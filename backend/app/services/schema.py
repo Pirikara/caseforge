@@ -64,10 +64,10 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
             index_schema(project_id, save_path)
             logger.info(f"Successfully indexed schema for project {project_id}")
         except Exception as index_error:
-            # インデックス作成に失敗しても、スキーマの保存は成功しているので、エラーを記録するだけにする
+            # インデックス作成に失敗した場合はエラーとして処理を停止する
             logger.error(f"Error indexing schema for project {project_id}: {index_error}", exc_info=True)
-            logger.warning("Schema indexing failed, but schema was saved successfully. Continuing with other operations.")
-            # インデックス作成に失敗しても、処理は続行する
+            logger.error("Schema indexing failed. Stopping further operations.")
+            raise index_error  # 例外を再発生させて処理を停止する
         
         return {"message": "Schema uploaded and indexed successfully."}
     except Exception as e:
