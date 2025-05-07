@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useProjects } from '@/hooks/useProjects';
 import { useTestRuns } from '@/hooks/useTestRuns';
 import { useTestCases } from '@/hooks/useTestCases';
+import { useTestChain } from '@/hooks/useTestChain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -46,6 +47,15 @@ export default function TestRunDetailPage() {
   const { testRuns, isLoading: isLoadingRuns } = useTestRuns(projectId);
   const { testCases, isLoading: isLoadingTestCases } = useTestCases(projectId);
   
+  const testRun = React.useMemo(() => {
+    if (!testRuns) return null;
+    return testRuns.find(run => run.run_id === runId);
+  }, [testRuns, runId]);
+
+  // テストチェーンの詳細を取得
+  const chainId = testRun?.chain_id;
+  const { testChain, isLoading: isLoadingChain } = useTestChain(projectId, chainId);
+
   const [searchQuery, setSearchQuery] = React.useState('');
   
   const project = React.useMemo(() => {
@@ -53,43 +63,39 @@ export default function TestRunDetailPage() {
     return projects.find(p => p.id === projectId);
   }, [projects, projectId]);
   
-  const testRun = React.useMemo(() => {
-    if (!testRuns) return null;
-    return testRuns.find(run => run.run_id === runId);
-  }, [testRuns, runId]);
-  
   // 検索フィルタリング
   const filteredResults = React.useMemo(() => {
-    if (!testRun?.results) return [];
+    if (!testRun?.step_results || !testChain?.steps) return [];
     
-    return testRun.results.filter(result => {
-      // テストケースを取得
-      const testCase = testCases?.find(tc => tc.id === result.test_case_id);
-      if (!testCase) return false;
+    return testRun.step_results.filter(result => {
+      // StepResult の step_id に対応する TestChainStep を取得
+      const testChainStep = testChain.steps?.find(step => step.id === result.step_id);
+      if (!testChainStep) return false;
       
       // 検索フィルター
+      const lowerCaseQuery = searchQuery.toLowerCase();
       return (
-        testCase.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        testCase.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        testCase.method.toLowerCase().includes(searchQuery.toLowerCase())
+        (testChainStep.name?.toLowerCase().includes(lowerCaseQuery)) ||
+        (testChainStep.path.toLowerCase().includes(lowerCaseQuery)) ||
+        (testChainStep.method.toLowerCase().includes(lowerCaseQuery))
       );
     });
-  }, [testRun?.results, testCases, searchQuery]);
+  }, [testRun?.step_results, testChain?.steps, searchQuery]);
   
   // 円グラフデータの作成
   const pieChartData = React.useMemo(() => {
-    if (!testRun?.results) return [];
+    if (!testRun?.step_results) return [];
     
-    const passedCount = testRun.results.filter(r => r.passed).length;
-    const failedCount = testRun.results.length - passedCount;
+    const passedCount = testRun.step_results.filter(r => r.passed).length;
+    const failedCount = testRun.step_results.length - passedCount;
     
     return [
       { name: '成功', value: passedCount, color: '#10b981' },
       { name: '失敗', value: failedCount, color: '#ef4444' },
     ].filter(item => item.value > 0);
-  }, [testRun?.results]);
+  }, [testRun?.step_results]);
   
-  if (isLoadingRuns || isLoadingTestCases) {
+  if (isLoadingRuns || isLoadingTestCases || isLoadingChain) {
     return <div className="text-center py-8">読み込み中...</div>;
   }
   
@@ -190,14 +196,14 @@ export default function TestRunDetailPage() {
               )}
               <div className="flex justify-between">
                 <dt className="font-medium">テスト数</dt>
-                <dd className="text-muted-foreground">{testRun.results?.length || 0}</dd>
+                <dd className="text-muted-foreground">{testRun.step_results?.length || 0}</dd>
               </div>
               {testRun.status === 'completed' && (
                 <div className="flex justify-between">
                   <dt className="font-medium">成功率</dt>
                   <dd className="text-muted-foreground">
-                    {testRun.results && testRun.results.length > 0 ? (
-                      `${Math.round((testRun.results.filter(r => r.passed).length / testRun.results.length) * 100)}%`
+                    {testRun.step_results && testRun.step_results.length > 0 ? (
+                      `${Math.round((testRun.step_results.filter(r => r.passed).length / testRun.step_results.length) * 100)}%`
                     ) : '0%'}
                   </dd>
                 </div>
@@ -269,9 +275,9 @@ export default function TestRunDetailPage() {
               </TableHeader>
               <TableBody>
                 {filteredResults.map((result) => {
-                  // テストケースを取得
-                  const testCase = testCases?.find(tc => tc.id === result.test_case_id);
-                  if (!testCase) return null;
+                  // StepResult の step_id に対応する TestChainStep を取得
+                  const testChainStep = testChain?.steps?.find(step => step.id === result.step_id);
+                  if (!testChainStep) return null; // ステップ情報が見つからない場合はスキップ
                   
                   return (
                     <TableRow key={result.id}>
@@ -284,20 +290,20 @@ export default function TestRunDetailPage() {
                       </TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          testCase.method === 'GET' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' :
-                          testCase.method === 'POST' ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200' :
-                          testCase.method === 'PUT' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200' :
-                          testCase.method === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' :
+                          testChainStep.method === 'GET' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' :
+                          testChainStep.method === 'POST' ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200' :
+                          testChainStep.method === 'PUT' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200' :
+                          testChainStep.method === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' :
                           'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200'
                         }`}>
-                          {testCase.method}
+                          {testChainStep.method}
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         <div className="flex flex-col">
-                          <span>{testCase.path}</span>
+                          <span>{testChainStep.path}</span>
                           <span className="text-xs text-muted-foreground truncate max-w-[300px]">
-                            {testCase.title}
+                            {testChainStep.name || '名前なし'} {/* TestChainStep の名前を表示 */}
                           </span>
                         </div>
                       </TableCell>
@@ -307,7 +313,7 @@ export default function TestRunDetailPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {result.response_time.toFixed(2)} ms
+                        {result.response_time !== undefined ? `${result.response_time.toFixed(2)} ms` : 'N/A'} {/* undefined の場合のハンドリング */}
                       </TableCell>
                       <TableCell>
                         <Button
@@ -346,16 +352,16 @@ export default function TestRunDetailPage() {
                             
                             <div className="grid gap-4">
                               <div className="flex justify-between">
-                                <span className="font-medium">テストケース</span>
-                                <span>{testCase.title}</span>
+                                <span className="font-medium">ステップ名</span> {/* テストケース名からステップ名に変更 */}
+                                <span>{testChainStep.name || '名前なし'}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="font-medium">メソッド</span>
-                                <span>{testCase.method}</span>
+                                <span>{testChainStep.method}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="font-medium">パス</span>
-                                <span className="font-mono">{testCase.path}</span>
+                                <span className="font-mono">{testChainStep.path}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="font-medium">結果</span>
@@ -369,7 +375,7 @@ export default function TestRunDetailPage() {
                               </div>
                               <div className="flex justify-between">
                                 <span className="font-medium">レスポンス時間</span>
-                                <span>{result.response_time.toFixed(2)} ms</span>
+                                <span>{result.response_time !== undefined ? `${result.response_time.toFixed(2)} ms` : 'N/A'}</span> {/* undefined の場合のハンドリング */}
                               </div>
                             </div>
                             
