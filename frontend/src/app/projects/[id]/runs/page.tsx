@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useProjects } from '@/hooks/useProjects';
 import { useTestRuns } from '@/hooks/useTestRuns';
+import { StepResult } from '@/hooks/useTestRuns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -34,6 +35,16 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
+import {
+  ResponsiveContainer,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  Bar
+} from 'recharts';
 
 // グラフコンポーネントを動的にインポート（クライアントサイドのみ）
 const TestRunChart = dynamic(
@@ -91,8 +102,8 @@ export default function TestRunsPage() {
       .reverse();
     
     return recentRuns.map(run => {
-      const totalTests = run.results?.length || 0;
-      const passedTests = run.results?.filter(r => r.passed)?.length || 0;
+      const totalTests = run.step_results?.length || 0;
+      const passedTests = run.step_results?.filter((r: StepResult) => r.passed)?.length || 0;
       const failedTests = totalTests - passedTests;
       
       return {
@@ -206,8 +217,8 @@ export default function TestRunsPage() {
             </TableHeader>
             <TableBody>
               {filteredTestRuns.map((run) => {
-                const totalTests = run.results?.length || 0;
-                const passedTests = run.results?.filter(r => r.passed)?.length || 0;
+                const totalTests = run.step_results?.length || 0;
+                const passedTests = run.step_results?.filter((r: StepResult) => r.passed)?.length || 0;
                 const successRate = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
                 
                 return (

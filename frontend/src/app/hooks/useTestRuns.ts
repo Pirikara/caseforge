@@ -25,6 +25,32 @@ export interface StepResult {
   extracted_values?: Record<string, any>;
 }
 
+export interface TestChainStep {
+  id: string;
+  chain_id: string; // バックエンドはintだが、フロントエンドではstringとして扱う可能性
+  sequence: number;
+  name?: string;
+  method: string;
+  path: string;
+  request_headers?: Record<string, any>;
+  request_body?: any;
+  request_params?: Record<string, any>;
+  expected_status?: number;
+  extract_rules?: Record<string, string>;
+  // StepResult とのリレーションシップはここでは不要
+}
+
+export interface TestChain {
+  id: string; // バックエンドはintだが、フロントエンドではstringとして扱う可能性
+  chain_id: string;
+  project_id: string; // バックエンドはintだが、フロントエンドではstringとして扱う可能性
+  name: string;
+  description?: string;
+  tags?: string;
+  steps?: TestChainStep[]; // TestChainStep のリスト
+  // ChainRun とのリレーションシップはここでは不要
+}
+
 export function useChainRuns(projectId: string) {
   const { data, error, isLoading, mutate } = useSWR<ChainRun[]>(
     projectId ? `/api/projects/${projectId}/runs` : null,

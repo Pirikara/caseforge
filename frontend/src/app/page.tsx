@@ -9,26 +9,15 @@ import { StatsCard } from './components/molecules/StatsCard';
 import { RecentTestRuns } from './components/molecules/RecentTestRuns';
 import { QuickActions } from './components/molecules/QuickActions';
 
+// useChainRuns フックと ChainRun 型をインポート
+import { useChainRuns, ChainRun } from '@/hooks/useTestRuns';
+
 // 型定義
 interface Project {
   id: string;
   name: string;
   description?: string;
   created_at: string;
-}
-
-interface TestRun {
-  run_id: string;
-  project_id: string;
-  status: string;
-  start_time: string;
-  end_time?: string;
-}
-
-interface RunStats {
-  totalTests: number;
-  totalRuns: number;
-  successRate: number;
 }
 
 // プロジェクト一覧を取得するカスタムフック
@@ -64,51 +53,6 @@ function useProjects() {
   return { projects, isLoading, error };
 }
 
-// 最近のテスト実行を取得するカスタムフック
-function useRecentTestRuns() {
-  const [recentRuns, setRecentRuns] = React.useState<TestRun[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
-  const [stats, setStats] = React.useState({
-    totalTests: 0,
-    totalRuns: 0,
-    successRate: 0,
-  });
-
-  React.useEffect(() => {
-    async function fetchRecentRuns() {
-      try {
-        setIsLoading(true);
-        const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-        const response = await fetch(`${API}/api/projects/recent-runs?limit=5`);
-        
-        if (!response.ok) {
-          throw new Error(`API ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setRecentRuns(data.runs || []);
-        
-        // 統計情報も一緒に取得
-        setStats({
-          totalTests: data.stats?.totalTests || 0,
-          totalRuns: data.stats?.totalRuns || 0,
-          successRate: data.stats?.successRate || 0,
-        });
-      } catch (err) {
-        console.error('最近のテスト実行の取得に失敗しました:', err);
-        setError(err instanceof Error ? err : new Error('不明なエラー'));
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    
-    fetchRecentRuns();
-  }, []);
-  
-  return { recentRuns, isLoading, error, stats };
-}
-
 // メモ化されたコンポーネント
 const MemoizedProjectCard = React.memo(ProjectCard);
 const MemoizedStatsCard = React.memo(StatsCard);
@@ -117,17 +61,31 @@ const MemoizedQuickActions = React.memo(QuickActions);
 
 export default function Dashboard() {
   const { projects, isLoading: isLoadingProjects } = useProjects();
-  const { recentRuns, isLoading: isLoadingRuns, stats: runStats } = useRecentTestRuns();
-  
+  // useChainRuns を使用してテスト実行履歴を取得
+  const { chainRuns: recentRuns, isLoading: isLoadingRuns } = useChainRuns(''); // ダッシュボードでは特定のプロジェクトに紐づかないため空文字列を渡す
+
   // 統計情報を計算
   const dashboardStats = React.useMemo(() => {
+    const totalProjects = projects?.length || 0;
+    const totalRuns = recentRuns?.length || 0;
+    
+    let totalTests = 0;
+    let passedTests = 0;
+
+    recentRuns?.forEach(run => {
+      totalTests += run.step_results?.length || 0;
+      passedTests += run.step_results?.filter(step => step.passed).length || 0;
+    });
+
+    const successRate = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
+
     return {
-      totalProjects: projects?.length || 0,
-      totalTests: runStats.totalTests,
-      totalRuns: runStats.totalRuns,
-      successRate: runStats.successRate,
+      totalProjects,
+      totalTests,
+      totalRuns,
+      successRate,
     };
-  }, [projects, runStats]);
+  }, [projects, recentRuns]);
 
   return (
     <div className="space-y-6">
@@ -184,7 +142,7 @@ export default function Dashboard() {
           {isLoadingRuns ? (
             <div className="text-center py-4">読み込み中...</div>
           ) : (
-            <MemoizedRecentTestRuns testRuns={recentRuns} />
+            recentRuns && <MemoizedRecentTestRuns testRuns={recentRuns} />
           )}
         </div>
       </div>
