@@ -367,6 +367,52 @@ async def create_project(project: ProjectCreate):
         logger.error(f"Error creating project: {e}")
         raise HTTPException(status_code=500, detail=f"Error creating project: {str(e)}")
 
+@router.put("/{project_id}")
+async def update_project(project_id: str, updated_project_data: dict = Body(...)):
+    """
+    プロジェクトを更新するAPIエンドポイント
+    """
+    logger.info(f"Updating project: {project_id}")
+    logger.info(f"Received update data: {updated_project_data}") # 追加
+    try:
+        with Session(engine) as session:
+            project_query = select(Project).where(Project.project_id == project_id)
+            db_project = session.exec(project_query).first()
+
+            if not db_project:
+                logger.warning(f"Project not found in DB during update: {project_id}")
+                raise HTTPException(status_code=404, detail="Project not found")
+
+            # 更新データをプロジェクトオブジェクトに適用
+            for key, value in updated_project_data.items():
+                # Projectモデルに存在する属性のみを更新
+                if hasattr(db_project, key):
+                    setattr(db_project, key, value)
+                else:
+                    logger.warning(f"Attempted to update non-existent attribute: {key}")
+
+
+            session.add(db_project)
+            session.commit()
+            session.refresh(db_project)
+            logger.info(f"Project {project_id} updated successfully.")
+
+            # 更新されたプロジェクト情報を返す（必要に応じてスキーマを定義）
+            return {
+                "id": db_project.project_id,
+                "name": db_project.name,
+                "description": db_project.description,
+                "base_url": db_project.base_url,
+                "created_at": db_project.created_at.isoformat()
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating project {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error updating project: {str(e)}")
+
+
 @router.delete("/{project_id}")
 async def delete_project(project_id: str, project_path: Path = Depends(get_project_or_404)):
     """

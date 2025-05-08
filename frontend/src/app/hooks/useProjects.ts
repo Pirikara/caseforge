@@ -5,6 +5,7 @@ export interface Project {
   id: string;
   name: string;
   description?: string;
+  base_url?: string; // base_url プロパティを追加
   created_at: string;
 }
 

@@ -9,6 +9,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import SchemaManagementTab from '@/components/tabs/SchemaManagementTab';
 import EndpointManagementTab from '@/components/tabs/EndpointManagementTab';
 import TestChainManagementTab from '@/components/tabs/TestChainManagementTab';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { updateProject } from '@/utils/fetcher';
 // import TestExecutionTab from '@/components/tabs/TestExecutionTab'; // TestExecutionTabは削除
 
 export default function ProjectDetailPage() {
@@ -16,7 +19,7 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const projectId = params.id as string;
 
-  const { projects } = useProjects();
+  const { projects, isLoading, error, mutate } = useProjects();
 
   const project = React.useMemo(() => {
     if (!projects) return null;
@@ -25,6 +28,7 @@ export default function ProjectDetailPage() {
 
   // URLからタブを取得（例：?tab=test-chains）
   const [activeTab, setActiveTab] = React.useState<string>('schema');
+  const [baseUrl, setBaseUrl] = React.useState<string>('');
 
   React.useEffect(() => {
     // URLからタブパラメータを取得
@@ -39,6 +43,14 @@ export default function ProjectDetailPage() {
     }
   }, []);
 
+  React.useEffect(() => {
+    if (project) {
+      console.log('Project data updated:', project); // 追加
+      console.log('Base URL from project:', project.base_url); // 追加
+      setBaseUrl(project.base_url || '');
+    }
+  }, [project]);
+
   // タブ変更時にURLを更新
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -48,6 +60,33 @@ export default function ProjectDetailPage() {
     url.searchParams.set('tab', value);
     window.history.replaceState({}, '', url.toString());
   };
+
+  const handleSaveBaseUrl = async () => {
+    try {
+      await updateProject(projectId, { base_url: baseUrl });
+      mutate(); // プロジェクトデータを再取得
+      console.log('Base URL saved successfully!'); // 仮の成功メッセージ
+    } catch (error) {
+      console.error('Failed to save Base URL:', error); // 仮のエラーメッセージ
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <p>読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p>プロジェクトの読み込みに失敗しました。</p>
+        <p className="text-muted-foreground">{error.message}</p>
+      </div>
+    );
+  }
 
   if (!project) {
     return (
@@ -74,6 +113,20 @@ export default function ProjectDetailPage() {
       {project.description && (
         <p className="text-muted-foreground">{project.description}</p>
       )}
+
+      {/* Base URL Setting */}
+      <div className="flex items-end space-x-2">
+        <div className="flex-grow space-y-2">
+          <Label htmlFor="baseUrl">Base URL</Label>
+          <Input
+            id="baseUrl"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="例: http://localhost:8000"
+          />
+        </div>
+        <Button onClick={handleSaveBaseUrl}>保存</Button>
+      </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         {/* grid-cols-4 を grid-cols-3 に変更し、test-execution タブを削除 */}

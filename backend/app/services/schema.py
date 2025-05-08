@@ -113,7 +113,7 @@ async def list_projects(session: Optional[Session] = None):
                 logger.info(f"Filtering projects for test environment, returning only test_project")
                 projects = test_projects
         
-        result = [{"id": p.project_id, "name": p.name, "description": p.description, "created_at": p.created_at.isoformat() if p.created_at else datetime.now().isoformat()} for p in projects]
+        result = [{"id": p.project_id, "name": p.name, "description": p.description, "base_url": p.base_url, "created_at": p.created_at.isoformat() if p.created_at else datetime.now().isoformat()} for p in projects]
         return result
     except Exception as e:
         logger.error(f"Error listing projects: {e}", exc_info=True)

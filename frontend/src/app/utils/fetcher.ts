@@ -30,3 +30,10 @@ export const fetcher = async (url: string, method: string = 'GET', body?: any) =
 
   return response.json();
 };
+
+/**
+ * プロジェクトを更新する関数
+ */
+export const updateProject = async (projectId: string, data: any) => {
+  return fetcher(`/api/projects/${projectId}`, 'PUT', data);
+};
