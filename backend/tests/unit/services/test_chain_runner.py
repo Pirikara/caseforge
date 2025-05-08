@@ -49,8 +49,12 @@ async def test_execute_step():
     mock_client.request = AsyncMock()
     mock_client.request.return_value = SAMPLE_RESPONSES["POST /users"]
     
+    # ダミーのsessionとchainを作成
+    mock_session = MagicMock()
+    mock_chain = MagicMock()
+
     # テスト実行
-    runner = ChainRunner()
+    runner = ChainRunner(session=mock_session, chain=mock_chain)
     step = SAMPLE_CHAIN["steps"][0]
     result = await runner._execute_step(mock_client, step, {})
     
@@ -72,8 +76,12 @@ async def test_execute_step():
 @pytest.mark.asyncio
 async def test_extract_values():
     """値抽出のテスト"""
+    # ダミーのsessionとchainを作成
+    mock_session = MagicMock()
+    mock_chain = MagicMock()
+
     # テスト実行
-    runner = ChainRunner()
+    runner = ChainRunner(session=mock_session, chain=mock_chain)
     response_body = {"id": "123", "name": "Test User"}
     extract_rules = {"user_id": "$.id", "user_name": "$.name"}
     
@@ -86,8 +94,12 @@ async def test_extract_values():
 @pytest.mark.asyncio
 async def test_replace_path_params():
     """パスパラメータ置換のテスト"""
+    # ダミーのsessionとchainを作成
+    mock_session = MagicMock()
+    mock_chain = MagicMock()
+
     # テスト実行
-    runner = ChainRunner()
+    runner = ChainRunner(session=mock_session, chain=mock_chain)
     path = "/users/{user_id}/posts/{post_id}"
     values = {"user_id": "123", "post_id": "456"}
     
@@ -99,8 +111,12 @@ async def test_replace_path_params():
 @pytest.mark.asyncio
 async def test_replace_values_in_body():
     """リクエストボディ内の値置換のテスト"""
+    # ダミーのsessionとchainを作成
+    mock_session = MagicMock()
+    mock_chain = MagicMock()
+
     # テスト実行
-    runner = ChainRunner()
+    runner = ChainRunner(session=mock_session, chain=mock_chain)
     body = {
         "user_id": "${user_id}",
         "data": {
@@ -122,21 +138,20 @@ async def test_replace_values_in_body():
 @pytest.mark.asyncio
 async def test_run_chain():
     """チェーン実行のテスト"""
-    # httpx.AsyncClientをモック
-    mock_client = MagicMock()
-    mock_client.request = AsyncMock()
-    mock_client.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
-    
-    # AsyncClientのコンテキストマネージャをモック
-    mock_async_client = MagicMock()
-    mock_async_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_async_client.__aexit__ = AsyncMock(return_value=None)
-    
-    with patch("httpx.AsyncClient", return_value=mock_async_client):
+    # httpx.AsyncClientクラスをモック
+    with patch("httpx.AsyncClient") as mock_async_client_cls:
+        # インスタンスのrequestメソッドをAsyncMockに設定
+        mock_async_client_cls.return_value.request = AsyncMock()
+        mock_async_client_cls.return_value.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
+
+        # ダミーのsessionとchainを作成
+        mock_session = MagicMock()
+        mock_chain = MagicMock()
+
         # テスト実行
-        runner = ChainRunner()
+        runner = ChainRunner(session=mock_session, chain=mock_chain)
         result = await runner.run_chain(SAMPLE_CHAIN)
-        
+
         # 検証
         assert result["status"] == "completed"
         assert result["success"] is True
@@ -147,6 +162,37 @@ async def test_run_chain():
         assert result["extracted_values"]["user_id"] == "123"
 
 @pytest.mark.asyncio
+async def test_run_chain_with_base_url():
+    """base_urlを指定した場合のチェーン実行テスト"""
+    # httpx.AsyncClientクラスをモック
+    with patch("httpx.AsyncClient") as mock_async_client_cls:
+        # インスタンスのrequestメソッドをAsyncMockに設定
+        mock_async_client_cls.return_value.request = AsyncMock()
+        mock_async_client_cls.return_value.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
+
+        # ダミーのsessionとchainを作成
+        mock_session = MagicMock()
+        mock_chain = MagicMock()
+        test_base_url = "http://test.api.com"
+
+        # テスト実行
+        runner = ChainRunner(session=mock_session, chain=mock_chain, base_url=test_base_url)
+        result = await runner.run_chain(SAMPLE_CHAIN)
+
+        # 検証
+        assert result["status"] == "completed"
+        assert result["success"] is True
+        assert len(result["steps"]) == 2
+        assert result["steps"][0]["success"] is True
+        assert result["steps"][1]["success"] is True
+        assert "user_id" in result["extracted_values"]
+        assert result["extracted_values"]["user_id"] == "123"
+
+        # httpx.AsyncClientが正しいbase_urlで呼ばれたことを確認
+        mock_async_client_cls.assert_called_once_with(base_url=test_base_url, timeout=30.0)
+
+
+@pytest.mark.asyncio
 async def test_run_chains(session, test_project, monkeypatch):
     """チェーン実行関数のテスト"""
     # ChainStoreをモック
@@ -155,47 +201,45 @@ async def test_run_chains(session, test_project, monkeypatch):
     mock_chain_store.list_chains.return_value = [{"id": "test-chain-1"}]
     monkeypatch.setattr("app.services.chain_runner.ChainStore", lambda: mock_chain_store)
     
-    # ChainRunnerをモック
-    mock_runner = MagicMock()
-    mock_runner.run_chain = AsyncMock(return_value={
-        "status": "completed",
-        "success": True,
-        "steps": [
-            {"success": True, "status_code": 201, "response_body": {"id": "123"}},
-            {"success": True, "status_code": 200, "response_body": {"id": "123", "name": "Test User"}}
-        ],
-        "extracted_values": {"user_id": "123"}
-    })
-    monkeypatch.setattr("app.services.chain_runner.ChainRunner", lambda: mock_runner)
-    
-    # ファイル書き込みをモック
-    monkeypatch.setattr("os.makedirs", lambda path, exist_ok: None)
-    mock_open = MagicMock()
-    monkeypatch.setattr("builtins.open", mock_open)
-    
-    # テスト用のチェーンを事前に作成
-    from app.models import TestChain, ChainRun
-    
-    # テスト用のチェーンを作成
-    chain = TestChain(
-        chain_id="test-chain-1",
-        project_id=test_project.id,
-        name="Test Chain"
-    )
-    session.add(chain)
-    session.commit()
-    session.refresh(chain)
-    
-    # テスト実行
-    result = await run_chains(test_project.project_id)
-    
-    # 検証
-    assert result["status"] == "completed"
-    assert "results" in result
-    
-    # ChainRunが作成されたことを確認
-    runs = session.exec(select(ChainRun).where(ChainRun.project_id == test_project.id)).all()
-    assert len(runs) > 0
+    # httpx.AsyncClientをモック
+    mock_client = MagicMock()
+    mock_client.request = AsyncMock()
+    mock_client.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
+
+    # AsyncClientのコンテキストマネージャをモック
+    mock_async_client = MagicMock()
+    mock_async_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_async_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("httpx.AsyncClient", return_value=mock_async_client):
+        # ファイル書き込みをモック
+        monkeypatch.setattr("os.makedirs", lambda path, exist_ok: None)
+        mock_open = MagicMock()
+        monkeypatch.setattr("builtins.open", mock_open)
+
+        # テスト用のチェーンを事前に作成
+        from app.models import TestChain, ChainRun
+
+        # テスト用のチェーンを作成
+        chain = TestChain(
+            chain_id="test-chain-1",
+            project_id=test_project.id,
+            name="Test Chain"
+        )
+        session.add(chain)
+        session.commit()
+        session.refresh(chain)
+
+        # テスト実行
+        result = await run_chains(test_project.project_id)
+
+        # 検証
+        assert result["status"] == "completed"
+        assert "results" in result
+
+        # ChainRunが作成されたことを確認
+        runs = session.exec(select(ChainRun).where(ChainRun.project_id == test_project.id)).all()
+        assert len(runs) > 0
 
 def test_list_chain_runs(session, test_project):
     """チェーン実行履歴取得のテスト"""

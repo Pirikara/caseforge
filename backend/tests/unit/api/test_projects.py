@@ -26,22 +26,29 @@ def test_list_projects():
 def test_create_project():
     # os.makedirs をモック化して、ファイルシステムへの書き込みを回避
     with patch("os.makedirs") as mock_makedirs, \
-         patch("os.path.exists") as mock_exists:
+         patch("os.path.exists") as mock_exists, \
+         patch("app.services.schema.create_project", new_callable=AsyncMock) as mock_db_create_project:
         mock_exists.return_value = False
-        
+        mock_db_create_project.return_value = {"status": "created", "project_id": "new_project", "name": "New Project"}
+
         # テスト実行
         response = client.post(
             "/api/projects/",
             json={"project_id": "new_project", "name": "New Project"}
         )
-        
+
         # 検証
         assert response.status_code == 200
         assert response.json()["status"] == "created"
         assert response.json()["project_id"] == "new_project"
-        
+
         # os.makedirs が呼ばれたことを確認
-        mock_makedirs.assert_called_once()
+        # app.services.schema.create_project が呼ばれたことを確認
+        mock_db_create_project.assert_called_once_with(
+            project_id="new_project",
+            name="New Project",
+            description=None # デフォルト値
+        )
 
 def test_upload_schema():
     # サービス関数をモック化

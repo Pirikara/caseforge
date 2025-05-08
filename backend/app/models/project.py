@@ -15,7 +15,8 @@ class Project(TimestampModel, table=True):
     project_id: str = Field(index=True, unique=True)
     name: str
     description: Optional[str] = None
-    
+    base_url: Optional[str] = Field(default=None)
+
     # リレーションシップ
     schemas: List["Schema"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
     # 既存のリレーションシップ（廃止予定）

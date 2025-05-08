@@ -274,11 +274,14 @@ def test_index_schema_success(mock_environ, mock_makedirs, mock_symlink, mock_ex
     mock_rmtree.assert_not_called() # rmtreeは呼ばれない
 
     # signal.signalとsignal.alarmが呼ばれたことを確認
-    mock_signal.signal.assert_called_once()
-    mock_signal.alarm.assert_any_call(30)
-    mock_signal.alarm.assert_any_call(0)
+    mock_signal.signal.assert_called()
+    mock_signal.alarm.assert_any_call(60) # HuggingFaceEmbeddingsのタイムアウト時間
+    mock_signal.alarm.assert_any_call(120) # FAISSのタイムアウト時間
+    mock_signal.alarm.assert_any_call(0) # タイムアウト解除
 
     # シンボリックリンクが正しく作成されたか確認
+    expected_save_dir = str(tmp_path / "data" / "faiss" / project_id)
+    expected_tmp_dir = f"/tmp/faiss/{project_id}"
     mock_symlink.assert_called_once_with(expected_save_dir, expected_tmp_dir)
 
 
@@ -430,7 +433,7 @@ def test_index_schema_timeout(mock_signal, mock_logger, mock_chunker_cls, mock_e
     index_schema(project_id, schema_path)
 
     # タイムアウト警告のログが出力されたことを確認
-    mock_logger.warning.assert_any_call('FAISS processing timed out after 30 seconds') # Actualのログメッセージに合わせる
+    mock_logger.warning.assert_any_call('FAISS processing timed out after 120 seconds') # Actualのログメッセージに合わせる
     mock_logger.warning.assert_any_call('FAISS vector database was not created due to timeout or error.') # このログも出力される
 
     # FAISSの保存処理が呼ばれないことを確認

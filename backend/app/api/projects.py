@@ -353,7 +353,7 @@ async def create_project(project: ProjectCreate):
         result = await db_create_project(
             project_id=project.project_id,
             name=project.name,
-            description=project.description
+            description=project.description,
         )
         
         if result.get("status") == "error":

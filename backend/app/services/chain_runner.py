@@ -15,12 +15,18 @@ from app.services.chain_generator import ChainStore
 class ChainRunner:
     """リクエストチェーンを実行するクラス"""
     
-    def __init__(self, base_url: str = None):
+    def __init__(self, session: Session, chain: TestChain, base_url: Optional[str] = None):
         """
         Args:
+            session: データベースセッション
+            chain: 実行するテストチェーン
             base_url: APIのベースURL（省略時はsettingsから取得）
         """
+        self.session = session
+        self.chain = chain
         self.base_url = base_url or settings.TEST_TARGET_URL
+        self.variables = {} # ステップ間で引き継ぐ変数
+        self.client = httpx.AsyncClient(base_url=self.base_url, timeout=30.0) # HTTP クライアント
     
     async def run_chain(self, chain: Dict) -> Dict:
         """
@@ -43,20 +49,19 @@ class ChainRunner:
         }
         
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, timeout=30.0) as client:
-                for i, step in enumerate(chain.get("steps", [])):
-                    step_result = await self._execute_step(client, step, chain_result["extracted_values"])
-                    chain_result["steps"].append(step_result)
+            for i, step in enumerate(chain.get("steps", [])):
+                step_result = await self._execute_step(self.client, step, chain_result["extracted_values"])
+                chain_result["steps"].append(step_result)
                     
-                    # ステップが失敗した場合、チェーンの実行を中止
-                    if not step_result["success"]:
-                        chain_result["status"] = "failed"
-                        break
-                    
-                    # レスポンスから値を抽出
-                    if "response" in step and "extract" in step["response"]:
-                        extracted = self._extract_values(step_result["response_body"], step["response"]["extract"])
-                        chain_result["extracted_values"].update(extracted)
+                # ステップが失敗した場合、チェーンの実行を中止
+                if not step_result["success"]:
+                    chain_result["status"] = "failed"
+                    break
+                
+                # レスポンスから値を抽出
+                if "response" in step and "extract" in step["response"]:
+                    extracted = self._extract_values(step_result["response_body"], step["response"]["extract"])
+                    chain_result["extracted_values"].update(extracted)
             
             # すべてのステップが成功した場合
             if chain_result["status"] != "failed":
@@ -310,7 +315,7 @@ async def run_chains(project_id: str, chain_id: Optional[str] = None) -> Dict:
                 return {"status": "error", "message": f"Project not found: {project_id}"}
             
             # チェーンの実行
-            runner = ChainRunner()
+            # プロジェクトのbase_urlを取得し、ChainRunnerに渡す
             results = []
             
             for chain_data in chains:
@@ -356,6 +361,8 @@ async def run_chains(project_id: str, chain_id: Optional[str] = None) -> Dict:
                 session.refresh(chain_run)
                 
                 # チェーンを実行
+                # ChainRunnerにsessionとdb_chainを渡す
+                runner = ChainRunner(session=session, chain=db_chain, base_url=db_project.base_url)
                 result = await runner.run_chain(chain_data)
                 results.append(result)
                 
