@@ -118,7 +118,7 @@ class ChainRunner:
                 body = self._replace_values_in_body(body, extracted_values)
             
             # リクエストの実行
-            logger.debug(f"Executing request: {step['method']} {path}")
+            logger.info(f"Executing request: {step['method']} {path} with headers={headers}, params={params}, body={body}")
             response = await client.request(
                 method=step["method"],
                 url=path,
