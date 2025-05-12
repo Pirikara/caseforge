@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { SearchIcon, FileTextIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEndpoints, Endpoint } from '@/hooks/useEndpoints';
+import { Label } from '@/components/ui/label'; // Label コンポーネントをインポート
 import {
   Sheet,
   SheetContent,
@@ -33,7 +34,26 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = React.useState<Endpoint | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
-  
+
+  // 異常系の種類リスト
+  const errorTypes = [
+    { label: '必須フィールド欠落', value: 'missing_field' },
+    { label: '無効な入力値', value: 'invalid_input' },
+    { label: '認証エラー', value: 'authentication_error' },
+    { label: '権限エラー', value: 'permission_error' },
+    { label: '存在しないリソース', value: 'not_found' },
+    { label: 'メソッド不一致', value: 'method_not_allowed' },
+  ];
+
+  // 選択された異常系の種類
+  const [selectedErrorTypes, setSelectedErrorTypes] = React.useState<string[]>([]);
+
+  // 異常系の種類チェックボックスの変更ハンドラ
+  const handleErrorTypeChange = (value: string, checked: boolean) => {
+    setSelectedErrorTypes(prevSelected =>
+      checked ? [...prevSelected, value] : prevSelected.filter(type => type !== value)
+    );
+  };
   
   // 検索フィルタリング（メモ化）
   const filteredEndpoints = React.useMemo(() => {
@@ -118,13 +138,14 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
       setIsGenerating(true);
       
       // URLの構築方法を修正
-      const response = await fetch(`${API}/api/projects/${projectId}/endpoints/generate-chain`, {
+      const response = await fetch(`${API}/api/projects/${projectId}/generate-tests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           endpoint_ids: selectedEndpoints,
+          error_types: selectedErrorTypes, // 選択された異常系の種類を追加
         }),
       });
       
@@ -190,6 +211,30 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
                 onCheckedChange={toggleSelectAll}
               />
               <label htmlFor="select-all" className="text-sm">すべて選択</label>
+            </div>
+          </div>
+
+          {/* 異常系テスト生成オプション */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              生成する異常系テストの種類 (任意)
+            </Label>
+            <div className="grid grid-cols-2 gap-4">
+              {errorTypes.map((type) => (
+                <div key={type.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`error-type-${type.value}`}
+                    checked={selectedErrorTypes.includes(type.value)}
+                    onCheckedChange={(checked) => handleErrorTypeChange(type.value, checked as boolean)}
+                  />
+                  <label
+                    htmlFor={`error-type-${type.value}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {type.label}
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
           

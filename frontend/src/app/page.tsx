@@ -9,8 +9,8 @@ import { StatsCard } from './components/molecules/StatsCard';
 import { RecentTestRuns } from './components/molecules/RecentTestRuns';
 import { QuickActions } from './components/molecules/QuickActions';
 
-// useChainRuns フックと ChainRun 型をインポート
-import { useChainRuns, ChainRun } from '@/hooks/useTestRuns';
+// useTestRuns フックと TestRun 型をインポート
+import { useTestRuns, TestRun } from '@/hooks/useTestRuns';
 
 // 型定義
 interface Project {
@@ -61,8 +61,8 @@ const MemoizedQuickActions = React.memo(QuickActions);
 
 export default function Dashboard() {
   const { projects, isLoading: isLoadingProjects } = useProjects();
-  // useChainRuns を使用してテスト実行履歴を取得
-  const { chainRuns: recentRuns, isLoading: isLoadingRuns } = useChainRuns(''); // ダッシュボードでは特定のプロジェクトに紐づかないため空文字列を渡す
+  // useTestRuns を使用してテスト実行履歴を取得
+  const { testRuns: recentRuns, isLoading: isLoadingRuns } = useTestRuns(''); // ダッシュボードでは特定のプロジェクトに紐づかないため空文字列を渡す
 
   // 統計情報を計算
   const dashboardStats = React.useMemo(() => {
@@ -73,8 +73,8 @@ export default function Dashboard() {
     let passedTests = 0;
 
     recentRuns?.forEach(run => {
-      totalTests += run.step_results?.length || 0;
-      passedTests += run.step_results?.filter(step => step.passed).length || 0;
+      totalTests += run.test_case_results?.reduce((sum, caseResult) => sum + (caseResult.step_results?.length || 0), 0) || 0;
+      passedTests += run.test_case_results?.reduce((sum, caseResult) => sum + (caseResult.step_results?.filter(step => step.passed).length || 0), 0) || 0;
     });
 
     const successRate = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;

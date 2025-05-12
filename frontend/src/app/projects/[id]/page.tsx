@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import SchemaManagementTab from '@/components/tabs/SchemaManagementTab';
 import EndpointManagementTab from '@/components/tabs/EndpointManagementTab';
-import TestChainManagementTab from '@/components/tabs/TestChainManagementTab';
+import TestSuiteManagementTab from '@/components/tabs/TestSuiteManagementTab';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { updateProject } from '@/utils/fetcher';
@@ -35,7 +35,7 @@ export default function ProjectDetailPage() {
     const url = new URL(window.location.href);
     const tabParam = url.searchParams.get('tab');
     // test-executionタブを削除したので、有効なタブリストから除外
-    if (tabParam && ['schema', 'endpoints', 'test-chains'].includes(tabParam)) {
+    if (tabParam && ['schema', 'endpoints', 'test-suites'].includes(tabParam)) {
       setActiveTab(tabParam);
     } else {
       // 無効なタブパラメータの場合はデフォルトに戻す
@@ -133,7 +133,7 @@ export default function ProjectDetailPage() {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="schema">スキーマ管理</TabsTrigger>
           <TabsTrigger value="endpoints">エンドポイント管理</TabsTrigger>
-          <TabsTrigger value="test-chains">テストチェーン管理・実行</TabsTrigger> {/* タブ名を変更 */}
+          <TabsTrigger value="test-suites">テストスイート管理・実行</TabsTrigger>
         </TabsList>
 
         <TabsContent value="schema" className="space-y-4">
@@ -144,8 +144,8 @@ export default function ProjectDetailPage() {
           <EndpointManagementTab projectId={projectId} />
         </TabsContent>
 
-        <TabsContent value="test-chains" className="space-y-4">
-          <TestChainManagementTab projectId={projectId} project={project} />
+        <TabsContent value="test-suites" className="space-y-4">
+          <TestSuiteManagementTab projectId={projectId} project={project} />
         </TabsContent>
 
         {/* test-execution タブのコンテンツを削除 */}

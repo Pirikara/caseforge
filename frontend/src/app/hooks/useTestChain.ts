@@ -1,15 +1,16 @@
 import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
-import { TestChain } from '@/hooks/useTestRuns'; // TestChain 型をインポート
 
-export function useTestChain(projectId: string | undefined, chainId: string | undefined) {
-  const { data, error, isLoading, mutate } = useSWR<TestChain>(
-    (projectId && chainId) ? `/api/projects/${projectId}/chains/${chainId}` : null,
+import { TestSuite } from '@/hooks/useTestRuns'; // TestSuite 型をインポート
+
+export function useTestSuiteDetail(projectId: string | undefined, suiteId: string | undefined) {
+  const { data, error, isLoading, mutate } = useSWR<TestSuite>(
+    (projectId && suiteId) ? `/api/projects/${projectId}/test-suites/${suiteId}` : null,
     fetcher
   );
 
   return {
-    testChain: data,
+    testSuite: data,
     isLoading,
     error,
     mutate,

@@ -20,7 +20,7 @@ async def test_save_and_index_schema(session, monkeypatch, mock_faiss):
     result = await save_and_index_schema("test_project", content, "test.json", session)
     
     # 検証
-    assert result["message"] == "Schema uploaded and indexed successfully."
+    assert result["message"] == "Schema uploaded, endpoints saved, and indexed successfully."
     
     # ファイルが作成されたか確認
     assert os.path.exists("/tmp/test_project/test.json")

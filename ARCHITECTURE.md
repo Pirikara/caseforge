@@ -72,10 +72,10 @@ graph TD;
   subgraph Database
     D --- D1[Project]
     D --- D2[Schema]
-    D --- D3[TestChain]
-    D --- D4[TestChainStep]
+    D --- D3[TestSuite]
+    D --- D4[TestStep]
     D --- D5[TestRun]
-    D --- D6[TestResult]
+    D --- D6[TestCaseResult]
     D --- D7[Endpoint]
   end
 
@@ -98,7 +98,7 @@ graph TD;
     - ステータス別フィルター
     - グラフ（成功率・応答時間など）
 
-### テストチェーン生成詳細フロー
+### テストスイート生成詳細フロー
 
 ```mermaid
 sequenceDiagram
@@ -110,21 +110,21 @@ sequenceDiagram
   participant Vector as FAISS
   participant LLM as LLM API
 
-  User->>UI: テストチェーン生成リクエスト
+  User->>UI: テストスイート生成リクエスト
   UI->>API: POST /api/projects/{id}/generate-tests
-  API->>Worker: generate_chains_task
+  API->>Worker: generate_test_suites_task
   Worker->>DB: プロジェクト情報取得
   Worker->>Vector: スキーマベクトル検索
   Vector-->>Worker: 関連スキーマ情報
-  Worker->>LLM: テストチェーン生成リクエスト
-  LLM-->>Worker: 生成されたテストチェーン
-  Worker->>DB: テストチェーン保存
+  Worker->>LLM: テストスイート生成リクエスト
+  LLM-->>Worker: 生成されたテストスイート
+  Worker->>DB: テストスイート保存
   Worker-->>API: タスク完了通知
   API-->>UI: 生成完了レスポンス
   UI->>User: 完了通知
 ```
 
-### エンドポイント単位のテストチェーン生成フロー
+### エンドポイント単位のテストスイート生成フロー
 
 ```mermaid
 sequenceDiagram
@@ -150,21 +150,21 @@ sequenceDiagram
   UI-->>User: エンドポイント一覧表示
   
   User->>UI: エンドポイント選択
-  User->>UI: テストチェーン生成リクエスト
-  UI->>API: POST /api/projects/{id}/endpoints/generate-chain
-  API->>Worker: generate_chains_for_endpoints_task
+  User->>UI: テストスイート生成リクエスト
+  UI->>API: POST /api/projects/{id}/endpoints/generate-suite
+  API->>Worker: generate_test_suites_for_endpoints_task
   
   Worker->>DB: 選択されたエンドポイント取得
-  Worker->>LLM: エンドポイント情報を基にテストチェーン生成
-  LLM-->>Worker: 生成されたテストチェーン
-  Worker->>DB: テストチェーン保存
+  Worker->>LLM: エンドポイント情報を基にテストスイート生成
+  LLM-->>Worker: 生成されたテストスイート
+  Worker->>DB: テストスイート保存
   
   Worker-->>API: タスク完了通知
   API-->>UI: 生成完了レスポンス
   UI-->>User: 完了通知
 ```
 
-### テストチェーン実行フロー
+### テストスイート実行フロー
 
 ```mermaid
 sequenceDiagram
@@ -174,14 +174,13 @@ sequenceDiagram
   participant DB as PostgreSQL
   participant Target as 対象API
 
-  User->>UI: テストチェーン実行リクエスト
+  User->>UI: テストスイート実行リクエスト
   UI->>API: POST /api/projects/{id}/run
-  API->>DB: テストチェーン取得
-  API->>Target: リクエスト実行（ステップ1）
-  Target-->>API: レスポンス
-  API->>API: 変数抽出・評価
-  API->>Target: リクエスト実行（ステップ2...）
-  Target-->>API: レスポンス
+  API->>DB: テストスイート取得
+  API->>Target: リクエスト実行（テストケース1）
+  Target-->>API: 結果
+  API->>Target: リクエスト実行（テストケース2...）
+  Target-->>API: 結果
   API->>DB: 実行結果保存
   API-->>UI: 実行結果レスポンス
   UI->>User: 結果表示
@@ -189,7 +188,7 @@ sequenceDiagram
 
 ---
 
-## エンドポイント単位のリクエストチェーン生成
+## エンドポイント単位のテストスイート生成
 
 Caseforgeは、OpenAPIスキーマ全体からテストチェーンを生成する機能に加えて、エンドポイント単位でテストチェーンを生成する機能を提供します。この機能により、ユーザーは特定のエンドポイントに焦点を当てたテストを効率的に作成できます。
 
@@ -197,8 +196,8 @@ Caseforgeは、OpenAPIスキーマ全体からテストチェーンを生成す�
 
 - OpenAPIスキーマからエンドポイント情報を抽出し、データベースに保存
 - ユーザーがUI上で特定のエンドポイントを選択可能
-- 選択したエンドポイントに対してテストチェーンを生成
-- 生成されたテストチェーンはスキーマ全体から生成したものと同様に実行可能
+- 選択したエンドポイントに対してテストスイートを生成
+- 生成されたテストスイートはスキーマ全体から生成したものと同様に実行可能
 
 ### 2. 技術的実装詳細
 
@@ -233,7 +232,7 @@ EndpointParserは、OpenAPIスキーマからエンドポイント情報を抽�
 
 #### 2.2 エンドポイントチェーン生成器（EndpointChainGenerator）
 
-EndpointChainGeneratorは、選択されたエンドポイントからテストチェーンを生成するクラスです：
+EndpointChainGeneratorは、選択されたエンドポイントからテストスイートを生成するクラスです：
 
 - **コンテキスト構築**: 選択されたエンドポイント情報からLLMのためのコンテキストを構築
   ```python
@@ -255,13 +254,13 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
       return "\n\n".join(context_parts)
   ```
 
-- **LLMプロンプト設計**: エンドポイント情報を基にテストチェーンを生成するためのプロンプトを設計
+- **LLMプロンプト設計**: エンドポイント情報を基にテストスイートを生成するためのプロンプトを設計
   ```python
   prompt = ChatPromptTemplate.from_template(
       """You are an API testing expert. Using the following OpenAPI endpoints:
   {context}
   
-  Generate a request chain that tests these endpoints in sequence. The chain should follow the dependencies between endpoints.
+  Generate a test suite that tests these endpoints. The test suite should contain multiple test cases, including normal and abnormal cases.
   For example, if a POST creates a resource and returns an ID, use that ID in subsequent requests.
   
   Return ONLY a JSON object with the following structure:
@@ -285,7 +284,7 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
   )
   ```
 
-- **チェーン生成**: LLMを呼び出してテストチェーンを生成し、JSONとして解析
+- **テストスイート生成**: LLMを呼び出してテストスイートを生成し、JSONとして解析
 - **エラーハンドリング**: LLMレスポンスのパース失敗や呼び出しエラーに対する堅牢な処理
 
 #### 2.3 フロントエンドインターフェース
@@ -296,13 +295,13 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
 - **検索フィルタリング**: エンドポイントをパスやメソッドで検索可能
 - **エンドポイント選択**: チェックボックスによる複数選択
 - **詳細表示**: サイドパネルでエンドポイントの詳細情報（リクエストボディ、ヘッダー、クエリパラメータ、レスポンスなど）を表示
-- **テストチェーン生成**: 選択したエンドポイントからテストチェーンを生成するボタン
+- **テストスイート生成**: 選択したエンドポイントからテストスイートを生成するボタン
 
 ### 3. 利点
 
-- **選択的テスト生成**: 全スキーマではなく、特定のエンドポイントに焦点を当てたテストを生成可能
+- **選択的テストスイート生成**: 全スキーマではなく、特定のエンドポイントに焦点を当てたテストスイートを生成可能
 - **詳細な情報提供**: エンドポイントの詳細情報をUI上で確認可能
-- **効率的なテスト作成**: 関連するエンドポイントを選択してテストチェーンを生成することで、テストの網羅性と効率性を向上
+- **効率的なテスト作成**: 関連するエンドポイントを選択してテストスイートを生成することで、テストの網羅性と効率性を向上
 - **柔軟なテスト戦略**: 全体テストと特定機能テストを組み合わせた柔軟なテスト戦略の実現
 
 ---
@@ -330,17 +329,19 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
 ```mermaid
 erDiagram
   Project {
-    string id PK
+    integer id PK
+    string project_id
     string name
     string description
+    string base_url
     datetime created_at
     datetime updated_at
   }
   
   Endpoint {
-    string id PK
+    integer id PK
     string endpoint_id
-    string project_id FK
+    integer project_id FK
     string path
     string method
     string summary
@@ -354,25 +355,36 @@ erDiagram
   }
   
   Schema {
-    string id PK
-    string project_id FK
+    integer id PK
+    integer project_id FK
     string filename
-    string content
+    string file_path
+    string content_type
     datetime created_at
   }
-  
-  TestChain {
+
+  TestSuite {
     string id PK
-    string project_id FK
-    string chain_id
+    integer project_id FK
+    string target_method
+    string target_path
     string name
     string description
     datetime created_at
   }
   
-  TestChainStep {
+  TestCase {
     string id PK
-    string chain_id FK
+    string suite_id FK
+    string name
+    string description
+    string error_type
+    datetime created_at
+  }
+  
+  TestStep {
+    string id PK
+    string case_id FK
     integer sequence
     string name
     string method
@@ -386,59 +398,83 @@ erDiagram
   }
   
   TestRun {
-    string id PK
-    string project_id FK
-    string chain_id FK
-    datetime started_at
-    datetime completed_at
+    integer id PK
+    string run_id
+    string suite_id FK
+    integer project_id FK
+    datetime start_time
+    datetime end_time
     string status
   }
   
-  TestResult {
-    string id PK
-    string test_run_id FK
-    string step_id FK
+  TestCaseResult {
+    integer id PK
+    integer test_run_id FK
+    string case_id FK
     string status
-    integer response_time
-    string response_body
     string error_message
     datetime created_at
   }
   
+  StepResult {
+    integer id PK
+    integer test_case_result_id FK
+    string step_id FK
+    integer sequence
+    integer status_code
+    boolean passed
+    string response_body
+    string error_message
+    float response_time
+    datetime created_at
+  }
+  
   Project ||--o{ Schema : "has"
-  Project ||--o{ TestChain : "has"
+  Project ||--o{ TestSuite : "has"
   Project ||--o{ TestRun : "has"
   Project ||--o{ Endpoint : "has"
-  TestChain ||--o{ TestChainStep : "has"
-  TestChain ||--o{ TestRun : "has"
-  TestRun ||--o{ TestResult : "has"
-  TestChainStep ||--o{ TestResult : "for"
+  TestSuite ||--o{ TestCase : "has"
+  TestSuite ||--o{ TestRun : "has"
+  TestCase ||--o{ TestStep : "has"
+  TestRun ||--o{ TestCaseResult : "has"
+  TestCase ||--o{ TestCaseResult : "for"
+  TestStep ||--o{ StepResult : "for"
+  TestCaseResult ||--o{ StepResult : "has"
 ```
 
 ---
 
-## リクエストチェーン構造（JSON形式）
+## テストスイート構造（JSON形式）
 
 ```json
 {
   "name": "ユーザー作成と取得",
-  "steps": [
+  "test_cases": [
     {
-      "method": "POST",
-      "path": "/users",
-      "request": {
-        "headers": { "Content-Type": "application/json" },
-        "body": { "name": "Test User", "email": "test@example.com" }
-      },
-      "response": {
-        "extract": { "user_id": "$.id" }
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/users/{user_id}",
-      "request": {},
-      "response": {}
+      "case_id": "case-1",
+      "name": "正常系",
+      "description": "正常なユーザー作成と取得",
+      "error_type": null,
+      "steps": [
+        {
+          "sequence": 0,
+          "method": "POST",
+          "path": "/users",
+          "request": {
+            "headers": { "Content-Type": "application/json" },
+            "body": { "name": "Test User", "email": "test@example.com" }
+          },
+          "extract_rules": { "user_id": "$.id" },
+          "expected_status": 201
+        },
+        {
+          "sequence": 1,
+          "method": "GET",
+          "path": "/users/{user_id}",
+          "request": {},
+          "expected_status": 200
+        }
+      ]
     }
   ]
 }
@@ -446,7 +482,7 @@ erDiagram
 
 ---
 
-## 依存関係を考慮したテストチェーン生成
+## 依存関係を考慮したテストスイート生成
 
 Caseforgeは、OpenAPIスキーマから依存関係を考慮したテストチェーンを自動生成します。
 
@@ -454,11 +490,11 @@ Caseforgeは、OpenAPIスキーマから依存関係を考慮したテストチ�
    - パスパラメータの依存関係（例：`POST /users` → `GET /users/{id}`）
    - リソース操作の依存関係（例：作成→取得→更新→削除）
 
-2. **チェーン候補の特定**：依存関係グラフから有望なチェーン候補を特定
+2. **テストスイート候補の特定**：依存関係グラフから有望なテストスイート候補を特定
    - 依存関係のないエンドポイントからスタート
    - 最長のパスを優先的に選択
 
-3. **RAGによるチェーン生成**：LLMを使用して各チェーン候補に対するテストチェーンを生成
+3. **RAGによるテストスイート生成**：LLMを使用して各テストスイート候補に対するテストスイートを生成
    - リクエストボディの生成
    - レスポンスからの変数抽出ルールの設定
    - 後続リクエストでの変数利用

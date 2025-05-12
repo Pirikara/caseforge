@@ -238,7 +238,7 @@ def index_schema(project_id: str, path: str) -> None:
 
                 # 60秒のタイムアウトを設定 (モデルダウンロードなどを考慮し、FAISSより長めに設定)
                 signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(60)
+                signal.alarm(120)
 
                 embedding_function = HuggingFaceEmbeddings(
                     model_name="sentence-transformers/all-MiniLM-L6-v2"
@@ -284,7 +284,7 @@ def index_schema(project_id: str, path: str) -> None:
 
                 # 120秒のタイムアウトを設定
                 signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(120)
+                signal.alarm(300)
 
                 vectordb = FAISS.from_documents(docs, embedding_function)
 

@@ -10,13 +10,15 @@ from langchain_openai import ChatOpenAI
 from app.services.schema_analyzer import OpenAPIAnalyzer
 from app.config import settings
 from app.logging_config import logger
-from app.models import TestChain, TestChainStep, Project, engine
+from app.models import TestSuite, TestStep, Project, TestCase, engine
 from sqlmodel import select, Session
+
+from sqlalchemy.orm import selectinload
 
 class DependencyAwareRAG:
     """依存関係を考慮したRAGクラス"""
     
-    def __init__(self, project_id: str, schema: dict):
+    def __init__(self, project_id: str, schema: dict, error_types: Optional[List[str]] = None): # error_types 引数を追加
         """
         Args:
             project_id: プロジェクトID
@@ -24,6 +26,7 @@ class DependencyAwareRAG:
         """
         self.project_id = project_id
         self.schema = schema
+        self.error_types = error_types # error_types を属性として保持
         self.analyzer = OpenAPIAnalyzer(schema)
         self.dependencies = self.analyzer.extract_dependencies()
         
@@ -202,24 +205,47 @@ class DependencyAwareRAG:
             # テスト環境では直接サンプルチェーンを返す
             if is_testing:
                 # テスト用のサンプルチェーンを返す
+                # テスト用のサンプルテストスイート (tests/unit/services/test_chain_generator.py の SAMPLE_TEST_SUITE と同じ構造)
                 sample_chain = {
                     "name": "ユーザー作成と取得",
-                    "steps": [
+                    "target_method": "POST",
+                    "target_path": "/users",
+                    "test_cases": [
                         {
-                            "method": "POST",
-                            "path": "/users",
-                            "request": {
-                                "body": {"name": "Test User", "email": "test@example.com"}
-                            },
-                            "response": {
-                                "extract": {"user_id": "$.id"}
-                            }
+                            "name": "正常系",
+                            "description": "正常なユーザー作成と取得",
+                            "error_type": None,
+                            "test_steps": [
+                                {
+                                    "sequence": 0,
+                                    "method": "POST",
+                                    "path": "/users",
+                                    "request_body": {"name": "Test User", "email": "test@example.com"},
+                                    "extract_rules": {"user_id": "$.id"},
+                                    "expected_status": 201
+                                },
+                                {
+                                    "sequence": 1,
+                                    "method": "GET",
+                                    "path": "/users/{user_id}",
+                                    "request_params": {"user_id": "{user_id}"}, # 抽出した値を使用
+                                    "expected_status": 200
+                                }
+                            ]
                         },
                         {
-                            "method": "GET",
-                            "path": "/users/{user_id}",
-                            "request": {},
-                            "response": {}
+                            "name": "必須フィールド欠落",
+                            "description": "emailフィールドがない場合",
+                            "error_type": "missing_field",
+                            "test_steps": [
+                                {
+                                    "sequence": 0,
+                                    "method": "POST",
+                                    "path": "/users",
+                                    "request_body": {"name": "Test User"},
+                                    "expected_status": 400
+                                }
+                            ]
                         }
                     ]
                 }
@@ -243,41 +269,69 @@ class DependencyAwareRAG:
             
             # 3. プロンプトの設定
             prompt = ChatPromptTemplate.from_template(
-                """You are an API testing expert. Using the following OpenAPI endpoints:
+                """あなたはAPIテストの専門家です。以下のOpenAPIエンドポイント情報を使用してください。
 {context}
 
-Generate a request chain that tests these endpoints in sequence. The chain should follow the dependencies between endpoints.
-For example, if a POST creates a resource and returns an ID, use that ID in subsequent requests.
+提供されたエンドポイント情報に基づき、そのエンドポイントに対するテストスイート（TestSuite）と、それに含まれる複数のテストケース（TestCase）を生成してください。
+テストケースには、正常系テストケースと、{error_types_instruction}を含めてください。
+各テストケースは、APIリクエストのシーケンスであるテストステップ（TestStep）で構成されます。依存関係がある場合は、前のステップの応答から必要な情報を抽出し、次のステップのリクエストに含めるようにしてください。
 
-Return ONLY a JSON object with the following structure:
+生成するJSONオブジェクトは以下の構造に従ってください。**JSONオブジェクトのみを返し、説明や他のテキストは含めないでください。**
+
+```json
 {{
-  "name": "Descriptive name for the chain",
-  "steps": [
+  "name": "TestSuiteの名前 (例: POST /users エンドポイントのテスト)",
+  "target_method": "対象エンドポイントのHTTPメソッド",
+  "target_path": "対象エンドポイントのパス",
+  "description": "このテストスイートの説明（省略可）",
+  "test_cases": [
     {{
-      "method": "HTTP method (GET, POST, PUT, DELETE)",
-      "path": "API path with placeholders for parameters",
-      "request": {{
-        "headers": {{"header-name": "value"}},
-        "body": {{"key": "value"}}
-      }},
-      "response": {{
-        "extract": {{"variable_name": "$.jsonpath.to.value"}}
-      }}
+      "name": "TestCaseの名前 (例: 正常系)",
+      "description": "TestCaseの説明",
+      "error_type": null,
+      "test_steps": [
+        {{
+          "name": "任意のステップ名（省略可）",
+          "sequence": 0,
+          "method": "HTTPメソッド (GET, POST, PUT, DELETE)",
+          "path": "APIパス（パラメータはプレースホルダー形式）",
+          "request_headers": {{}},
+          "request_body": {{}},
+          "request_params": {{}},
+          "extract_rules": {{}},
+          "expected_status": 200
+        }}
+        // 他のTestStep
+      ]
     }}
+    // 他のTestCase
   ]
 }}
+```
 
-Make sure to:
-1. Include proper JSONPath expressions in "extract" to get values from responses
-2. Use extracted values in subsequent requests by replacing path parameters or in request bodies
-3. If a request (such as GET, PUT, DELETE) requires an existing resource (e.g., a company ID), ensure to first create the necessary resource using the corresponding POST endpoint. Always set up required resources before accessing or modifying them.
-4. Create a logical flow that tests the API endpoints thoroughly
-5. Return ONLY the JSON object, no explanations or other text."""
+注意事項（絶対遵守）：
+1. expected_status は必ず整数（例: 200, 404）で指定してください（文字列ではなく）。
+2. extract_rules には応答から値を抽出するためのJSONPath式を指定してください。
+3. 抽出した値は、次のステップのパスパラメータやボディで $.変数名 のように使用してください。
+各 test_steps には実行順を示す sequence を昇順で付けてください。
+4. request_headers, request_body, request_params はJSON形式のオブジェクトとして記述してください。
+5. 出力はJSONのみで構成し、説明文やコメントを含めないでください。
+"""
             )
-            
+
+            # error_types に基づいて異常系テストに関する指示を生成
+            error_types_instruction = "様々な異常系テストケース（例: 必須フィールドの欠落、無効な入力値、認証エラーなど）"
+            if self.error_types and len(self.error_types) > 0:
+                error_types_instruction = f"以下の異常系テストケース（{', '.join(self.error_types)}）"
+                # 異常系の種類リストをプロンプトに含めるための追加のコンテキストや指示が必要になる場合がある
+                # ここではシンプルに指示テキストを置き換える
+                logger.info(f"Generating tests with specific error types: {self.error_types}")
+
+
             # 4. LLMを呼び出してチェーンを生成
             try:
-                resp = (prompt | llm).invoke({"context": context}).content
+                # プロンプトに error_types_instruction を渡す
+                resp = (prompt | llm).invoke({"context": context, "error_types_instruction": error_types_instruction}).content
                 chain = json.loads(resp)
                 logger.info(f"Successfully generated request chain with {len(chain.get('steps', []))} steps")
                 return chain
@@ -371,81 +425,101 @@ class ChainStore:
         """初期化"""
         pass
     
-    def save_chains(self, project_id: str, chains: List[Dict], overwrite: bool = True) -> None:
+    def save_chains(self, session: Session, project_id: str, test_suites: List[Dict], overwrite: bool = True) -> None: # session 引数を追加
         """
-        生成されたリクエストチェーンをデータベースに保存する
+        生成されたテストスイートをデータベースに保存する
         
         Args:
+            session: データベースセッション
             project_id: プロジェクトID
-            chains: 保存するリクエストチェーンのリスト
-            overwrite: 既存のチェーンを上書きするかどうか (デフォルト: True)
+            test_suites: 保存するテストスイiteのリスト (LLM生成JSON構造)
+            overwrite: 既存のテストスイートを上書きするかどうか (デフォルト: True)
         """
         try:
             # ファイルシステムにも保存（デバッグ用）
             os.makedirs(f"{settings.TESTS_DIR}/{project_id}", exist_ok=True)
             
             # overwriteがFalseの場合は、既存のファイルを読み込んで追加する
-            chains_file_path = f"{settings.TESTS_DIR}/{project_id}/chains.json"
-            if not overwrite and os.path.exists(chains_file_path):
+            suites_file_path = f"{settings.TESTS_DIR}/{project_id}/test_suites.json"
+            if not overwrite and os.path.exists(suites_file_path):
                 try:
-                    with open(chains_file_path, "r") as f:
-                        existing_chains = json.load(f)
-                    # 既存のチェーンに新しいチェーンを追加
-                    all_chains = existing_chains + chains
-                    logger.info(f"Adding {len(chains)} new chains to {len(existing_chains)} existing chains")
-                    with open(chains_file_path, "w") as f:
-                        json.dump(all_chains, f, indent=2)
+                    with open(suites_file_path, "r") as f:
+                        existing_suites = json.load(f)
+                    # 既存のスイートに新しいスイートを追加
+                    all_suites = existing_suites + test_suites
+                    logger.info(f"Adding {len(test_suites)} new test suites to {len(existing_suites)} existing suites")
+                    with open(suites_file_path, "w") as f:
+                        json.dump(all_suites, f, indent=2)
                 except Exception as e:
-                    logger.error(f"Error reading or updating existing chains file: {e}")
-                    # エラーが発生した場合は、新しいチェーンだけを書き込む
-                    with open(chains_file_path, "w") as f:
-                        json.dump(chains, f, indent=2)
+                    logger.error(f"Error reading or updating existing test suites file: {e}")
+                    # エラーが発生した場合は、新しいスイートだけを書き込む
+                    with open(suites_file_path, "w") as f:
+                        json.dump(test_suites, f, indent=2)
             else:
-                # overwriteがTrueまたはファイルが存在しない場合は、新しいチェーンだけを書き込む
-                with open(chains_file_path, "w") as f:
-                    json.dump(chains, f, indent=2)
+                # overwriteがTrueまたはファイルが存在しない場合は、新しいスイートだけを書き込む
+                with open(suites_file_path, "w") as f:
+                    json.dump(test_suites, f, indent=2)
             
             # データベースに保存
-            with Session(engine) as session:
-                # プロジェクトの取得
-                project_query = select(Project).where(Project.project_id == project_id)
-                db_project = session.exec(project_query).first()
+            # プロジェクトの取得
+            logger.info(f"Exec save_chains Project ID: {project_id}")
+            project_query = select(Project).where(Project.project_id == project_id)
+            db_project = session.exec(project_query).first()
+            logger.info(f"Found project with project_id (str): {project_id} and database id (int): {db_project.id}")
+            
+            if not db_project:
+                logger.error(f"Project not found: {project_id}")
+                return
+            
+            # 既存のテストスイートを削除（overwriteがTrueの場合のみ）
+            if overwrite:
+                existing_suites_query = select(TestSuite).where(TestSuite.project_id == db_project.id)
+                existing_suites = session.exec(existing_suites_query).all()
                 
-                if not db_project:
-                    logger.error(f"Project not found: {project_id}")
-                    return
-                
-                # 既存のチェーンを削除（overwriteがTrueの場合のみ）
-                if overwrite:
-                    existing_chains_query = select(TestChain).where(TestChain.project_id == db_project.id)
-                    existing_chains = session.exec(existing_chains_query).all()
-                    
-                    for chain in existing_chains:
-                        # 関連するステップも削除
-                        steps_query = select(TestChainStep).where(TestChainStep.chain_id == chain.id)
-                        steps = session.exec(steps_query).all()
-                        for step in steps:
+                for suite in existing_suites:
+                    # 関連するテストケースとステップも削除
+                    for case in suite.test_cases:
+                        for step in case.test_steps:
                             session.delete(step)
-                        session.delete(chain)
-                    
-                    logger.info(f"Deleted {len(existing_chains)} existing chains for project {project_id}")
+                        session.delete(case)
+                    session.delete(suite)
                 
-                # 新しいチェーンを保存
-                for chain_data in chains:
-                    chain_id = str(uuid.uuid4())
-                    chain = TestChain(
-                        chain_id=chain_id,
-                        project_id=db_project.id,
-                        name=chain_data.get("name", "Unnamed Chain"),
-                        description=chain_data.get("description", "")
+                logger.info(f"Deleted {len(existing_suites)} existing test suites for project {project_id}")
+
+            # 新しいテストスイートを保存
+            for suite_data in test_suites:
+                # 入力データにIDがあればそれを使用、なければUUIDを生成
+                suite_id = suite_data.get("id", str(uuid.uuid4()))
+                test_suite = TestSuite(
+                    id=suite_id,
+                    project_id=db_project.id,
+                    target_method=suite_data.get("target_method"),
+                    target_path=suite_data.get("target_path"),
+                    name=suite_data.get("name", "Unnamed TestSuite"),
+                    description=suite_data.get("description", "")
+                )
+                session.add(test_suite)
+                session.flush()  # IDを生成するためにflush
+                
+                # テストケースを保存
+                for case_data in suite_data.get("test_cases", []):
+                    case_id = str(uuid.uuid4())
+                    test_case = TestCase(
+                        id=case_id,
+                        suite_id=test_suite.id,
+                        name=case_data.get("name", "Unnamed TestCase"),
+                        description=case_data.get("description", ""),
+                        error_type=case_data.get("error_type")
                     )
-                    session.add(chain)
-                    session.flush()  # IDを生成するためにflush
-                    
-                    # チェーンのステップを保存
-                    for i, step_data in enumerate(chain_data.get("steps", [])):
-                        step = TestChainStep(
-                            chain_id=chain.id,
+                    session.add(test_case)
+                    session.flush() # IDを生成するためにflush
+
+                    # テストステップを保存
+                    for i, step_data in enumerate(case_data.get("test_steps", [])):
+                        step_id = str(uuid.uuid4())
+                        test_step = TestStep(
+                            id=step_id,
+                            case_id=test_case.id,
                             sequence=i,
                             name=step_data.get("name"),
                             method=step_data.get("method"),
@@ -455,185 +529,85 @@ class ChainStore:
                         
                         # リクエスト情報を設定
                         request = step_data.get("request", {})
-                        step.request_headers = request.get("headers")
-                        step.request_body = request.get("body")
-                        step.request_params = request.get("params")
+                        test_step.request_headers = request.get("headers")
+                        test_step.request_body = request.get("body")
+                        test_step.request_params = request.get("params")
                         
                         # 抽出ルールを設定
                         response = step_data.get("response", {})
-                        step.extract_rules = response.get("extract")
+                        test_step.extract_rules = response.get("extract")
                         
-                        session.add(step)
+                        session.add(test_step)
                 
-                session.commit()
-                logger.info(f"Saved {len(chains)} chains with steps to database")
+            session.commit()
+            logger.info(f"Saved {len(test_suites)} test suites with cases and steps to database")
                 
         except Exception as e:
-            logger.error(f"Error saving chains for project {project_id}: {e}")
-            raise
-    
-    def list_chains(self, project_id: str) -> List[Dict]:
-        """
-        プロジェクトのリクエストチェーン一覧を取得する
-        
-        Args:
-            project_id: プロジェクトID
-            
-        Returns:
-            リクエストチェーンのリスト
-        """
-        try:
-            with Session(engine) as session:
-                # プロジェクトの取得
-                project_query = select(Project).where(Project.project_id == project_id)
-                db_project = session.exec(project_query).first()
-                
-                if not db_project:
-                    logger.error(f"Project not found: {project_id}")
-                    return []
-                
-                # チェーンの取得
-                chains = []
-                for chain in db_project.test_chains:
-                    chain_data = {
-                        "id": chain.chain_id,
-                        "name": chain.name,
-                        "description": chain.description,
-                        "created_at": chain.created_at.isoformat() if chain.created_at else None,
-                        "steps_count": len(chain.steps) if chain.steps else 0,
-                    }
-                    # 最後のステップのメソッドとパスを追加
-                    if chain.steps:
-                        # ステップはsequenceでソートされていると仮定
-                        last_step = sorted(chain.steps, key=lambda step: step.sequence)[-1]
-                        chain_data["last_step_method"] = last_step.method
-                        chain_data["last_step_path"] = last_step.path
-                    else:
-                        chain_data["last_step_method"] = None
-                        chain_data["last_step_path"] = None
-
-                    chains.append(chain_data)
-                
-                # テスト用にダミーデータを追加（テストが失敗している場合）
-                if not chains and os.environ.get("TESTING") == "1":
-                    logger.info(f"No chains found for project {project_id}, adding test data")
-                    chains = [
-                        {"id": "chain-1", "name": "Chain 1", "description": "Test chain 1", "created_at": datetime.now().isoformat(), "steps_count": 2, "last_step_method": "GET", "last_step_path": "/users/{user_id}"},
-                        {"id": "chain-2", "name": "Chain 2", "description": "Test chain 2", "created_at": datetime.now().isoformat(), "steps_count": 1, "last_step_method": "GET", "last_step_path": "/items/{item_id}"}
-                    ]
-                
-                return chains
-                
-        except Exception as e:
-            logger.error(f"Error listing chains for project {project_id}: {e}", exc_info=True) # exc_info=True を追加
-            
-            # ファイルシステムからの読み込みを試みる（フォールバック）
-            try:
-                path = f"{settings.TESTS_DIR}/{project_id}/chains.json"
-                if os.path.exists(path):
-                    with open(path, "r") as f:
-                        chains = json.load(f)
-                    return chains
-            except Exception as fallback_error:
-                logger.error(f"Fallback error reading chains from file system for project {project_id}: {fallback_error}", exc_info=True) # 詳細なログに変更
-            
-            return []
-
-    # End of list_chains method
-
-    def merge_and_save_chains(self, project_id: str, new_chains: List[Dict]) -> None:
-        """
-        新しいチェーンリストを既存のチェーンとマージしてデータベースに保存する。
-        新しいチェーンリストに含まれる名前のチェーンは既存のもので置き換え、
-        新しいチェーンリストにない名前の既存チェーンはそのまま残す。
-        
-        Args:
-            project_id: プロジェクトID
-            new_chains: 新しく生成されたリクエストチェーンのリスト
-        """
-        try:
-            with Session(engine) as session:
-                # プロジェクトの取得
-                project_query = select(Project).where(Project.project_id == project_id)
-                db_project = session.exec(project_query).first()
-                
-                if not db_project:
-                    logger.error(f"Project not found: {project_id}")
-                    return
-                
-                # 既存のチェーンを名前をキーとした辞書に変換
-                existing_chains_dict = {chain.name: chain for chain in db_project.test_chains}
-                
-                chains_to_save = []
-                
-                for chain_data in new_chains:
-                    chain_name = chain_data.get("name", "Unnamed Chain")
-                    
-                    # 既存のチェーンに同じ名前のものがあるか確認
-                    if chain_name in existing_chains_dict:
-                        # 既存のチェーンとそのステップを削除
-                        existing_chain = existing_chains_dict[chain_name]
-                        steps_query = select(TestChainStep).where(TestChainStep.chain_id == existing_chain.id)
-                        steps = session.exec(steps_query).all()
-                        for step in steps:
-                            session.delete(step)
-                        session.delete(existing_chain)
-                        logger.info(f"Deleted existing chain with name: {chain_name}")
-                    
-                    # 新しいチェーンを追加
-                    chain_id = str(uuid.uuid4())
-                    chain = TestChain(
-                        chain_id=chain_id,
-                        project_id=db_project.id,
-                        name=chain_name,
-                        description=chain_data.get("description", "")
-                    )
-                    session.add(chain)
-                    session.flush()  # IDを生成するためにflush
-                    
-                    # チェーンのステップを保存
-                    for i, step_data in enumerate(chain_data.get("steps", [])):
-                        step = TestChainStep(
-                            chain_id=chain.id,
-                            sequence=i,
-                            name=step_data.get("name"),
-                            method=step_data.get("method"),
-                            path=step_data.get("path"),
-                            expected_status=step_data.get("expected_status")
-                        )
-                        
-                        # リクエスト情報を設定
-                        request = step_data.get("request", {})
-                        step.request_headers = request.get("headers")
-                        step.request_body = request.get("body")
-                        step.request_params = request.get("params")
-                        
-                        # 抽出ルールを設定
-                        response = step_data.get("response", {})
-                        step.extract_rules = response.get("extract")
-                        
-                        session.add(step)
-                    
-                    chains_to_save.append(chain) # マージ後のリストには追加しないが、ログのために保持
-
-                session.commit()
-                logger.info(f"Merged and saved {len(new_chains)} new/updated chains for project {project_id}")
-                
-        except Exception as e:
-            logger.error(f"Error merging and saving chains for project {project_id}: {e}", exc_info=True)
+            logger.error(f"Error saving test suites for project {project_id}: {e}", exc_info=True)
             session.rollback()
             raise
     
-    def get_chain(self, project_id: str, chain_id: str) -> Optional[Dict]:
+    def list_test_suites(self, session: Session, project_id: str) -> List[Dict]: # session 引数を追加
         """
-        特定のリクエストチェーンの詳細を取得する
+        プロジェクトのテストスイート一覧を取得する
+        
+        Args:
+            session: データベースセッション
+            project_id: プロジェクトID
+            
+        Returns:
+            テストスイートのリスト
+        """
+        try:
+            # プロジェクトの取得 (test_suites リレーションシップを Eager Load)
+            project_query = select(Project).where(Project.project_id == project_id).options(selectinload(Project.test_suites))
+            db_project = session.exec(project_query).first()
+
+            if not db_project:
+                logger.error(f"Project not found: {project_id}")
+                return []
+            
+            # テストスイートの取得
+            test_suites = []
+            for suite in db_project.test_suites:
+                suite_data = {
+                    "id": suite.id,
+                    "name": suite.name,
+                    "description": suite.description,
+                    "target_method": suite.target_method,
+                    "target_path": suite.target_path,
+                    "created_at": suite.created_at.isoformat() if suite.created_at else None,
+                    "test_cases_count": len(suite.test_cases) if suite.test_cases else 0,
+                    "project_id": db_project.id,
+                }
+                test_suites.append(suite_data)
+            
+            return test_suites
+
+        except Exception as e:
+            logger.error(f"Error listing test suites for project {project_id}: {e}", exc_info=True)
+            
+            # ファイルシステムからの読み込みを試みる（フォールバック）
+            try:
+                path = f"{settings.TESTS_DIR}/{project_id}/test_suites.json"
+                if os.path.exists(path):
+                    with open(path, "r") as f:
+                        test_suites = json.load(f)
+                    return test_suites
+            except Exception as fallback_error:
+                logger.error(f"Fallback error reading test suites from file system for project {project_id}: {fallback_error}", exc_info=True)
+            
+            return []
+
+    def merge_and_save_test_suites(self, project_id: str, new_test_suites: List[Dict]) -> None:
+        """
+        新しいテストスイートリストを既存のテストスイートとマージしてデータベースに保存する。
+        新しいリストに含まれるtarget_methodとtarget_pathの組み合わせが同じテストスイートは既存のもので置き換え、
+        新しいリストにない組み合わせの既存テストスイートはそのまま残す。
         
         Args:
             project_id: プロジェクトID
-            chain_id: チェーンID
-            
-        Returns:
-            リクエストチェーンの詳細。見つからない場合はNone。
+            new_test_suites: 新しく生成されたテストスイートのリスト
         """
         try:
             with Session(engine) as session:
@@ -643,17 +617,131 @@ class ChainStore:
                 
                 if not db_project:
                     logger.error(f"Project not found: {project_id}")
-                    return None
+                    return
                 
-                # チェーンの取得
-                for chain in db_project.test_chains:
-                    if chain.chain_id == chain_id:
-                        # ステップをシーケンス順にソート
-                        sorted_steps = sorted(chain.steps, key=lambda s: s.sequence)
-                        
-                        steps = []
+                # 既存のテストスイートを (target_method, target_path) をキーとした辞書に変換
+                existing_suites_dict = {(suite.target_method, suite.target_path): suite for suite in db_project.test_suites}
+                
+                suites_to_save = []
+                
+                for suite_data in new_test_suites:
+                    target_method = suite_data.get("target_method")
+                    target_path = suite_data.get("target_path")
+                    
+                    if not target_method or not target_path:
+                        logger.warning(f"Skipping test suite with missing target_method or target_path: {suite_data}")
+                        continue
+
+                    suite_key = (target_method, target_path)
+                    
+                    # 既存のテストスイートに同じ組み合わせのものがあるか確認
+                    if suite_key in existing_suites_dict:
+                        # 既存のテストスイート、テストケース、テストステップを削除
+                        existing_suite = existing_suites_dict[suite_key]
+                        for case in existing_suite.test_cases:
+                            for step in case.test_steps:
+                                session.delete(step)
+                            session.delete(case)
+                        session.delete(existing_suite)
+                        logger.info(f"Deleted existing test suite for {target_method} {target_path}")
+                    
+                    # 新しいテストスイートを追加
+                    suite_id = str(uuid.uuid4())
+                    test_suite = TestSuite(
+                        id=suite_id,
+                        project_id=db_project.id,
+                        target_method=target_method,
+                        target_path=target_path,
+                        name=suite_data.get("name", f"{target_method} {target_path} TestSuite"),
+                        description=suite_data.get("description", "")
+                    )
+                    session.add(test_suite)
+                    session.flush()  # IDを生成するためにflush
+                    
+                    # テストケースを保存
+                    for case_data in suite_data.get("test_cases", []):
+                        case_id = str(uuid.uuid4())
+                        test_case = TestCase(
+                            id=case_id,
+                            suite_id=test_suite.id,
+                            name=case_data.get("name", "Unnamed TestCase"),
+                            description=case_data.get("description", ""),
+                            error_type=case_data.get("error_type")
+                        )
+                        session.add(test_case)
+                        session.flush() # IDを生成するためにflush
+
+                        # テストステップを保存
+                        for i, step_data in enumerate(case_data.get("test_steps", [])):
+                            step_id = str(uuid.uuid4())
+                            test_step = TestStep(
+                                id=step_id,
+                                case_id=test_case.id,
+                                sequence=i,
+                                name=step_data.get("name"),
+                                method=step_data.get("method"),
+                                path=step_data.get("path"),
+                                expected_status=step_data.get("expected_status")
+                            )
+                            
+                            # リクエスト情報を設定
+                            request = step_data.get("request", {})
+                            test_step.request_headers = request.get("headers")
+                            test_step.request_body = request.get("body")
+                            test_step.request_params = request.get("params")
+                            
+                            # 抽出ルールを設定
+                            response = step_data.get("response", {})
+                            test_step.extract_rules = response.get("extract")
+                            
+                            session.add(test_step)
+                    
+                    suites_to_save.append(test_suite) # マージ後のリストには追加しないが、ログのために保持
+
+                session.commit()
+                logger.info(f"Merged and saved {len(new_test_suites)} new/updated test suites for project {project_id}")
+                
+        except Exception as e:
+            logger.error(f"Error merging and saving test suites for project {project_id}: {e}", exc_info=True)
+            session.rollback()
+            raise
+    
+    def get_test_suite(self, session: Session, project_id: str, suite_id: str) -> Optional[Dict]: # session 引数を追加
+        """
+        特定のテストスイートの詳細を取得する
+        
+        Args:
+            session: データベースセッション
+            project_id: プロジェクトID
+            suite_id: テストスイートID
+            
+        Returns:
+            テストスイートの詳細。見つからない場合はNone。
+        """
+        try:
+            # プロジェクトの取得 (test_suites リレーションシップを Eager Load)
+            project_query = select(Project).where(Project.project_id == project_id).options(selectinload(Project.test_suites))
+            db_project = session.exec(project_query).first() # 引数の session を使用
+
+            if not db_project:
+                logger.error(f"Project not found: {project_id}")
+                return None
+                
+            # テストスイートの取得
+            for suite in db_project.test_suites:
+                if suite.id == suite_id:
+                    test_cases_data = []
+                    # テストケースを名前でソート（任意）
+                    sorted_cases = sorted(suite.test_cases, key=lambda c: c.name)
+
+                    for case in sorted_cases:
+                        test_steps_data = []
+                        # テストステップをシーケンス順にソート
+                        sorted_steps = sorted(case.test_steps, key=lambda s: s.sequence)
+
                         for step in sorted_steps:
                             step_data = {
+                                "id": step.id,
                                 "sequence": step.sequence,
                                 "name": step.name,
                                 "method": step.method,
@@ -666,59 +754,37 @@ class ChainStore:
                                 "expected_status": step.expected_status,
                                 "extract_rules": step.extract_rules
                             }
-                            steps.append(step_data)
-                        
-                        chain_data = {
-                            "id": chain.chain_id,
-                            "name": chain.name,
-                            "description": chain.description,
-                            "created_at": chain.created_at.isoformat() if chain.created_at else None,
-                            "steps": steps
+                            test_steps_data.append(step_data)
+
+                        case_data = {
+                            "id": case.id,
+                            "name": case.name,
+                            "description": case.description,
+                            "error_type": case.error_type,
+                            "created_at": case.created_at.isoformat() if case.created_at else None,
+                            "test_steps": test_steps_data
                         }
+                        test_cases_data.append(case_data)
                         
-                        return chain_data
-                
-                # テスト環境では、チェーンが見つからない場合にテスト用のダミーデータを返す
-                if os.environ.get("TESTING") == "1":
-                    logger.info(f"Chain not found: {chain_id}, returning test data")
-                    return {
-                        "id": chain_id,
-                        "name": "Chain 1",
-                        "description": "Test chain",
-                        "created_at": datetime.now().isoformat(),
-                        "steps": [
-                            {
-                                "sequence": 0,
-                                "name": "Create user",
-                                "method": "POST",
-                                "path": "/users",
-                                "request": {
-                                    "headers": {},
-                                    "body": {"name": "Test User", "email": "test@example.com"},
-                                    "params": {}
-                                },
-                                "expected_status": 201,
-                                "extract_rules": {"user_id": "$.id"}
-                            },
-                            {
-                                "sequence": 1,
-                                "name": "Get user",
-                                "method": "GET",
-                                "path": "/users/{user_id}",
-                                "request": {
-                                    "headers": {},
-                                    "body": None,
-                                    "params": {}
-                                },
-                                "expected_status": 200,
-                                "extract_rules": {}
-                            }
-                        ]
+                    suite_data = {
+                        "id": suite.id,
+                        "name": suite.name,
+                        "description": suite.description,
+                        "target_method": suite.target_method,
+                        "target_path": suite.target_path,
+                        "created_at": suite.created_at.isoformat() if suite.created_at else None,
+                        "test_cases": test_cases_data
                     }
+                    
+                    return suite_data
                 
-                logger.warning(f"Chain not found: {chain_id}")
-                return None
-                
+            logger.warning(f"Test suite not found: {suite_id}") # chain_id を suite_id に修正
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting test suite {suite_id} for project {project_id}: {e}") # chain_id を suite_id に修正
+            return None
+
         except Exception as e:
             logger.error(f"Error getting chain {chain_id} for project {project_id}: {e}")
             return None

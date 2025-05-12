@@ -1,22 +1,33 @@
 import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
 
-export interface ChainRun {
+export interface TestRun {
   id: string;
   run_id: string;
-  chain_id: string;
+  suite_id: string;
   project_id: string;
   status: 'running' | 'completed' | 'failed';
   start_time: string;
   end_time?: string;
+  test_case_results?: TestCaseResult[];
+}
+
+export interface TestCaseResult {
+  id: string;
+  test_run_id: string;
+  case_id: string;
+  status: 'passed' | 'failed' | 'skipped';
+  error_message?: string;
   step_results?: StepResult[];
 }
 
 export interface StepResult {
   id: string;
-  chain_run_id: string;
+  test_case_result_id: string;
   step_id: string;
   sequence: number;
+  method: string;
+  path: string;
   status_code?: number;
   passed: boolean;
   response_time?: number;
@@ -25,9 +36,9 @@ export interface StepResult {
   extracted_values?: Record<string, any>;
 }
 
-export interface TestChainStep {
+export interface TestStep {
   id: string;
-  chain_id: string; // バックエンドはintだが、フロントエンドではstringとして扱う可能性
+  case_id: string;
   sequence: number;
   name?: string;
   method: string;
@@ -37,41 +48,51 @@ export interface TestChainStep {
   request_params?: Record<string, any>;
   expected_status?: number;
   extract_rules?: Record<string, string>;
-  // StepResult とのリレーションシップはここでは不要
 }
 
-export interface TestChain {
-  id: string; // バックエンドはintだが、フロントエンドではstringとして扱う可能性
-  chain_id: string;
-  project_id: string; // バックエンドはintだが、フロントエンドではstringとして扱う可能性
+export interface TestCase {
+  id: string;
+  suite_id: string;
   name: string;
   description?: string;
-  tags?: string;
-  steps?: TestChainStep[]; // TestChainStep のリスト
-  // ChainRun とのリレーションシップはここでは不要
+  error_type?: string;
+  target_method: string;
+  target_path: string;
+  steps?: TestStep[];
 }
 
-export function useChainRuns(projectId: string) {
-  const { data, error, isLoading, mutate } = useSWR<ChainRun[]>(
+export interface TestSuite {
+  id: string;
+  project_id: string;
+  target_method: string;
+  target_path: string;
+  name: string;
+  description?: string;
+  test_cases?: TestCase[];
+}
+
+export function useTestRuns(projectId: string) {
+  const { data, error, isLoading, mutate } = useSWR<TestRun[]>(
     projectId ? `/api/projects/${projectId}/runs` : null,
     fetcher
   );
   
   return {
-    chainRuns: data,
+    testRuns: data,
     isLoading,
     error,
     mutate,
   };
 }
 
-// 後方互換性のために残す（非推奨）
-export function useTestRuns(projectId: string) {
-  console.warn('useTestRuns は非推奨です。代わりに useChainRuns を使用してください。');
-  const { chainRuns, isLoading, error, mutate } = useChainRuns(projectId);
-  
+export function useTestRunDetail(projectId: string, runId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<TestRun>(
+    projectId && runId ? `/api/projects/${projectId}/runs/${runId}` : null,
+    fetcher
+  );
+
   return {
-    testRuns: chainRuns,
+    testRun: data,
     isLoading,
     error,
     mutate,

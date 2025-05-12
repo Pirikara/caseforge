@@ -1,30 +1,53 @@
 import pytest
-from app.services.chain_runner import ChainRunner, run_chains, list_chain_runs, get_chain_run
+from app.services.chain_runner import ChainRunner, run_test_suites, list_test_runs, get_test_run
 from unittest.mock import patch, MagicMock, AsyncMock
 import json
+import uuid
 from datetime import datetime, timezone
 import httpx
 from sqlmodel import select
 
-# テスト用のサンプルチェーン
-SAMPLE_CHAIN = {
-    "name": "ユーザー作成と取得",
-    "steps": [
+# テスト用のサンプルテストスイート
+SAMPLE_TEST_SUITE = {
+    "name": "POST /users エンドポイントのテスト",
+    "target_method": "POST",
+    "target_path": "/users",
+    "test_cases": [
         {
-            "method": "POST",
-            "path": "/users",
-            "request": {
-                "body": {"name": "Test User", "email": "test@example.com"}
-            },
-            "response": {
-                "extract": {"user_id": "$.id"}
-            }
+            "name": "正常系",
+            "description": "正常なユーザー作成と取得",
+            "error_type": None,
+            "test_steps": [
+                {
+                    "sequence": 0,
+                    "method": "POST",
+                    "path": "/users",
+                    "request_body": {"name": "Test User", "email": "test@example.com"},
+                    "extract_rules": {"user_id": "$.id"},
+                    "expected_status": 201
+                },
+                {
+                    "sequence": 1,
+                    "method": "GET",
+                    "path": "/users/{user_id}",
+                    "request_params": {"user_id": "{user_id}"}, # 抽出した値を使用
+                    "expected_status": 200
+                }
+            ]
         },
         {
-            "method": "GET",
-            "path": "/users/{user_id}",
-            "request": {},
-            "response": {}
+            "name": "必須フィールド欠落",
+            "description": "emailフィールドがない場合",
+            "error_type": "missing_field",
+            "test_steps": [
+                {
+                    "sequence": 0,
+                    "method": "POST",
+                    "path": "/users",
+                    "request_body": {"name": "Test User"},
+                    "expected_status": 400
+                }
+            ]
         }
     ]
 }
@@ -38,6 +61,10 @@ SAMPLE_RESPONSES = {
     "GET /users/123": httpx.Response(
         status_code=200,
         json={"id": "123", "name": "Test User", "email": "test@example.com"}
+    ),
+    "POST /users (missing field)": httpx.Response(
+        status_code=400,
+        json={"detail": "Missing required field: email"}
     )
 }
 
@@ -54,12 +81,12 @@ async def test_execute_step():
     mock_chain = MagicMock()
 
     # テスト実行
-    runner = ChainRunner(session=mock_session, chain=mock_chain)
-    step = SAMPLE_CHAIN["steps"][0]
+    runner = ChainRunner(session=mock_session, test_suite=mock_chain)
+    step = SAMPLE_TEST_SUITE["test_cases"][0]["test_steps"][0]
     result = await runner._execute_step(mock_client, step, {})
     
     # 検証
-    assert result["success"] is True
+    assert result["passed"] is True # success を passed に変更
     assert result["status_code"] == 201
     assert "response_body" in result
     assert result["response_body"]["id"] == "123"
@@ -81,8 +108,8 @@ async def test_extract_values():
     mock_chain = MagicMock()
 
     # テスト実行
-    runner = ChainRunner(session=mock_session, chain=mock_chain)
-    response_body = {"id": "123", "name": "Test User"}
+    runner = ChainRunner(session=mock_session, test_suite=mock_chain)
+    response_body = {"id": "123", "name": "Test User", "email": "test@example.com"} # レスポンスボディを修正
     extract_rules = {"user_id": "$.id", "user_name": "$.name"}
     
     extracted = runner._extract_values(response_body, extract_rules)
@@ -99,7 +126,7 @@ async def test_replace_path_params():
     mock_chain = MagicMock()
 
     # テスト実行
-    runner = ChainRunner(session=mock_session, chain=mock_chain)
+    runner = ChainRunner(session=mock_session, test_suite=mock_chain)
     path = "/users/{user_id}/posts/{post_id}"
     values = {"user_id": "123", "post_id": "456"}
     
@@ -116,7 +143,7 @@ async def test_replace_values_in_body():
     mock_chain = MagicMock()
 
     # テスト実行
-    runner = ChainRunner(session=mock_session, chain=mock_chain)
+    runner = ChainRunner(session=mock_session, test_suite=mock_chain)
     body = {
         "user_id": "${user_id}",
         "data": {
@@ -136,184 +163,275 @@ async def test_replace_values_in_body():
     assert result["items"][1] == "item2"
 
 @pytest.mark.asyncio
-async def test_run_chain():
-    """チェーン実行のテスト"""
+async def test_run_test_suite():
+    """テストスイート実行のテスト"""
     # httpx.AsyncClientクラスをモック
     with patch("httpx.AsyncClient") as mock_async_client_cls:
         # インスタンスのrequestメソッドをAsyncMockに設定
         mock_async_client_cls.return_value.request = AsyncMock()
-        mock_async_client_cls.return_value.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
+        def side_effect(**kwargs):
+            if kwargs["method"] == "POST" and kwargs["url"] == "/users" and kwargs.get("json") and "email" in kwargs["json"]:
+                return SAMPLE_RESPONSES["POST /users"]
+            elif kwargs["method"] == "POST" and kwargs["url"] == "/users" and (not kwargs.get("json") or "email" not in kwargs["json"]):
+                return SAMPLE_RESPONSES["POST /users (missing field)"]
+            elif kwargs["method"] == "GET" and kwargs["url"].startswith("/users/"):
+                 return SAMPLE_RESPONSES["GET /users/123"]
+            # 他のケースが必要であればここに追加
+            raise ValueError(f"Unexpected request: {kwargs['method']} {kwargs['url']}")
 
-        # ダミーのsessionとchainを作成
+        mock_async_client_cls.return_value.request.side_effect = side_effect
+
+        # ダミーのsessionとtest_suiteを作成
         mock_session = MagicMock()
-        mock_chain = MagicMock()
+        mock_test_suite = MagicMock()
 
         # テスト実行
-        runner = ChainRunner(session=mock_session, chain=mock_chain)
-        result = await runner.run_chain(SAMPLE_CHAIN)
+        runner = ChainRunner(session=mock_session, test_suite=mock_test_suite)
+        result = await runner.run_test_suite(SAMPLE_TEST_SUITE)
 
         # 検証
         assert result["status"] == "completed"
         assert result["success"] is True
-        assert len(result["steps"]) == 2
-        assert result["steps"][0]["success"] is True
-        assert result["steps"][1]["success"] is True
-        assert "user_id" in result["extracted_values"]
-        assert result["extracted_values"]["user_id"] == "123"
+        assert len(result["test_case_results"]) == len(SAMPLE_TEST_SUITE["test_cases"])
+        assert result["test_case_results"][0]["status"] == "passed"
+        assert result["test_case_results"][1]["status"] == "passed" # AssertionError を修正
+        assert "user_id" in result["test_case_results"][0]["step_results"][0]["extracted_values"] # ステップレベルの extracted_values にアクセス
+        assert result["test_case_results"][0]["step_results"][0]["extracted_values"]["user_id"] == "123" # ステップレベルの extracted_values にアクセス
 
 @pytest.mark.asyncio
-async def test_run_chain_with_base_url():
-    """base_urlを指定した場合のチェーン実行テスト"""
-    # httpx.AsyncClientクラスをモック
+async def test_run_test_suite_with_base_url():
     with patch("httpx.AsyncClient") as mock_async_client_cls:
-        # インスタンスのrequestメソッドをAsyncMockに設定
-        mock_async_client_cls.return_value.request = AsyncMock()
-        mock_async_client_cls.return_value.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
+        # AsyncClientのインスタンスとして使用するモックを作成
+        mock_client_instance = AsyncMock()
 
-        # ダミーのsessionとchainを作成
+        def side_effect(method, url, **kwargs):
+            print(f"REQ: {method} {url} | json={kwargs.get('json')}")
+            if method == "POST" and url.endswith("/users") and kwargs.get("json", {}).get("email"):
+                return httpx.Response(
+                    status_code=201,
+                    content=json.dumps({"id": "123"}).encode(),
+                    headers={"Content-Type": "application/json"}
+                )
+            elif method == "POST" and url.endswith("/users"):
+                return httpx.Response(
+                    status_code=400,
+                    content=json.dumps({"detail": "Missing required field: email"}).encode(),
+                    headers={"Content-Type": "application/json"}
+                )
+            elif method == "GET" and "/users/" in url:
+                return httpx.Response(
+                    status_code=200,
+                    content=json.dumps({"id": "123", "name": "Test User"}).encode(),
+                    headers={"Content-Type": "application/json"}
+                )
+            raise Exception(f"Unexpected request: {method} {url}")
+
+        # モックインスタンスのrequestメソッドにside_effectを設定
+        mock_client_instance.request.side_effect = side_effect
+
+        # patchしたクラスのreturn_valueにモックインスタンスを設定
+        mock_async_client_cls.return_value = mock_client_instance
+
+        # モックインスタンスを非同期コンテキストマネージャーとして設定
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+
+        # ダミーの session と test_suite を用意
         mock_session = MagicMock()
-        mock_chain = MagicMock()
+        mock_test_suite = MagicMock()
         test_base_url = "http://test.api.com"
 
-        # テスト実行
-        runner = ChainRunner(session=mock_session, chain=mock_chain, base_url=test_base_url)
-        result = await runner.run_chain(SAMPLE_CHAIN)
+        # テストスイートの実行
+        runner = ChainRunner(session=mock_session, test_suite=mock_test_suite, base_url=test_base_url)
+        result = await runner.run_test_suite(SAMPLE_TEST_SUITE)
 
         # 検証
         assert result["status"] == "completed"
         assert result["success"] is True
-        assert len(result["steps"]) == 2
-        assert result["steps"][0]["success"] is True
-        assert result["steps"][1]["success"] is True
-        assert "user_id" in result["extracted_values"]
-        assert result["extracted_values"]["user_id"] == "123"
+        assert len(result["test_case_results"]) == 2
+        assert result["test_case_results"][0]["status"] == "passed"
+        assert result["test_case_results"][1]["status"] == "passed"
+        assert "user_id" in result["test_case_results"][0]["step_results"][0]["extracted_values"]
+        assert result["test_case_results"][0]["step_results"][0]["extracted_values"]["user_id"] == "123"
 
-        # httpx.AsyncClientが正しいbase_urlで呼ばれたことを確認
+        # base_url を渡して httpx.AsyncClient が生成されたかを確認
         mock_async_client_cls.assert_called_once_with(base_url=test_base_url, timeout=30.0)
 
 
 @pytest.mark.asyncio
-async def test_run_chains(session, test_project, monkeypatch):
-    """チェーン実行関数のテスト"""
+async def test_run_test_suites_function(session, test_project, monkeypatch):
     # ChainStoreをモック
     mock_chain_store = MagicMock()
-    mock_chain_store.get_chain.return_value = SAMPLE_CHAIN
-    mock_chain_store.list_chains.return_value = [{"id": "test-chain-1"}]
+    mock_chain_store.list_test_suites.return_value = [{"id": "test-suite-1"}]
+    mock_chain_store.get_test_suite.return_value = SAMPLE_TEST_SUITE
     monkeypatch.setattr("app.services.chain_runner.ChainStore", lambda: mock_chain_store)
     
     # httpx.AsyncClientをモック
-    mock_client = MagicMock()
-    mock_client.request = AsyncMock()
-    mock_client.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
+    # httpx.AsyncClientクラスをモック
+    with patch("httpx.AsyncClient") as mock_async_client_cls:
+        # AsyncClientのインスタンスをモック
+        mock_client_instance = AsyncMock()
+        mock_client_instance.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
 
-    # AsyncClientのコンテキストマネージャをモック
-    mock_async_client = MagicMock()
-    mock_async_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_async_client.__aexit__ = AsyncMock(return_value=None)
+        # モッククラスのreturn_value (インスタンス) が mock_client_instance を返すように設定
+        mock_async_client_cls.return_value = mock_client_instance
 
-    with patch("httpx.AsyncClient", return_value=mock_async_client):
-        # ファイル書き込みをモック
-        monkeypatch.setattr("os.makedirs", lambda path, exist_ok: None)
-        mock_open = MagicMock()
-        monkeypatch.setattr("builtins.open", mock_open)
+        # AsyncClientのコンテキストマネージャをモック
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
 
-        # テスト用のチェーンを事前に作成
-        from app.models import TestChain, ChainRun
+        with patch("httpx.AsyncClient") as mock_async_client_cls, \
+             patch("app.services.chain_runner.Session") as mock_session_cls: # Session をモック
 
-        # テスト用のチェーンを作成
-        chain = TestChain(
-            chain_id="test-chain-1",
-            project_id=test_project.id,
-            name="Test Chain"
-        )
-        session.add(chain)
-        session.commit()
-        session.refresh(chain)
+            # AsyncClientのインスタンスをモック
+            mock_client_instance = AsyncMock()
+            mock_client_instance.request.side_effect = lambda **kwargs: SAMPLE_RESPONSES[f"{kwargs['method']} {kwargs['url']}"]
 
-        # テスト実行
-        result = await run_chains(test_project.project_id)
+            # モッククラスのreturn_value (インスタンス) が mock_client_instance を返すように設定
+            mock_async_client_cls.return_value = mock_client_instance
 
-        # 検証
-        assert result["status"] == "completed"
-        assert "results" in result
+            # AsyncClientのコンテキストマネージャをモック
+            mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+            mock_client_instance.__aexit__ = AsyncMock(return_value=None)
 
-        # ChainRunが作成されたことを確認
-        runs = session.exec(select(ChainRun).where(ChainRun.project_id == test_project.id)).all()
-        assert len(runs) > 0
+            mock_session_cls.return_value.__enter__.return_value = session # モックされたSessionがテストセッションを返すように設定
+            mock_session_cls.return_value.__exit__.return_value = None # __exit__ もモック
 
-def test_list_chain_runs(session, test_project):
-    """チェーン実行履歴取得のテスト"""
-    # テスト用のChainRunを作成
-    from app.models import TestChain, ChainRun
+            # ファイル書き込みをモック
+            monkeypatch.setattr("os.makedirs", lambda path, exist_ok: None)
+            mock_open = MagicMock()
+            monkeypatch.setattr("builtins.open", mock_open)
+
+            # テスト用のテストスイートを事前に作成
+            from app.models import TestSuite, TestRun
+
+            # テスト用のテストスイートを作成
+            test_suite = TestSuite(
+                id="test-suite-1",
+                project_id=test_project.project_id, # project_id を test_project.project_id に変更
+                name="Test TestSuite",
+                target_method="POST",
+                target_path="/users"
+            )
+            session.add(test_suite)
+            session.commit()
+            session.refresh(test_suite)
+            print(f"test_run_test_suites_function: TestSuite saved: {test_suite}") # デバッグログ追加
+        
+            # テスト実行
+            print(f"test_run_test_suites_function: Calling run_test_suites with project_id: {test_project.project_id}") # デバッグログ追加
+            result = await run_test_suites(test_project.project_id)
+            print(f"test_run_test_suites_function: run_test_suites result: {result}") # デバッグログ追加
+
+            # run_test_suites内でコミットされたTestRunがテストセッションから見えるか確認
+            session.refresh(test_project) # プロジェクトをリフレッシュして関連するTestRunを取得可能にする
+            print(f"test_run_test_suites_function: Session refreshed.") # デバッグログ追加
+
+            # 検証
+            assert result["status"] == "completed"
+            assert "results" in result
+
+            # TestRunが作成されたことを確認
+            # run_test_suites内でコミットされたTestRunがテストセッションから見えるように、テストセッションをコミット
+            session.commit()
+            print(f"test_run_test_suites_function: Test session committed.") # デバッグログ追加
+
+            runs = session.exec(select(TestRun).where(TestRun.project_id == test_project.id)).all()
+            print(f"test_run_test_suites_function: Retrieved TestRuns: {runs}") # デバッグログ追加
+            assert len(runs) > 0
+
+def test_list_test_runs(session, test_project):
+    # テスト用のTestRunを作成
+    from app.models import TestSuite, TestRun
     
-    # テスト用のチェーンを作成
-    chain = TestChain(
-        chain_id="test-chain-1",
+    # テスト用のテストスイートを作成
+    test_suite = TestSuite(
+        id="test-suite-1",
         project_id=test_project.id,
-        name="Test Chain"
+        name="Test TestSuite",
+        target_method="GET",
+        target_path="/items"
     )
-    session.add(chain)
+    session.add(test_suite)
     session.flush()
     
-    # テスト用のチェーン実行を作成
-    run = ChainRun(
-        run_id="test-run-1",
-        chain_id=chain.id,
-        project_id=test_project.id,
+    # テスト用のテスト実行を作成
+    test_run = TestRun(
+        run_id=str(uuid.uuid4()), # run_id を明示的に指定
+        suite_id=test_suite.id,
+        project_id=test_project.id, # project_id を test_project.project_id に変更
         status="completed",
         start_time=datetime.now(timezone.utc)
     )
-    session.add(run)
+    session.add(test_run)
     session.commit()
-    
+    session.refresh(test_run)
+
     # テスト実行
-    runs = list_chain_runs(test_project.project_id)
+    with patch("app.services.chain_runner.Session", return_value=session) as mock_session:
+        test_runs = list_test_runs(test_project.project_id)
     
     # 検証
-    assert len(runs) == 1
-    assert runs[0]["run_id"] == "test-run-1"
-    assert runs[0]["chain_id"] == "test-chain-1"
-    assert runs[0]["status"] == "completed"
+    assert len(test_runs) == 1
+    assert test_runs[0]["run_id"] == test_run.run_id # 自動生成された run_id を使用
+    assert test_runs[0]["suite_id"] == "test-suite-1"
+    assert test_runs[0]["status"] == "completed"
 
-def test_get_chain_run(session, test_project):
-    """特定のチェーン実行取得のテスト"""
-    # テスト用のChainRunとStepResultを作成
-    from app.models import TestChain, TestChainStep, ChainRun, StepResult
+def test_get_test_run(session, test_project):
+    from app.models.chain import TestSuite, TestStep
+    from app.models.test_models import TestCase, TestCaseResult, StepResult, TestRun
     
-    # テスト用のチェーンを作成
-    chain = TestChain(
-        chain_id="test-chain-1",
+    test_suite = TestSuite(
+        id="test-suite-1",
         project_id=test_project.id,
-        name="Test Chain"
+        name="Test TestSuite",
+        target_method="POST",
+        target_path="/users"
     )
-    session.add(chain)
+    session.add(test_suite)
     session.flush()
     
-    # テスト用のステップを作成
-    step = TestChainStep(
-        chain_id=chain.id,
+    test_case = TestCase(
+        id="test-case-1",
+        suite_id=test_suite.id,
+        name="Normal Case",
+        description="Normal user creation",
+        error_type=None
+    )
+    session.add(test_case)
+    session.flush()
+    
+    test_step = TestStep(
+        id="test-step-1",
+        case_id=test_case.id,
         sequence=0,
         method="POST",
         path="/users"
     )
-    session.add(step)
+    session.add(test_step)
     session.flush()
     
-    # テスト用のチェーン実行を作成
-    run = ChainRun(
-        run_id="test-run-1",
-        chain_id=chain.id,
+    test_run = TestRun(
+        run_id=str(uuid.uuid4()),
+        suite_id=test_suite.id,
         project_id=test_project.id,
         status="completed",
         start_time=datetime.now(timezone.utc)
     )
-    session.add(run)
+    session.add(test_run)
     session.flush()
     
-    # テスト用のステップ結果を作成
+    test_case_result = TestCaseResult(
+        test_run_id=test_run.id,
+        case_id=test_case.id,
+        status="passed"
+    )
+    session.add(test_case_result)
+    session.flush()
+    
     step_result = StepResult(
-        chain_run_id=run.id,
-        step_id=step.id,
+        test_case_result_id=test_case_result.id,
+        step_id=test_step.id,
         sequence=0,
         status_code=201,
         passed=True,
@@ -322,15 +440,18 @@ def test_get_chain_run(session, test_project):
     )
     session.add(step_result)
     session.commit()
+    with patch("app.services.chain_runner.Session", return_value=session):
+        test_run_data = get_test_run(test_project.project_id, test_run.run_id)
     
-    # テスト実行
-    run_data = get_chain_run(test_project.project_id, "test-run-1")
-    
-    # 検証
-    assert run_data is not None
-    assert run_data["run_id"] == "test-run-1"
-    assert run_data["chain_id"] == "test-chain-1"
-    assert run_data["status"] == "completed"
-    assert len(run_data["steps"]) == 1
-    assert run_data["steps"][0]["status_code"] == 201
-    assert run_data["steps"][0]["passed"] is True
+    assert test_run_data is not None
+    assert test_run_data["run_id"] == test_run.run_id
+    assert test_run_data["suite_id"] == "test-suite-1"
+    assert test_run_data["status"] == "completed"
+    assert len(test_run_data["test_case_results"]) == 1
+    assert test_run_data["test_case_results"][0]["id"] == test_case_result.id
+    assert test_run_data["test_case_results"][0]["case_id"] == "test-case-1"
+    assert test_run_data["test_case_results"][0]["status"] == "passed"
+    assert len(test_run_data["test_case_results"][0]["step_results"]) == 1
+    assert test_run_data["test_case_results"][0]["step_results"][0]["id"] == step_result.id
+    assert test_run_data["test_case_results"][0]["step_results"][0]["status_code"] == 201
+    assert test_run_data["test_case_results"][0]["step_results"][0]["passed"] is True

@@ -1,15 +1,15 @@
 from .base import TimestampModel, get_session, engine
 from .project import Project, Schema
-from .test import TestRun, TestResult
-from .chain import TestChain, TestChainStep, ChainRun, StepResult
+from .test_models import TestRun, TestCaseResult, StepResult, TestCase # TestCase を追加
+from .chain import TestSuite, TestStep
 from .endpoint import Endpoint
 
 # モデルをインポートしてSQLModelに認識させる
 __all__ = [
     "TimestampModel", "get_session", "engine",
     "Project", "Schema",
-    "TestRun", "TestResult",
-    "TestChain", "TestChainStep", "ChainRun", "StepResult",
+    "TestRun", "TestCaseResult", "TestCase", # TestCase を追加
+    "TestSuite", "TestStep", "StepResult",
     "Endpoint"
 ]
 

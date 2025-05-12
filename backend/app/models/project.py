@@ -3,10 +3,9 @@ from typing import Optional, List, ForwardRef
 from .base import TimestampModel
 
 # 循環インポートを避けるために ForwardRef を使用
-TestRun = ForwardRef("TestRun")
-TestChain = ForwardRef("TestChain")
-ChainRun = ForwardRef("ChainRun")
-Endpoint = ForwardRef("Endpoint")
+TestSuite = ForwardRef("TestSuite") # TestChain を TestSuite に変更
+TestRun = ForwardRef("TestRun") # TestRun はそのまま
+Endpoint = ForwardRef("Endpoint") # Endpoint はそのまま
 
 class Project(TimestampModel, table=True):
     __tablename__ = "project"
@@ -19,11 +18,9 @@ class Project(TimestampModel, table=True):
 
     # リレーションシップ
     schemas: List["Schema"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
-    # 既存のリレーションシップ（廃止予定）
-    test_runs: List["TestRun"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
     # 新しいリレーションシップ
-    test_chains: List["TestChain"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
-    chain_runs: List["ChainRun"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
+    test_suites: List["TestSuite"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"}) # test_chains を test_suites に変更, TestChain を TestSuite に変更
+    test_runs: List["TestRun"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"}) # chain_runs を test_runs に変更, ChainRun を TestRun に変更
     # エンドポイント管理のリレーションシップ
     endpoints: List["Endpoint"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
 

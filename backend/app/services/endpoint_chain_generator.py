@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 import json
 import os
 from app.models import Endpoint
@@ -12,7 +12,7 @@ from langchain_community.vectorstores import FAISS
 class EndpointChainGenerator:
     """選択されたエンドポイントからテストチェーンを生成するクラス"""
     
-    def __init__(self, project_id: str, endpoints: List[Endpoint], schema: Dict = None):
+    def __init__(self, project_id: str, endpoints: List[Endpoint], schema: Dict = None, error_types: Optional[List[str]] = None): # error_types 引数を追加
         """
         Args:
             project_id: プロジェクトID
@@ -22,6 +22,7 @@ class EndpointChainGenerator:
         self.project_id = project_id
         self.endpoints = endpoints
         self.schema = schema
+        self.error_types = error_types # error_types を属性として保持
     
     def generate_chains(self) -> List[Dict]:
         """
@@ -53,7 +54,7 @@ class EndpointChainGenerator:
         
         # プロンプトの設定 (ループの外で一度だけ行う)
         prompt = ChatPromptTemplate.from_template(
-            """あなたはAPIテストの専門家です。以下のターゲットエンドポイントと、関連するOpenAPIスキーマ情報を元に、そのターゲットエンドポイントを正常に実行するために必要な前提リクエストを含むテストチェーンを生成してください。
+    """あなたはAPIテストの専門家です。以下のターゲットエンドポイントと、関連するOpenAPIスキーマ情報を元に、そのエンドポイントに対するテストスイート（TestSuite）を生成してください。
 
 ターゲットエンドポイント:
 {target_endpoint_info}
@@ -61,52 +62,71 @@ class EndpointChainGenerator:
 関連スキーマ情報:
 {relevant_schema_info}
 
-テストチェーンは、環境構築や必要なリソース作成のための前提リクエストから始まり、最後にターゲットエンドポイントへのリクエストで終わるようにしてください。エンドポイント間の依存関係を考慮し、例えばターゲットエンドポイントがパスパラメータにリソースIDを必要とする場合、そのリソースを作成しIDを抽出する先行リクエストを含めてください。
+テストスイートには、以下のテストケースを含めてください。
+1. 正常系テストケース: ターゲットエンドポイントが正常に処理されるリクエスト。必要な前提リクエスト（リソース作成など）を含めること。
+2. 異常系テストケース: {error_types_instruction}に基づいたテストケースを複数生成してください。
 
-以下の構造を持つJSONオブジェクトのみを返してください。
+各テストケースは、そのテストケースを実行するために必要な前提ステップと、ターゲットエンドポイントへのリクエストステップで構成される必要があります。エンドポイント間の依存関係を考慮し、例えばターゲットエンドポイントがパスパラメータにリソースIDを必要とする場合、そのリソースを作成しIDを抽出する先行リクエストを含めてください。
+
+以下の形式に従い、テストスイート（TestSuite）をJSONオブジェクトとして返してください。説明文などJSON以外のテキストは**絶対に含めないでください**。
 
 ```json
 {{
-  "name": "チェーンの分かりやすい名前 (例: POST /users のテスト)",
-  "steps": [
+  "name": "テストスイートの名前（例: PUT /users のテストスイート）",
+  "target_method": "対象エンドポイントのHTTPメソッド（例: PUT）",
+  "target_path": "対象エンドポイントのパス（例: /users/{{id}}）",
+  "test_cases": [
     {{
-      "method": "HTTPメソッド (GET, POST, PUT, DELETE)",
-      "path": "パラメータのプレースホルダーを含むAPIパス (例: /users/{{user_id}})",
-      "request": {{
-        "headers": {{"ヘッダー名": "値"}},
-        "body": {{"キー": "値"}}
-      }},
-      "response": {{
-        "extract": {{"変数名": "$.jsonpath.to.value"}}
-      }}
-    }},
-    // ... 他のステップ ...
-    {{
-      // これはターゲットエンドポイントへのリクエストである必要があります
-      "method": "HTTPメソッド (GET, POST, PUT, DELETE)",
-      "path": "パラメータのプレースホルダーを含むAPIパス",
-      "request": {{
-        "headers": {{"ヘッダー名": "値"}},
-        "body": {{"キー": "値"}}
-      }},
-      "response": {{
-        "extract": {{"変数名": "$.jsonpath.to.value"}}
-      }}
+      "name": "テストケース名（例: 正常系）",
+      "description": "テストケースの目的や意図",
+      "error_type": null,  // 異常系は "invalid_input" などの文字列、正常系は null
+      "test_steps": [
+        {{
+          "method": "HTTPメソッド（例: POST）",
+          "path": "APIのパス（例: /users）",
+          "request_headers": {{
+            "Content-Type": "application/json"
+          }},
+          "request_body": {{
+            "name": "John Doe"
+          }},
+          "request_params": {{
+            "id": "123"
+          }},
+          "extract_rules": {{
+            "user_id": "$.id"
+          }},
+          "expected_status": 200
+        }}
+        // ... 他のステップ ...
+      ]
     }}
+    // ... 他のテストケース ...
   ]
 }}
 ```
 
-以下の点を確認してください：
+注意事項（絶対遵守）：
+0. 各 test_steps には以下のフィールドをすべて含めること：
+   method, path, request_headers, request_body, request_params, extract_rules, expected_status。
+   空のオブジェクトでも構わないが、フィールド自体は省略しないこと。
 1. レスポンスから値を抽出するために、"extract"に適切なJSONPath式を含めること。
 2. 抽出した値を、後続のリクエストのパスパラメータやリクエストボディで使用すること。
-3. チェーンの最後のステップが必ずターゲットエンドポイントへのリクエストであること。
-4. 必要なリソースのセットアップを含め、ターゲットエンドポイントを徹底的にテストするための論理的なフローを作成すること。
+3. 各テストケースの最後のステップが必ずターゲットエンドポイントへのリクエストであること。
+4. 必要なリソースのセットアップを含め、各テストケースを徹底的にテストするための論理的なフローを作成すること。
 5. JSONオブジェクトのみを返し、説明や他のテキストを含めないこと。
-6. 各ターゲットエンドポイントに対して個別のテストチェーンを生成すること。
-7. テストチェーンの名前には、ターゲットエンドポイントのメソッドとパスを含めること。
+6. 各ターゲットエンドポイントに対して個別のテストスイートを生成すること。
+7. テストスイートの名前には、ターゲットエンドポイントのメソッドとパスを含めること。
+8. 各テストケースの名前には、そのテストケースの種類（正常系、または異常系の種類）を含めること。
+9. 異常系テストケースの場合、`error_type` フィールドに適切な異常系の種類（"missing_field", "invalid_input", "unauthorized", "not_found" など）を設定すること。正常系テストケースの場合は `null` とすること。
 """
         )
+
+        # error_types に基づいて異常系テストに関する指示を生成
+        error_types_instruction = "以下の異常系の種類（missing_field, invalid_input, unauthorized, not_found など）"
+        if self.error_types and len(self.error_types) > 0:
+            error_types_instruction = f"以下の異常系の種類（{', '.join(self.error_types)}）"
+            logger.info(f"Generating tests with specific error types: {self.error_types}")
         
         for target_endpoint in self.endpoints:
             logger.info(f"Generating chain for endpoint: {target_endpoint.method} {target_endpoint.path}")
@@ -121,7 +141,8 @@ class EndpointChainGenerator:
                 # 3. LLMに渡すコンテキストを構築
                 context = {
                     "target_endpoint_info": target_endpoint_info,
-                    "relevant_schema_info": relevant_schema_info
+                    "relevant_schema_info": relevant_schema_info,
+                    "error_types_instruction": error_types_instruction # error_types_instruction を追加
                 }
                 
                 # 4. LLMを呼び出してチェーンを生成
@@ -139,37 +160,94 @@ class EndpointChainGenerator:
                     continue
                 
                 try:
-                    chain = json.loads(resp)
-                    
-                    # 生成されたチェーンに名前を付ける (例: Test for GET /users/{user_id})
-                    if not chain.get("name"):
-                         chain["name"] = f"Test for {target_endpoint.method.upper()} {target_endpoint.path}"
-    
-                    generated_chains.append(chain)
-                    logger.info(f"Successfully generated chain for {target_endpoint.method} {target_endpoint.path} with {len(chain.get('steps', []))} steps")
+                    suite_data = json.loads(resp)
+
+                    # LLMからの応答が期待するTestSuite構造になっているか検証
+                    if not isinstance(suite_data, dict) or \
+                       "suite_name" not in suite_data or \
+                       "target_method" not in suite_data or \
+                       "target_path" not in suite_data or \
+                       "test_cases" not in suite_data or \
+                       not isinstance(suite_data["test_cases"], list):
+                        raise ValueError("LLM response does not match expected TestSuite structure")
+
+                    # 各テストケースの構造を検証
+                    for case_data in suite_data["test_cases"]:
+                        if not isinstance(case_data, dict) or \
+                           "case_name" not in case_data or \
+                           "description" not in case_data or \
+                           "error_type" not in case_data or \
+                           "steps" not in case_data or \
+                           not isinstance(case_data["steps"], list):
+                            raise ValueError("LLM response contains invalid TestCase structure")
+
+                        # 各ステップの構造を検証
+                        for step_data in case_data["steps"]:
+                             if not isinstance(step_data, dict) or \
+                                "method" not in step_data or \
+                                "path" not in step_data or \
+                                "request" not in step_data or \
+                                "response" not in step_data:
+                                 raise ValueError("LLM response contains invalid TestStep structure")
+
+                    # 正常にパースできた場合、生成されたスイートデータをリストに追加
+                    generated_chains.append(suite_data)
+                    logger.info(f"Successfully generated test suite for {target_endpoint.method} {target_endpoint.path} with {len(suite_data.get('test_cases', []))} test cases")
+
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse LLM response as JSON for {target_endpoint.method} {target_endpoint.path}: {e}")
-                    logger.error(f"Raw response: {resp}")
                     # JSONのパースに失敗した場合、レスポンスから JSON 部分を抽出してみる
                     try:
                         import re
                         json_match = re.search(r'```json\s*(.*?)\s*```', resp, re.DOTALL)
                         if json_match:
                             json_str = json_match.group(1)
-                            chain = json.loads(json_str)
-                            if not chain.get("name"):
-                                chain["name"] = f"Test for {target_endpoint.method.upper()} {target_endpoint.path}"
-                            generated_chains.append(chain)
+                            suite_data = json.loads(json_str)
+                            logger.error(f"Raw response json: {suite_data}")
+
+                            # 抽出したJSONが期待するTestSuite構造になっているか検証
+                            if not isinstance(suite_data, dict) or \
+                                "name" not in suite_data or \
+                                "target_method" not in suite_data or \
+                                "target_path" not in suite_data or \
+                                "test_cases" not in suite_data or \
+                                not isinstance(suite_data["test_cases"], list):
+                                    raise ValueError("Extracted JSON does not match expected TestSuite structure")
+
+                            # 各テストケースの構造を検証
+                            for case_data in suite_data["test_cases"]:
+                                if not isinstance(case_data, dict) or \
+                                "name" not in case_data or \
+                                "description" not in case_data or \
+                                "error_type" not in case_data or \
+                                "test_steps" not in case_data or \
+                                not isinstance(case_data["test_steps"], list):
+                                    raise ValueError("Extracted JSON contains invalid TestCase structure")
+
+                                # 各ステップの構造を検証
+                                for step_data in case_data["test_steps"]:
+                                    required_fields = [
+                                        "method", "path",
+                                        "request_headers", "request_body", "request_params",
+                                        "extract_rules", "expected_status"
+                                    ]
+                                    if not isinstance(step_data, dict) or any(field not in step_data for field in required_fields):
+                                        raise ValueError("Extracted JSON contains invalid TestStep structure")
+
+                            generated_chains.append(suite_data)
                             logger.info(f"Successfully extracted and parsed JSON from markdown code block for {target_endpoint.method} {target_endpoint.path}")
                         else:
                             logger.error(f"Could not find JSON code block in response for {target_endpoint.method} {target_endpoint.path}")
                     except Exception as extract_error:
-                        logger.error(f"Error extracting JSON from response: {extract_error}")
-                
+                        logger.error(f"Error extracting or parsing JSON from response: {extract_error}")
+
+                except Exception as e:
+                    logger.error(f"Error processing LLM response for {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
+
             except Exception as e:
-                logger.error(f"Error generating chain for {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
-                
-        return generated_chains # 複数のチェーンを返す
+                logger.error(f"Error generating test suite for {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
+
+        return generated_chains # 複数のテストスイートを返す
 
     def _build_endpoint_context(self, endpoint: Endpoint) -> str:
         """単一のエンドポイント情報からLLMのためのコンテキストを構築する"""

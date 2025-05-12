@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useProjects } from '@/hooks/useProjects';
 import { useTestRuns } from '@/hooks/useTestRuns';
+import { TestCaseResult, StepResult, TestCase } from '@/hooks/useTestRuns'; // StepResult, TestCase を追加
 import { useTestCases } from '@/hooks/useTestCases';
-import { useTestChain } from '@/hooks/useTestChain';
+import { useTestSuiteDetail } from '@/hooks/useTestChains'; // useTestChain を useTestSuiteDetail に変更
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import dynamic from 'next/dynamic';
 import { 
   PieChart, 
   Pie, 
@@ -36,6 +38,19 @@ import {
   Tooltip, 
   Legend 
 } from 'recharts';
+
+// グラフコンポーネントを動的にインポート（クライアントサイドのみ）
+const TestRunChart = dynamic(
+  () => import('@/components/molecules/TestRunChart'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-80 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+);
 
 export default function TestRunDetailPage() {
   const params = useParams();
@@ -53,8 +68,8 @@ export default function TestRunDetailPage() {
   }, [testRuns, runId]);
 
   // テストチェーンの詳細を取得
-  const chainId = testRun?.chain_id;
-  const { testChain, isLoading: isLoadingChain } = useTestChain(projectId, chainId);
+  const chainId = testRun?.suite_id; // chain_id を suite_id に変更
+  const { testSuite, isLoading: isLoadingSuite } = useTestSuiteDetail(projectId, chainId ?? null); // chainId を chainId ?? null に変更, testChain を testSuite に変更, useTestChain を useTestSuiteDetail に変更
 
   const [searchQuery, setSearchQuery] = React.useState('');
   
@@ -65,37 +80,39 @@ export default function TestRunDetailPage() {
   
   // 検索フィルタリング
   const filteredResults = React.useMemo(() => {
-    if (!testRun?.step_results || !testChain?.steps) return [];
+    if (!testRun?.test_case_results || !testSuite?.test_cases) return []; // step_results を test_case_results に変更, testChain?.steps を testSuite?.test_cases に変更
     
-    return testRun.step_results.filter(result => {
-      // StepResult の step_id に対応する TestChainStep を取得
-      const testChainStep = testChain.steps?.find(step => step.id === result.step_id);
-      if (!testChainStep) return false;
+    // TestRunのtest_case_resultsをTestCaseResult型として扱う
+    return testRun.test_case_results.filter(caseResult => { // step_results を test_case_results に変更, result を caseResult に変更
+      // TestCaseResult の case_id に対応する TestCase を取得
+      const testCase = testSuite.test_cases?.find((testCase: TestCase) => testCase.id === caseResult.case_id); // testCase に型を指定
+      if (!testCase) return false; // テストケース情報が見つからない場合はスキップ
       
       // 検索フィルター
       const lowerCaseQuery = searchQuery.toLowerCase();
       return (
-        (testChainStep.name?.toLowerCase().includes(lowerCaseQuery)) ||
-        (testChainStep.path.toLowerCase().includes(lowerCaseQuery)) ||
-        (testChainStep.method.toLowerCase().includes(lowerCaseQuery))
+        (testCase.name?.toLowerCase().includes(lowerCaseQuery)) || // testChainStep.name を testCase.name に変更
+        (testCase.description?.toLowerCase().includes(lowerCaseQuery)) // testChainStep.path を testCase.description に変更 (パスではなく説明で検索)
       );
     });
-  }, [testRun?.step_results, testChain?.steps, searchQuery]);
+  }, [testRun?.test_case_results, testSuite?.test_cases, searchQuery]); // testRun?.step_results を testRun?.test_case_results に変更, testChain?.steps を testSuite?.test_cases に変更
   
   // 円グラフデータの作成
   const pieChartData = React.useMemo(() => {
-    if (!testRun?.step_results) return [];
+    if (!testRun?.test_case_results) return []; // step_results を test_case_results に変更
     
-    const passedCount = testRun.step_results.filter(r => r.passed).length;
-    const failedCount = testRun.step_results.length - passedCount;
+    const passedCount = testRun.test_case_results.filter(r => r.status === 'passed').length; // step_results を test_case_results に変更, passed を status === 'passed' に変更
+    const failedCount = testRun.test_case_results.filter(r => r.status === 'failed').length; // step_results を test_case_results に変更, passed を status === 'failed' に変更
+    const skippedCount = testRun.test_case_results.filter(r => r.status === 'skipped').length; // skippedCount を追加, step_results を test_case_results に変更, status === 'skipped' を追加
     
     return [
       { name: '成功', value: passedCount, color: '#10b981' },
       { name: '失敗', value: failedCount, color: '#ef4444' },
+      { name: 'スキップ', value: skippedCount, color: '#9ca3af' }, // スキップを追加
     ].filter(item => item.value > 0);
-  }, [testRun?.step_results]);
+  }, [testRun?.test_case_results]); // testRun?.step_results を testRun?.test_case_results に変更
   
-  if (isLoadingRuns || isLoadingTestCases || isLoadingChain) {
+  if (isLoadingRuns || isLoadingTestCases || isLoadingSuite) { // isLoadingChain を isLoadingSuite に変更
     return <div className="text-center py-8">読み込み中...</div>;
   }
   
@@ -196,14 +213,14 @@ export default function TestRunDetailPage() {
               )}
               <div className="flex justify-between">
                 <dt className="font-medium">テスト数</dt>
-                <dd className="text-muted-foreground">{testRun.step_results?.length || 0}</dd>
+                <dd className="text-muted-foreground">{testRun.test_case_results?.length || 0}</dd> {/* step_results を test_case_results に変更 */}
               </div>
               {testRun.status === 'completed' && (
                 <div className="flex justify-between">
                   <dt className="font-medium">成功率</dt>
                   <dd className="text-muted-foreground">
-                    {testRun.step_results && testRun.step_results.length > 0 ? (
-                      `${Math.round((testRun.step_results.filter(r => r.passed).length / testRun.step_results.length) * 100)}%`
+                    {testRun.test_case_results && testRun.test_case_results.length > 0 ? ( // step_results を test_case_results に変更
+                      `${Math.round((testRun.test_case_results.filter(r => r.status === 'passed').length / testRun.test_case_results.length) * 100)}%` // step_results を test_case_results に変更, passed を status === 'passed' に変更
                     ) : '0%'}
                   </dd>
                 </div>
@@ -274,15 +291,15 @@ export default function TestRunDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredResults.map((result) => {
-                  // StepResult の step_id に対応する TestChainStep を取得
-                  const testChainStep = testChain?.steps?.find(step => step.id === result.step_id);
-                  if (!testChainStep) return null; // ステップ情報が見つからない場合はスキップ
+                {filteredResults.map((caseResult) => { // result を caseResult に変更
+                  // TestCaseResult の case_id に対応する TestCase を取得
+                  const testCase = testSuite?.test_cases?.find((testCase: TestCase) => testCase.id === caseResult.case_id); // testCase に型を指定
+                  if (!testCase) return null; // テストケース情報が見つからない場合はスキップ
                   
                   return (
-                    <TableRow key={result.id}>
+                    <TableRow key={caseResult.id}> {/* result.id を caseResult.id に変更 */}
                       <TableCell>
-                        {result.passed ? (
+                        {caseResult.status === 'passed' ? ( // result.passed を caseResult.status === 'passed' に変更
                           <CheckCircleIcon className="h-5 w-5 text-green-500" />
                         ) : (
                           <XCircleIcon className="h-5 w-5 text-red-500" />
@@ -290,37 +307,38 @@ export default function TestRunDetailPage() {
                       </TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          testChainStep.method === 'GET' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' :
-                          testChainStep.method === 'POST' ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200' :
-                          testChainStep.method === 'PUT' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200' :
-                          testChainStep.method === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' :
+                          testCase.target_method === 'GET' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : // testChainStep.method を testCase.target_method に変更
+                          testCase.target_method === 'POST' ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200' : // testChainStep.method を testCase.target_method に変更
+                          testCase.target_method === 'PUT' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200' : // testChainStep.method を testCase.target_method に変更
+                          testCase.target_method === 'DELETE' ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' : // testChainStep.method を testCase.target_method に変更
                           'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200'
                         }`}>
-                          {testChainStep.method}
+                          {testCase.target_method} {/* testChainStep.method を testCase.target_method に変更 */}
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         <div className="flex flex-col">
-                          <span>{testChainStep.path}</span>
+                          <span>{testCase.target_path}</span> {/* testChainStep.path を testCase.target_path に変更 */}
                           <span className="text-xs text-muted-foreground truncate max-w-[300px]">
-                            {testChainStep.name || '名前なし'} {/* TestChainStep の名前を表示 */}
+                            {testCase.name || '名前なし'} {/* TestChainStep.name を testCase.name に変更 */}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className={result.passed ? 'text-green-500' : 'text-red-500'}>
-                          {result.status_code}
+                        <span className={caseResult.status === 'passed' ? 'text-green-500' : 'text-red-500'}> {/* result.passed を caseResult.status === 'passed' に変更 */}
+                          {caseResult.status} {/* result.status_code を caseResult.status に変更 */}
                         </span>
                       </TableCell>
                       <TableCell>
-                        {result.response_time !== undefined ? `${result.response_time.toFixed(2)} ms` : 'N/A'} {/* undefined の場合のハンドリング */}
+                        {/* テストケースレベルではレスポンス時間はないので表示しない */}
+                        <span className="text-muted-foreground">-</span>
                       </TableCell>
                       <TableCell>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const dialog = document.getElementById(`result-dialog-${result.id}`);
+                            const dialog = document.getElementById(`result-dialog-${caseResult.id}`); // result.id を caseResult.id に変更
                             if (dialog instanceof HTMLDialogElement) {
                               dialog.showModal();
                             }
@@ -330,7 +348,7 @@ export default function TestRunDetailPage() {
                         </Button>
                         
                         <dialog
-                          id={`result-dialog-${result.id}`}
+                          id={`result-dialog-${caseResult.id}`} // result.id を caseResult.id に変更
                           className="p-0 rounded-lg shadow-lg backdrop:bg-black/50 w-full max-w-3xl"
                         >
                           <div className="p-6">
@@ -340,7 +358,7 @@ export default function TestRunDetailPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  const dialog = document.getElementById(`result-dialog-${result.id}`);
+                                  const dialog = document.getElementById(`result-dialog-${caseResult.id}`); // result.id を caseResult.id に変更
                                   if (dialog instanceof HTMLDialogElement) {
                                     dialog.close();
                                   }
@@ -352,53 +370,94 @@ export default function TestRunDetailPage() {
                             
                             <div className="grid gap-4">
                               <div className="flex justify-between">
-                                <span className="font-medium">ステップ名</span> {/* テストケース名からステップ名に変更 */}
-                                <span>{testChainStep.name || '名前なし'}</span>
+                                <span className="font-medium">テストケース名</span> {/* ステップ名からテストケース名に変更 */}
+                                <span>{testCase.name || '名前なし'}</span> {/* testChainStep.name を testCase.name に変更 */}
                               </div>
                               <div className="flex justify-between">
-                                <span className="font-medium">メソッド</span>
-                                <span>{testChainStep.method}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="font-medium">パス</span>
-                                <span className="font-mono">{testChainStep.path}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="font-medium">結果</span>
-                                <span className={result.passed ? 'text-green-500' : 'text-red-500'}>
-                                  {result.passed ? '成功' : '失敗'}
+                                <span className="font-medium">ステータス</span> {/* メソッドからステータスに変更 */}
+                                <span className={caseResult.status === 'passed' ? 'text-green-500' : 'text-red-500'}> {/* testCase.target_method を caseResult.status === 'passed' ? 'text-green-500' : 'text-red-500' に変更 */}
+                                  {caseResult.status} {/* testCase.target_method を caseResult.status に変更 */}
                                 </span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="font-medium">ステータスコード</span>
-                                <span>{result.status_code}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="font-medium">レスポンス時間</span>
-                                <span>{result.response_time !== undefined ? `${result.response_time.toFixed(2)} ms` : 'N/A'}</span> {/* undefined の場合のハンドリング */}
-                              </div>
+                              {caseResult.error_message && ( // error_message を追加
+                                <div className="flex justify-between">
+                                  <span className="font-medium">エラーメッセージ</span>
+                                  <span className="text-red-500">{caseResult.error_message}</span>
+                                </div>
+                              )}
+                              {/* ステップごとの結果を表示 */}
+                              {caseResult.step_results?.map(stepResult => (
+                                <div key={stepResult.id} className="border-t pt-4 mt-4 space-y-2">
+                                  <h4 className="font-semibold">ステップ {stepResult.sequence}: {stepResult.method} {stepResult.path}</h4>
+                                  <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div className="flex justify-between">
+                                      <span className="font-medium">結果:</span>
+                                      <span className={stepResult.passed ? 'text-green-500' : 'text-red-500'}>
+                                        {stepResult.passed ? '成功' : '失敗'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="font-medium">ステータスコード:</span>
+                                      <span>{stepResult.status_code}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="font-medium">レスポンス時間:</span>
+                                      <span>{stepResult.response_time !== undefined ? `${stepResult.response_time.toFixed(2)} ms` : 'N/A'}</span>
+                                    </div>
+                                  </div>
+                                  
+                                  {stepResult.error_message && (
+                                    <div className="space-y-1">
+                                      <span className="font-medium text-red-500">エラーメッセージ:</span>
+                                      <div className="bg-muted p-2 rounded-md overflow-auto max-h-24 text-red-500">
+                                        <pre className="font-mono text-sm whitespace-pre-wrap">{stepResult.error_message}</pre>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {stepResult.extracted_values && Object.keys(stepResult.extracted_values).length > 0 && (
+                                    <div className="space-y-1">
+                                      <span className="font-medium">抽出された値:</span>
+                                      <div className="bg-muted p-2 rounded-md overflow-auto max-h-24">
+                                        <pre className="font-mono text-sm whitespace-pre-wrap">{formatJSON(stepResult.extracted_values)}</pre>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <Tabs defaultValue="response" className="mt-2">
+                                    <TabsList className="grid w-full grid-cols-2">
+                                      <TabsTrigger value="request">リクエスト</TabsTrigger>
+                                      <TabsTrigger value="response">レスポンス</TabsTrigger>
+                                    </TabsList>
+                                    <TabsContent value="request" className="mt-2">
+                                      <div className="bg-muted p-4 rounded-md overflow-auto max-h-60">
+                                        <pre className="font-mono text-sm whitespace-pre-wrap">
+                                          {stepResult.request_body ? formatJSON(stepResult.request_body) : 'リクエストボディなし'}
+                                        </pre>
+                                      </div>
+                                    </TabsContent>
+                                    <TabsContent value="response" className="mt-2">
+                                      <div className="bg-muted p-4 rounded-md overflow-auto max-h-60">
+                                        <pre className="font-mono text-sm whitespace-pre-wrap">
+                                          {stepResult.response_body ? formatJSON(stepResult.response_body) : 'レスポンスボディなし'}
+                                        </pre>
+                                      </div>
+                                    </TabsContent>
+                                  </Tabs>
+                                </div>
+                              ))}
                             </div>
                             
-                            <Tabs defaultValue="response" className="mt-4">
-                              <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="response">レスポンス</TabsTrigger>
-                                <TabsTrigger value="error">エラー</TabsTrigger>
-                              </TabsList>
-                              <TabsContent value="response" className="mt-2">
-                                <div className="bg-muted p-4 rounded-md overflow-auto max-h-80">
-                                  <pre className="font-mono text-sm">
-                                    {result.response_body ? formatJSON(result.response_body) : 'レスポンスボディなし'}
-                                  </pre>
+                            {/* テストケースレベルのエラーメッセージはステップ結果の下に表示 */}
+                            {caseResult.error_message && (
+                              <div className="mt-4 space-y-1">
+                                <span className="font-medium text-red-500">テストケースエラー:</span>
+                                <div className="bg-muted p-2 rounded-md overflow-auto max-h-24 text-red-500">
+                                  <pre className="font-mono text-sm whitespace-pre-wrap">{caseResult.error_message}</pre>
                                 </div>
-                              </TabsContent>
-                              <TabsContent value="error" className="mt-2">
-                                <div className="bg-muted p-4 rounded-md overflow-auto max-h-80">
-                                  <pre className="font-mono text-sm text-red-500">
-                                    {result.error_message || 'エラーメッセージなし'}
-                                  </pre>
-                                </div>
-                              </TabsContent>
-                            </Tabs>
+                              </div>
+                            )}
+
                           </div>
                         </dialog>
                       </TableCell>

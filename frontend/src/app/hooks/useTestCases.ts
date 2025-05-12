@@ -38,3 +38,26 @@ export function useTestCases(projectId: string) {
     deleteChain, // 削除関数を追加
   };
 }
+
+export interface TestStep {
+  id: string;
+  sequence: number;
+  method: string;
+  path: string;
+  request_body?: any;
+  expected_status: number;
+  expected_response?: any;
+  extracted_values?: any;
+}
+
+export interface TestCaseDetail extends TestCase {
+  steps?: TestStep[]; // テストステップの配列を追加
+}
+
+export function useTestCaseDetail(projectId: string, caseId: string) {
+  const { data, error, isLoading } = useSWR<TestCaseDetail>(
+    projectId && caseId ? `/api/projects/${projectId}/tests/${caseId}` : null,
+    fetcher
+  );
+  return { testCase: data, isLoading, error };
+}

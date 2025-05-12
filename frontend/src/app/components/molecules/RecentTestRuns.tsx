@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
-import { ChainRun } from '@/hooks/useTestRuns';
+import { TestRun } from '@/hooks/useTestRuns';
 
 interface RecentTestRunsProps {
-  testRuns: ChainRun[];
+  testRuns: TestRun[];
 }
 
 export function RecentTestRuns({ testRuns }: RecentTestRunsProps) {

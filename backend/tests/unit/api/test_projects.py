@@ -3,6 +3,8 @@ from fastapi.testclient import TestClient
 from app.main import app
 from unittest.mock import patch, MagicMock, AsyncMock
 import json
+import uuid
+from datetime import datetime
 
 client = TestClient(app)
 
@@ -65,7 +67,7 @@ def test_upload_schema():
 
 def test_generate_tests():
     # サービス関数をモック化
-    with patch("app.api.projects.generate_chains_task") as mock_task:
+    with patch("app.api.projects.generate_test_suites_task") as mock_task: # generate_chains_task を generate_test_suites_task に変更
         mock_task.delay.return_value = MagicMock(id="task-123")
         
         # テスト実行
@@ -73,82 +75,102 @@ def test_generate_tests():
         
         # 検証
         assert response.status_code == 200
-        assert response.json()["message"] == "Test chain generation (full_schema) started"
+        assert response.json()["message"] == "Test suite generation (full_schema) started"
         assert response.json()["task_id"] == "task-123"
 
-def test_get_chains():
+def test_list_test_suites():
     # サービス関数をモック化
-    with patch("app.services.chain_generator.ChainStore") as mock_store:
+    with patch("app.api.projects.ChainStore") as mock_store: # ChainStore のモックを app.api.projects に変更
         mock_store_instance = MagicMock()
-        mock_store_instance.list_chains.return_value = [
-            {"id": "chain-1", "name": "Chain 1"},
-            {"id": "chain-2", "name": "Chain 2"}
+        mock_store_instance.list_test_suites.return_value = [
+            {"id": "suite-1", "name": "TestSuite 1", "test_cases_count": 2},
+            {"id": "suite-2", "name": "TestSuite 2", "test_cases_count": 1}
         ]
         mock_store.return_value = mock_store_instance
         
         # テスト実行
-        response = client.get("/api/projects/test_project/chains")
+        response = client.get("/api/projects/test_project/test-suites")
         
         # 検証
         assert response.status_code == 200
         assert len(response.json()) == 2
-        assert response.json()[0]["id"] == "chain-1"
-        assert response.json()[1]["name"] == "Chain 2"
+        assert response.json()[0]["id"] == "suite-1"
+        assert response.json()[1]["name"] == "TestSuite 2"
+        assert response.json()[0]["test_cases_count"] == 2
 
-def test_get_chain_detail():
+def test_get_test_suite_detail():
     # サービス関数をモック化
-    with patch("app.services.chain_generator.ChainStore") as mock_store:
+    with patch("app.api.projects.ChainStore") as mock_store: # ChainStore のモックを app.api.projects に変更
         mock_store_instance = MagicMock()
-        mock_store_instance.get_chain.return_value = {
-            "id": "chain-1",
-            "name": "Chain 1",
-            "steps": [
-                {"method": "POST", "path": "/users"},
-                {"method": "GET", "path": "/users/{id}"}
+        mock_store_instance.get_test_suite.return_value = {
+            "id": "suite-1",
+            "name": "TestSuite 1",
+            "test_cases": [
+                {
+                    "id": "case-1",
+                    "name": "TestCase 1",
+                    "test_steps": [
+                        {"method": "POST", "path": "/users"},
+                        {"method": "GET", "path": "/users/{id}"}
+                    ]
+                }
             ]
         }
         mock_store.return_value = mock_store_instance
         
         # テスト実行
-        response = client.get("/api/projects/test_project/chains/chain-1")
+        response = client.get("/api/projects/test_project/test-suites/suite-1")
         
         # 検証
         assert response.status_code == 200
-        assert response.json()["id"] == "chain-1"
-        assert len(response.json()["steps"]) == 2
+        assert response.json()["id"] == "suite-1"
+        assert len(response.json()["test_cases"]) == 1
+        assert len(response.json()["test_cases"][0]["test_steps"]) == 2
 
-def test_run_project_chains():
+def test_run_test_suites():
     # サービス関数をモック化
-    with patch("app.services.chain_runner.run_chains") as mock_run:
+    with patch("app.services.chain_runner.run_test_suites") as mock_run:
         mock_run.return_value = {
             "status": "completed",
-            "message": "Executed 1 chains",
-            "results": [
-                {
-                    "name": "Chain 1",
-                    "status": "completed",
-                    "success": True,
-                    "steps": [
-                        {"success": True, "status_code": 201},
-                        {"success": True, "status_code": 200}
-                    ]
-                }
-            ]
+            "task_id": "mock-task-id" # task_id は残しておく
         }
         
         # テスト実行
-        response = client.post("/api/projects/test_project/run")
+        response = client.post("/api/projects/test_project/run-test-suites")
         
         # 検証
         assert response.status_code == 200
-        assert response.json()["message"] == "Chain run complete"
+        assert response.json()["status"] == "completed"
+        assert "task_id" in response.json()
 
-def test_get_run_history():
+def test_get_test_run_history():
     # サービス関数をモック化
-    with patch("app.services.chain_runner.list_chain_runs") as mock_list:
+    with patch("app.api.projects.list_test_runs") as mock_list:
         mock_list.return_value = [
-            {"run_id": "run-1", "chain_id": "chain-1", "status": "completed"},
-            {"run_id": "run-2", "chain_id": "chain-1", "status": "failed"}
+            {
+                "id": str(uuid.uuid4()),
+                "run_id": "run-1",
+                "suite_id": "suite-1",
+                "suite_name": "Test Suite A",
+                "status": "completed",
+                "start_time": datetime.now(),
+                "end_time": datetime.now(),
+                "test_cases_count": 5,
+                "passed_test_cases": 5,
+                "success_rate": 100.0  # float!
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "run_id": "run-2",
+                "suite_id": "suite-1",
+                "suite_name": "Test Suite A",
+                "status": "failed",
+                "start_time": datetime.now(),
+                "end_time": datetime.now(),
+                "test_cases_count": 5,
+                "passed_test_cases": 3,
+                "success_rate": 60.0
+            }
         ]
         
         # テスト実行
@@ -160,16 +182,49 @@ def test_get_run_history():
         assert response.json()[0]["run_id"] == "run-1"
         assert response.json()[1]["status"] == "failed"
 
-def test_get_run_detail():
+def test_get_test_run_detail():
     # サービス関数をモック化
-    with patch("app.services.chain_runner.get_chain_run") as mock_get:
+    with patch("app.api.projects.get_test_run") as mock_get: # patch の対象を app.api.projects に変更
         mock_get.return_value = {
+            "id": "run-1-id", # TestRun の id を追加
             "run_id": "run-1",
-            "chain_id": "chain-1",
+            "suite_id": "suite-1",
             "status": "completed",
-            "steps": [
-                {"sequence": 0, "method": "POST", "path": "/users", "status_code": 201, "passed": True},
-                {"sequence": 1, "method": "GET", "path": "/users/{id}", "status_code": 200, "passed": True}
+            "start_time": "2023-01-01T10:00:00Z", # start_time を追加 (datetime形式)
+            "end_time": "2023-01-01T10:05:00Z", # end_time を追加 (datetime形式)
+            "test_case_results": [
+                {
+                    "id": "case-1-result-id", # TestCaseResult の id を追加
+                    "case_id": "case-1",
+                    "status": "passed",
+                    "error_message": None, # error_message を追加
+                    "step_results": [
+                        {
+                            "id": "step-1-result-id", # StepResult の id を追加
+                            "sequence": 0,
+                            "method": "POST",
+                            "path": "/users",
+                            "status_code": 201,
+                            "passed": True,
+                            "response_body": {"id": 123, "name": "Test User"}, # response_body を追加
+                            "error_message": None, # error_message を追加
+                            "response_time": 100, # response_time を追加
+                            "extracted_values": {"user_id": 123} # extracted_values を追加
+                        },
+                        {
+                            "id": "step-2-result-id", # StepResult の id を追加
+                            "sequence": 1,
+                            "method": "GET",
+                            "path": "/users/{id}",
+                            "status_code": 200,
+                            "passed": True,
+                            "response_body": {"id": 123, "name": "Test User"}, # response_body を追加
+                            "error_message": None, # error_message を追加
+                            "response_time": 50, # response_time を追加
+                            "extracted_values": {} # extracted_values を追加
+                        }
+                    ]
+                }
             ]
         }
         
@@ -179,4 +234,5 @@ def test_get_run_detail():
         # 検証
         assert response.status_code == 200
         assert response.json()["run_id"] == "run-1"
-        assert len(response.json()["steps"]) == 2
+        assert len(response.json()["test_case_results"]) == 1
+        assert len(response.json()["test_case_results"][0]["step_results"]) == 2

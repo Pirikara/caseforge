@@ -4,7 +4,9 @@ from unittest.mock import patch, MagicMock
 import json
 import os
 
-# テスト用のシンプルなOpenAPIスキーマ
+from app.models import TestCase
+
+# テスト用のシンプルなOpenAPIスキーma
 SAMPLE_SCHEMA = {
     "openapi": "3.0.0",
     "info": {
@@ -64,25 +66,47 @@ SAMPLE_SCHEMA = {
     }
 }
 
-# テスト用のサンプルチェーン
-SAMPLE_CHAIN = {
+# テスト用のサンプルテストスイート
+SAMPLE_TEST_SUITE = {
     "name": "ユーザー作成と取得",
-    "steps": [
+    "target_method": "POST",
+    "target_path": "/users",
+    "test_cases": [
         {
-            "method": "POST",
-            "path": "/users",
-            "request": {
-                "body": {"name": "Test User", "email": "test@example.com"}
-            },
-            "response": {
-                "extract": {"user_id": "$.id"}
-            }
+            "name": "正常系",
+            "description": "正常なユーザー作成と取得",
+            "error_type": None,
+            "test_steps": [
+                {
+                    "sequence": 0,
+                    "method": "POST",
+                    "path": "/users",
+                    "request_body": {"name": "Test User", "email": "test@example.com"},
+                    "extract_rules": {"user_id": "$.id"},
+                    "expected_status": 201
+                },
+                {
+                    "sequence": 1,
+                    "method": "GET",
+                    "path": "/users/{user_id}",
+                    "request_params": {"user_id": "{user_id}"}, # 抽出した値を使用
+                    "expected_status": 200
+                }
+            ]
         },
         {
-            "method": "GET",
-            "path": "/users/{user_id}",
-            "request": {},
-            "response": {}
+            "name": "必須フィールド欠落",
+            "description": "emailフィールドがない場合",
+            "error_type": "missing_field",
+            "test_steps": [
+                {
+                    "sequence": 0,
+                    "method": "POST",
+                    "path": "/users",
+                    "request_body": {"name": "Test User"},
+                    "expected_status": 400
+                }
+            ]
         }
     ]
 }
@@ -139,11 +163,11 @@ def test_identify_chain_candidates(mock_faiss, monkeypatch):
     assert len(candidates) > 0
     assert ["POST /users", "GET /users/{id}"] in candidates
 
-def test_generate_chain_for_candidate(mock_faiss, mock_llm, monkeypatch):
-    """チェーン生成のテスト"""
+def test_generate_test_suite_for_candidate(mock_faiss, mock_llm, monkeypatch):
+    """テストスイート生成のテスト"""
     # LLMのレスポンスをモック
     class MockResponse:
-        content = json.dumps(SAMPLE_CHAIN)
+        content = json.dumps(SAMPLE_TEST_SUITE)
     
     mock_llm_instance = MagicMock()
     mock_llm_instance.invoke.return_value = MockResponse()
@@ -151,18 +175,20 @@ def test_generate_chain_for_candidate(mock_faiss, mock_llm, monkeypatch):
     
     # テスト実行
     rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
-    chain = rag._generate_chain_for_candidate(["POST /users", "GET /users/{id}"])
+    test_suite = rag._generate_chain_for_candidate(["POST /users", "GET /users/{id}"]) # メソッド名はそのまま
     
     # 検証
-    assert chain is not None
-    # モックのLLMレスポンスに合わせて期待値を変更
-    assert chain["name"] in ["ユーザー作成と取得", "Create User and Retrieve User Details", "Create User and Retrieve Details", "User Creation and Retrieval Chain"]
-    assert len(chain["steps"]) == 2
-    assert chain["steps"][0]["method"] == "POST"
-    assert chain["steps"][1]["method"] == "GET"
+    assert test_suite is not None
+    assert test_suite["name"] == SAMPLE_TEST_SUITE["name"]
+    assert test_suite["target_method"] == SAMPLE_TEST_SUITE["target_method"]
+    assert test_suite["target_path"] == SAMPLE_TEST_SUITE["target_path"]
+    assert len(test_suite["test_cases"]) == len(SAMPLE_TEST_SUITE["test_cases"])
+    assert test_suite["test_cases"][0]["name"] == SAMPLE_TEST_SUITE["test_cases"][0]["name"]
+    assert len(test_suite["test_cases"][0]["test_steps"]) == len(SAMPLE_TEST_SUITE["test_cases"][0]["test_steps"])
+    assert test_suite["test_cases"][1]["error_type"] == SAMPLE_TEST_SUITE["test_cases"][1]["error_type"]
 
-def test_generate_request_chains(mock_faiss, mock_llm, monkeypatch):
-    """リクエストチェーン生成のテスト"""
+def test_generate_test_suites(mock_faiss, mock_llm, monkeypatch):
+    """テストスイート生成のテスト"""
     # _build_dependency_graphをモック
     mock_graph = {
         "POST /users": {
@@ -183,24 +209,25 @@ def test_generate_request_chains(mock_faiss, mock_llm, monkeypatch):
     mock_candidates = [["POST /users", "GET /users/{id}"]]
     
     # _generate_chain_for_candidateをモック
-    mock_chain = SAMPLE_CHAIN
+    mock_test_suite = SAMPLE_TEST_SUITE # SAMPLE_CHAIN を SAMPLE_TEST_SUITE に変更
     
     # モック関数を設定
     monkeypatch.setattr("app.services.chain_generator.DependencyAwareRAG._build_dependency_graph", lambda self: mock_graph)
     monkeypatch.setattr("app.services.chain_generator.DependencyAwareRAG._identify_chain_candidates", lambda self, graph: mock_candidates)
-    monkeypatch.setattr("app.services.chain_generator.DependencyAwareRAG._generate_chain_for_candidate", lambda self, candidate: mock_chain)
+    monkeypatch.setattr("app.services.chain_generator.DependencyAwareRAG._generate_chain_for_candidate", lambda self, candidate: mock_test_suite) # _generate_chain_for_candidate はそのまま
     
     # テスト実行
     rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
-    chains = rag.generate_request_chains()
+    test_suites = rag.generate_request_chains() # メソッド名はそのまま
     
     # 検証
-    assert len(chains) == 1
-    assert chains[0]["name"] == "ユーザー作成と取得"
-    assert len(chains[0]["steps"]) == 2
+    assert len(test_suites) == 1
+    assert test_suites[0]["name"] == SAMPLE_TEST_SUITE["name"]
+    assert len(test_suites[0]["test_cases"]) == len(SAMPLE_TEST_SUITE["test_cases"])
+    assert len(test_suites[0]["test_cases"][0]["test_steps"]) == len(SAMPLE_TEST_SUITE["test_cases"][0]["test_steps"])
 
-def test_chain_store_save_chains(session, test_project, monkeypatch):
-    """チェーン保存のテスト"""
+def test_chain_store_save_test_suites(session, test_project, monkeypatch):
+    """テストスイート保存のテスト"""
     # ディレクトリ作成をモック
     monkeypatch.setattr("os.makedirs", lambda path, exist_ok: None)
     
@@ -210,81 +237,148 @@ def test_chain_store_save_chains(session, test_project, monkeypatch):
     
     # テスト実行
     chain_store = ChainStore()
-    chain_store.save_chains(test_project.project_id, [SAMPLE_CHAIN])
+    chain_store.save_chains(session, test_project.project_id, [SAMPLE_TEST_SUITE]) # session を渡すように変更
     
     # 検証
-    # TestChainが作成されたことを確認
-    from app.models import TestChain, TestChainStep
+    # TestSuiteが作成されたことを確認
+    from app.models import TestSuite, TestStep
     from sqlmodel import select
     
-    chains = session.exec(select(TestChain).where(TestChain.project_id == test_project.id)).all()
-    assert len(chains) == 1
-    
-    # TestChainStepが作成されたことを確認
-    steps = session.exec(select(TestChainStep).where(TestChainStep.chain_id == chains[0].id)).all()
-    assert len(steps) == 2
-    assert steps[0].method == "POST"
-    assert steps[1].method == "GET"
+    test_suites = session.exec(select(TestSuite).where(TestSuite.project_id == test_project.id)).all()
+    assert len(test_suites) == 1
+    assert test_suites[0].name == SAMPLE_TEST_SUITE["name"]
+    assert test_suites[0].target_method == SAMPLE_TEST_SUITE["target_method"]
+    assert test_suites[0].target_path == SAMPLE_TEST_SUITE["target_path"]
 
-def test_chain_store_list_chains(session, test_project, monkeypatch):
-    """チェーン一覧取得のテスト"""
-    # テスト用のチェーンを作成
-    from app.models import TestChain
+    # TestCaseが作成されたことを確認
+    test_cases = session.exec(select(TestCase).where(TestCase.suite_id == test_suites[0].id)).all()
+    assert len(test_cases) == len(SAMPLE_TEST_SUITE["test_cases"])
+    assert test_cases[0].name == SAMPLE_TEST_SUITE["test_cases"][0]["name"]
+    assert test_cases[1].error_type == SAMPLE_TEST_SUITE["test_cases"][1]["error_type"]
+
+    # TestStepが作成されたことを確認
+    test_steps_case1 = session.exec(select(TestStep).where(TestStep.case_id == test_cases[0].id)).all()
+    assert len(test_steps_case1) == len(SAMPLE_TEST_SUITE["test_cases"][0]["test_steps"])
+    assert test_steps_case1[0].method == SAMPLE_TEST_SUITE["test_cases"][0]["test_steps"][0]["method"]
+
+    test_steps_case2 = session.exec(select(TestStep).where(TestStep.case_id == test_cases[1].id)).all()
+    assert len(test_steps_case2) == len(SAMPLE_TEST_SUITE["test_cases"][1]["test_steps"])
+    assert test_steps_case2[0].method == SAMPLE_TEST_SUITE["test_cases"][1]["test_steps"][0]["method"]
+
+    # テスト後に保存されたテストスイートをデータベースから取得して削除
+    from app.models import TestSuite
+    from sqlmodel import select
     
-    chain = TestChain(
-        chain_id="test-chain-1",
-        project_id=test_project.id,
-        name="Test Chain"
+    # テスト後に保存されたテストスイートをデータベースから取得して全て削除
+    from app.models import TestSuite
+    from sqlmodel import select
+    
+    saved_test_suites = session.exec(select(TestSuite).where(TestSuite.project_id == test_project.id)).all()
+    for suite in saved_test_suites:
+        session.delete(suite)
+    session.commit()
+
+def test_chain_store_list_test_suites(session, test_project, monkeypatch):
+    """テストスイート一覧取得のテスト"""
+    # テスト用のテストスイートを作成
+    from app.models import TestSuite # インポートするモデルを変更
+    
+    test_suite = TestSuite(
+        id="test-suite-1", # id に変更
+        project_id=test_project.id, # project_id を test_project.project_id に変更
+        name="Test TestSuite", # 名前の変更
+        target_method="GET", # target_method を追加
+        target_path="/items" # target_path を追加
     )
-    session.add(chain)
+    session.add(test_suite)
+    session.flush() # id を生成するために flush
+
+    # テストケースを追加
+    test_case = TestCase(
+        id="test-case-1",
+        suite_id=test_suite.id,
+        name="Normal Case"
+    )
+    session.add(test_case)
     session.commit()
     
     # テスト実行
-    chain_store = ChainStore()
-    chains = chain_store.list_chains(test_project.project_id)
+    chain_store = ChainStore() # ChainStore の名前はそのまま
+    test_suites = chain_store.list_test_suites(session, test_project.project_id) # session を渡すように変更
+    print("test_suites : ", test_suites) # デバッグ用に出力
     
     # 検証
-    assert len(chains) == 1
-    assert chains[0]["id"] == "test-chain-1"
-    assert chains[0]["name"] == "Test Chain"
+    # "Test TestSuite" という名前のテストスイートをフィルタリング
+    filtered_suites = [suite for suite in test_suites if suite["project_id"] == test_project.id] # project_id でフィルタリング
+    print(filtered_suites) # デバッグ用に出力
 
-def test_chain_store_get_chain(session, test_project, monkeypatch):
-    """特定のチェーン取得のテスト"""
-    # テスト用のチェーンとステップを作成
-    from app.models import TestChain, TestChainStep
-    
-    chain = TestChain(
-        chain_id="test-chain-1",
-        project_id=test_project.id,
-        name="Test Chain"
+    assert len(filtered_suites) == 1
+    assert filtered_suites[0]["id"] == "test-suite-1" # id を確認
+    assert filtered_suites[0]["name"] == "Test TestSuite"
+    assert filtered_suites[0]["target_method"] == "GET"
+    assert filtered_suites[0]["target_path"] == "/items"
+    assert filtered_suites[0]["test_cases_count"] == 1 # test_cases_count を確認
+
+def test_chain_store_get_test_suite(session, test_project, monkeypatch):
+    """特定のテストスイート取得のテスト"""
+    # テスト用のテストスイート、テストケース、テストステップを作成
+    from app.models import TestSuite, TestStep # インポートするモデルを変更
+
+    test_suite = TestSuite(
+        id="test-suite-1", # id に変更
+        project_id=test_project.id, # project_id を test_project.project_id に変更
+        name="POST /users TestSuite", # 名前の変更
+        target_method="POST", # target_method を追加
+        target_path="/users" # target_path を追加
     )
-    session.add(chain)
-    session.flush()
-    
-    step1 = TestChainStep(
-        chain_id=chain.id,
+    session.add(test_suite)
+    session.flush() # id を生成するために flush
+
+    test_case = TestCase(
+        id="test-case-1", # id を追加
+        suite_id=test_suite.id, # suite_id に変更
+        name="Normal Case", # 名前の変更
+        description="Normal user creation", # description を追加
+        error_type=None # error_type を追加
+    )
+    session.add(test_case)
+    session.flush() # id を生成するために flush
+
+    step1 = TestStep(
+        id="test-step-1", # id を追加
+        case_id=test_case.id, # case_id に変更
         sequence=0,
         method="POST",
-        path="/users"
+        path="/users",
+        request_body={"name": "Test User"}, # request_body を追加
+        expected_status=201 # expected_status を追加
     )
-    step2 = TestChainStep(
-        chain_id=chain.id,
+    step2 = TestStep(
+        id="test-step-2", # id を追加
+        case_id=test_case.id, # case_id に変更
         sequence=1,
         method="GET",
-        path="/users/{id}"
+        path="/users/{id}",
+        extract_rules={"user_id": "$.id"}, # extract_rules を追加
+        expected_status=200 # expected_status を追加
     )
     session.add(step1)
     session.add(step2)
     session.commit()
     
     # テスト実行
-    chain_store = ChainStore()
-    chain_data = chain_store.get_chain(test_project.project_id, "test-chain-1")
+    chain_store = ChainStore() # ChainStore の名前はそのまま
+    test_suite_data = chain_store.get_test_suite(session, test_project.project_id, "test-suite-1") # session を追加
     
     # 検証
-    assert chain_data is not None
-    assert chain_data["id"] == "test-chain-1"
-    assert chain_data["name"] == "Test Chain"
-    assert len(chain_data["steps"]) == 2
-    assert chain_data["steps"][0]["method"] == "POST"
-    assert chain_data["steps"][1]["method"] == "GET"
+    assert test_suite_data is not None
+    assert test_suite_data["id"] == "test-suite-1"
+    assert test_suite_data["name"] == "POST /users TestSuite"
+    assert test_suite_data["target_method"] == "POST"
+    assert test_suite_data["target_path"] == "/users"
+    assert len(test_suite_data["test_cases"]) == 1
+    assert test_suite_data["test_cases"][0]["id"] == "test-case-1"
+    assert test_suite_data["test_cases"][0]["name"] == "Normal Case"
+    assert len(test_suite_data["test_cases"][0]["test_steps"]) == 2
+    assert test_suite_data["test_cases"][0]["test_steps"][0]["method"] == "POST"
+    assert test_suite_data["test_cases"][0]["test_steps"][1]["method"] == "GET"

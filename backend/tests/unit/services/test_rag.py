@@ -275,8 +275,8 @@ def test_index_schema_success(mock_environ, mock_makedirs, mock_symlink, mock_ex
 
     # signal.signalとsignal.alarmが呼ばれたことを確認
     mock_signal.signal.assert_called()
-    mock_signal.alarm.assert_any_call(60) # HuggingFaceEmbeddingsのタイムアウト時間
-    mock_signal.alarm.assert_any_call(120) # FAISSのタイムアウト時間
+    mock_signal.alarm.assert_any_call(120) # HuggingFaceEmbeddingsのタイムアウト時間
+    mock_signal.alarm.assert_any_call(300) # FAISSのタイムアウト時間
     mock_signal.alarm.assert_any_call(0) # タイムアウト解除
 
     # シンボリックリンクが正しく作成されたか確認

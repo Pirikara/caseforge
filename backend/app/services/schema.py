@@ -1,16 +1,18 @@
 from app.config import settings
 from app.logging_config import logger
-from app.models import Project, Schema, engine
+from app.models import Project, Schema, Endpoint, engine # Endpoint をインポート
 from app.services.rag import index_schema
-from sqlmodel import Session, select
+from app.services.endpoint_parser import EndpointParser # EndpointParser をインポート
+from sqlmodel import Session, select # select をインポート
 from pathlib import Path
 import os
 from typing import Optional
 from datetime import datetime
+import json # json をインポート
 
 async def save_and_index_schema(project_id: str, content: bytes, filename: str, session: Optional[Session] = None):
     """
-    OpenAPIスキーマを保存し、インデックスを作成する
+    OpenAPIスキーマを保存し、エンドポイント情報を抽出しデータベースに保存、インデックスを作成する
     
     Args:
         project_id: プロジェクトID
@@ -58,8 +60,74 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
         session.commit()
         logger.info(f"Successfully saved schema to database for project {project_id}")
         
+        # エンドポイント情報の抽出とデータベース保存
+        logger.info(f"Step 3: Parsing endpoints and saving to database for project {project_id}")
+        try:
+            # スキーマ内容を文字列として渡す
+            parser = EndpointParser(content.decode('utf-8'))
+            endpoints_data = parser.parse_endpoints(db_project.id)
+            logger.info(f"Parsed {len(endpoints_data)} endpoints from schema")
+
+            # 既存のエンドポイントを取得
+            existing_endpoints = session.exec(select(Endpoint).where(Endpoint.project_id == db_project.id)).all()
+            existing_endpoints_map = {(ep.path, ep.method): ep for ep in existing_endpoints}
+
+            endpoints_to_add = []
+            for ep_data in endpoints_data:
+                # path と method で既存エンドポイントを検索
+                key = (ep_data["path"], ep_data["method"])
+                if key in existing_endpoints_map:
+                    # 既存のエンドポイントを更新
+                    db_endpoint = existing_endpoints_map[key]
+                    db_endpoint.summary = ep_data.get("summary")
+                    db_endpoint.description = ep_data.get("description")
+                    # 詳細情報をJSON文字列として保存
+                    db_endpoint.request_body_str = json.dumps(ep_data.get("request_body")) if ep_data.get("request_body") is not None else None
+                    db_endpoint.request_headers_str = json.dumps(ep_data.get("request_headers")) if ep_data.get("request_headers") is not None else None
+                    db_endpoint.request_query_params_str = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None
+                    db_endpoint.responses_str = json.dumps(ep_data.get("responses")) if ep_data.get("responses") is not None else None
+                    session.add(db_endpoint)
+                    logger.debug(f"Updated existing endpoint: {ep_data['method']} {ep_data['path']}")
+                else:
+                    # 新しいエンドポイントを追加
+                    new_endpoint = Endpoint(
+                        project_id=db_project.id,
+                        path=ep_data["path"],
+                        method=ep_data["method"],
+                        summary=ep_data.get("summary"),
+                        description=ep_data.get("description"),
+                        # 詳細情報をJSON文字列として保存
+                        request_body_str = json.dumps(ep_data.get("request_body")) if ep_data.get("request_body") is not None else None,
+                        request_headers_str = json.dumps(ep_data.get("request_headers")) if ep_data.get("request_headers") is not None else None,
+                        request_query_params_str = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None,
+                        responses_str = json.dumps(ep_data.get("responses")) if ep_data.get("responses") is not None else None
+                    )
+                    endpoints_to_add.append(new_endpoint)
+                    logger.debug(f"Adding new endpoint: {ep_data['method']} {ep_data['path']}")
+
+            # 新しいエンドポイントを一括追加
+            if endpoints_to_add:
+                session.add_all(endpoints_to_add)
+                logger.info(f"Added {len(endpoints_to_add)} new endpoints to database")
+
+            # スキーマから削除されたエンドポイントをデータベースから削除（オプション、今回はスキップ）
+            # current_endpoint_keys = set((ep_data["path"], ep_data["method"]) for ep_data in endpoints_data)
+            # for key, db_endpoint in existing_endpoints_map.items():
+            #     if key not in current_endpoint_keys:
+            #         session.delete(db_endpoint)
+            #         logger.debug(f"Deleting removed endpoint: {db_endpoint.method} {db_endpoint.path}")
+
+            session.commit()
+            logger.info(f"Successfully saved/updated endpoint information in database for project {project_id}")
+
+        except Exception as parse_save_error:
+            logger.error(f"Error parsing or saving endpoints for project {project_id}: {parse_save_error}", exc_info=True)
+            # エンドポイントのパース・保存に失敗しても、RAGインデックス作成は続行する
+            logger.warning("Continuing to RAG indexing despite endpoint parsing/saving error.")
+
+
         # RAGインデックスの作成
-        logger.info(f"Step 3: Creating RAG index for project {project_id}")
+        logger.info(f"Step 4: Creating RAG index for project {project_id}") # ステップ番号を修正
         try:
             index_schema(project_id, save_path)
             logger.info(f"Successfully indexed schema for project {project_id}")
@@ -69,7 +137,7 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
             logger.error("Schema indexing failed. Stopping further operations.")
             raise index_error  # 例外を再発生させて処理を停止する
         
-        return {"message": "Schema uploaded and indexed successfully."}
+        return {"message": "Schema uploaded, endpoints saved, and indexed successfully."} # メッセージを修正
     except Exception as e:
         logger.error(f"Error saving and indexing schema for project {project_id}: {e}", exc_info=True)
         # セッションをロールバックして、データベースの整合性を保つ

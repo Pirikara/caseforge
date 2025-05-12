@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.services.teststore import list_testcases
 from app.config import settings
 from app.logging_config import logger
+from typing import List, Dict, Any
 
 async def run_tests(project_id: str) -> list[dict]:
     base_url = settings.TEST_TARGET_URL
@@ -98,7 +99,7 @@ def list_test_runs(project_id: str) -> list[str]:
         logger.error(f"Error listing test runs for project {project_id}: {e}")
         return []
 
-def get_run_result(project_id: str, run_id: str) -> list[dict]:
+def get_run_result(project_id: str, run_id: str) -> list[dict] | None:
     """
     特定のテスト実行結果を取得する
     
@@ -125,7 +126,7 @@ def get_run_result(project_id: str, run_id: str) -> list[dict]:
         logger.error(f"Error loading test run log {path}: {e}")
         return None
 
-def get_recent_runs(limit: int = 5) -> dict:
+def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
     """
     全プロジェクトの最近のテスト実行を取得する
     
@@ -133,85 +134,112 @@ def get_recent_runs(limit: int = 5) -> dict:
         limit: 取得する実行数の上限
         
     Returns:
-        最近のテスト実行と統計情報を含む辞書
+        RecentTestRunsResponse スキーマに適合する辞書
     """
-    try:
-        # 統計情報の初期化
-        stats = {
-            "totalTests": 0,
-            "totalRuns": 0,
-            "successRate": 0
+    logger.info(f"Fetching recent test runs with limit {limit}")
+    
+    all_runs = []
+    total_runs = 0
+    passed_runs = 0
+    failed_runs = 0
+    completed_runs = 0
+    running_runs = 0 # 現在のログファイル構造では正確なrunningは判定困難だが、スキーマに合わせて追加
+
+    log_dir = settings.LOG_DIR
+    if not os.path.exists(log_dir):
+        logger.warning(f"Log directory not found: {log_dir}")
+        return {
+            "recent_runs": [],
+            "total_runs": 0,
+            "passed_runs": 0,
+            "failed_runs": 0,
+            "completed_runs": 0,
+            "running_runs": 0,
         }
-        
-        # すべてのプロジェクトディレクトリを取得
-        log_dir = settings.LOG_DIR
-        if not os.path.exists(log_dir):
-            logger.warning(f"Log directory not found: {log_dir}")
-            return {"runs": [], "stats": stats}
-            
-        projects = [d for d in os.listdir(log_dir) if os.path.isdir(os.path.join(log_dir, d))]
-        logger.debug(f"Found {len(projects)} projects with test runs")
-        
-        # すべてのテスト実行を収集
-        all_runs = []
-        for project_id in projects:
-            project_path = os.path.join(log_dir, project_id)
-            run_files = [f for f in os.listdir(project_path) if f.endswith('.json')]
-            
-            for run_file in run_files:
-                run_id = run_file.replace('.json', '')
-                run_path = os.path.join(project_path, run_file)
-                
+
+    projects = [d for d in os.listdir(log_dir) if os.path.isdir(os.path.join(log_dir, d))]
+    logger.debug(f"Found {len(projects)} projects with test runs logs")
+
+    for project_id in projects:
+        project_path = os.path.join(log_dir, project_id)
+        run_files = [f for f in os.listdir(project_path) if f.endswith('.json')]
+
+        for run_file in run_files:
+            run_id = run_file.replace('.json', '')
+            run_path = os.path.join(project_path, run_file)
+
+            try:
+                # ファイル名から開始時間を推測 (YYYYMMDD-HHMMSS 形式を想定)
                 try:
-                    # ファイルの最終更新時間を取得
-                    mod_time = os.path.getmtime(run_path)
-                    
-                    # 実行結果を読み込む
-                    with open(run_path, 'r') as f:
-                        results = json.load(f)
-                    
-                    # 成功したテストの数を計算
-                    passed_tests = sum(1 for r in results if r.get('pass', False))
-                    total_tests = len(results)
-                    
-                    # 統計情報を更新
-                    stats["totalTests"] += total_tests
-                    stats["totalRuns"] += 1
-                    
-                    # 実行情報を追加
-                    all_runs.append({
-                        "run_id": run_id,
-                        "project_id": project_id,
-                        "status": "completed",
-                        "start_time": datetime.fromtimestamp(mod_time).isoformat(),
-                        "success_rate": round(passed_tests / total_tests * 100) if total_tests > 0 else 0
-                    })
-                except Exception as e:
-                    logger.error(f"Error processing run file {run_path}: {e}")
-        
-        # 日時でソート
-        all_runs.sort(key=lambda x: x["start_time"], reverse=True)
-        
-        # 上限数に制限
-        recent_runs = all_runs[:limit]
-        
-        # 成功率を計算
-        if stats["totalRuns"] > 0:
-            success_tests = sum(1 for run in all_runs for r in get_run_result(run["project_id"], run["run_id"]) or [] if r.get('pass', False))
-            total_tests = sum(len(get_run_result(run["project_id"], run["run_id"]) or []) for run in all_runs)
-            stats["successRate"] = round(success_tests / total_tests * 100) if total_tests > 0 else 0
-        
-        return {
-            "runs": recent_runs,
-            "stats": stats
-        }
-    except Exception as e:
-        logger.error(f"Error getting recent runs: {e}")
-        return {
-            "runs": [],
-            "stats": {
-                "totalTests": 0,
-                "totalRuns": 0,
-                "successRate": 0
-            }
-        }
+                    # ファイル名が "YYYYMMDD-HHMMSS.json" または "YYYYMMDD-HHMMSS_suiteId.json" の形式を想定
+                    name_parts = run_id.split('_')
+                    start_time_str = name_parts[0]
+                    start_time = datetime.strptime(start_time_str, "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc)
+                    suite_id = name_parts[1] if len(name_parts) > 1 else "" # None の代わりに空文字列を割り当てる
+                except ValueError:
+                    # ファイル名から取得できない場合はファイルの更新時間を使用
+                    start_time = datetime.fromtimestamp(os.path.getmtime(run_path), tzinfo=timezone.utc)
+                    suite_id = "" # suite_idも不明とする場合は空文字列
+
+                # 実行結果を読み込む
+                with open(run_path, 'r') as f:
+                    results = json.load(f)
+
+                # ステータスと成功/失敗を判定
+                # ログファイルに直接ステータス情報がないため、結果から推測
+                # 1つでも失敗があればfailed、そうでなければcompletedと仮定
+                status = "completed"
+                is_failed = False
+                if results:
+                    if any(not r.get('pass', False) for r in results):
+                        status = "failed"
+                        is_failed = True
+                # 結果が空の場合はcompleted (テストケースが0件だった可能性) とみなす
+
+                # 統計情報を更新
+                total_runs += 1
+                if status == "completed":
+                    completed_runs += 1
+                    if not is_failed:
+                        passed_runs += 1
+                    else:
+                        failed_runs += 1
+                # running_runs は現在のログ構造では正確に判定できないため、常に0とする
+
+                # 実行情報を追加
+                all_runs.append({
+                    "id": run_id, # run_id を id に変更
+                    "suite_id": suite_id,
+                    "status": status,
+                    "start_time": start_time, # isoformat() を削除
+                    "end_time": datetime.fromtimestamp(os.path.getmtime(run_path), tz=timezone.utc), # isoformat() を削除
+                    "test_case_results": [], # TestRun スキーマに合わせて追加 (空リスト)
+                })
+            except FileNotFoundError:
+                 logger.warning(f"Run file not found (possibly deleted during scan): {run_path}")
+                 continue # ファイルが見つからない場合はスキップ
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in run file {run_path}: {e}")
+                # JSONエラーが発生した実行は失敗とみなし、統計に含めることも検討
+                # ここでは一旦スキップ
+                continue
+            except Exception as e:
+                logger.error(f"Error processing run file {run_path}: {e}", exc_info=True)
+                # その他のエラーが発生した実行もスキップ
+                continue
+
+    # 日時でソート
+    all_runs.sort(key=lambda x: x["start_time"], reverse=True)
+
+    # 上限数に制限
+    recent_runs = all_runs[:limit]
+
+    # RecentTestRunsResponse スキーマに適合する形式で返す
+    return {
+        "recent_runs": recent_runs,
+        "total_runs": total_runs,
+        "passed_runs": passed_runs,
+        "failed_runs": failed_runs,
+        "completed_runs": completed_runs,
+        "running_runs": running_runs, # 現在は常に0
+    }

@@ -64,7 +64,7 @@ import stat
 os.chmod("/tmp/test_caseforge", stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
 
 # モデルのインポートは環境変数設定後に行う
-from app.models import Project, Schema, TestRun, TestResult, TestChain, TestChainStep, ChainRun, StepResult
+from app.models import Project, Schema, TestRun, TestCaseResult, TestSuite, TestStep
 from app.models.base import DATABASE_URL
 from sqlmodel import SQLModel
 
@@ -99,9 +99,17 @@ def setup_database():
     with Session(engine) as session:
         # 既存のプロジェクトをクリア
         from sqlalchemy import text
+        # 関連テーブルのデータをクリア
+        session.exec(text("DELETE FROM stepresult"))
+        session.exec(text("DELETE FROM testcaseresult"))
+        session.exec(text("DELETE FROM testrun"))
+        session.exec(text("DELETE FROM teststep"))
+        session.exec(text("DELETE FROM testcase"))
+        session.exec(text("DELETE FROM testsuite"))
+        # project テーブルをクリア
         session.exec(text("DELETE FROM project"))
         session.commit()
-        
+
         # 固定のプロジェクトを作成
         project = Project(project_id="test_project", name="Test Project")
         session.add(project)
@@ -122,22 +130,37 @@ def engine_fixture():
 @pytest.fixture(autouse=True)
 def reset_database(session):
     """各テスト後にデータベースをリセット"""
-    yield
-    # テスト後にセッションをロールバックし、テーブルをクリア
-    session.rollback()
+    # テスト開始前にテーブルをクリア（projectテーブルは除外）
+    # 依存関係の深いテーブルから順に削除
+    # ORMを使用してデータを削除
+    from app.models import StepResult, TestCaseResult, TestRun, TestStep, TestCase, TestSuite
     
-    # テスト後にテーブルをクリア（projectテーブルは除外）
-    from sqlalchemy import text
-    for table in reversed(SQLModel.metadata.sorted_tables):
-        if table.name != "project":  # projectテーブルはクリアしない
-            session.exec(text(f"DELETE FROM {table.name}"))
-    session.commit()
+    # 依存関係の深いテーブルから順に削除
+    # SQLModel の推奨する方法である session.exec(delete(...)) を使用
+    from sqlmodel import delete
+    from app.models import StepResult, TestCaseResult, TestRun, TestStep, TestCase, TestSuite
+    
+    session.exec(delete(StepResult))
+    session.exec(delete(TestCaseResult))
+    session.exec(delete(TestRun))
+    session.exec(delete(TestStep))
+    session.exec(delete(TestCase))
+    session.exec(delete(TestSuite))
+    
+    session.commit() # ここでコミットが必要
+
+    yield
+    # テスト後にセッションをロールバック
+    session.rollback()
 
 @pytest.fixture(name="session")
-def session_fixture(engine):
-    """テスト用のデータベースセッションを作成"""
+def session_fixture():
+    """テスト用のインメモリSQLiteデータベースセッションを作成"""
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
+    # インメモリデータベースはセッション終了時に自動的に破棄される
 
 @pytest.fixture(name="test_project")
 def test_project_fixture(session):

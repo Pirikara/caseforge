@@ -5,31 +5,26 @@ import json
 from .base import TimestampModel
 from .project import Project
 
-class TestChain(TimestampModel, table=True):
-    __tablename__ = "testchain"
-    """テストチェーンモデル（複数ステップの依存関係を持つテストシナリオ）"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    chain_id: str = Field(index=True)
-    project_id: int = Field(foreign_key="project.id")
+class TestSuite(TimestampModel, table=True):
+    __tablename__ = "testsuite"
+    """テストスイートモデル（APIエンドポイント単位のテスト群）"""
+    id: str = Field(index=True, primary_key=True) # Optional[int] から str に変更し、index=True を追加
+    project_id: int = Field(foreign_key="project.id") 
+    target_method: str
+    target_path: str
     name: str
     description: Optional[str] = None
-    tags: Optional[str] = None  # カンマ区切りのタグ
     
     # リレーションシップ
-    project: Project = Relationship(back_populates="test_chains")
-    steps: List["TestChainStep"] = Relationship(back_populates="chain", sa_relationship_kwargs={"cascade": "delete, all"})
-    runs: List["ChainRun"] = Relationship(back_populates="chain", sa_relationship_kwargs={"cascade": "delete, all"})
-    
-    @property
-    def tag_list(self) -> List[str]:
-        """タグのリストを返す"""
-        return self.tags.split(",") if self.tags else []
+    project: Project = Relationship(back_populates="test_suites")
+    test_cases: List["TestCase"] = Relationship(back_populates="test_suite", sa_relationship_kwargs={"cascade": "delete, all"})
+    test_runs: List["TestRun"] = Relationship(back_populates="test_suite", sa_relationship_kwargs={"cascade": "delete, all"})
 
-class TestChainStep(TimestampModel, table=True):
-    __tablename__ = "testchainstep"
-    """テストチェーンステップモデル（チェーン内の1つのリクエスト）"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    chain_id: int = Field(foreign_key="testchain.id")
+class TestStep(TimestampModel, table=True):
+    __tablename__ = "teststep"
+    """テストステップモデル（テストケース内の1つのリクエスト）"""
+    id: str = Field(index=True, primary_key=True) # Optional[int] から str に変更し、index=True を追加
+    case_id: str = Field(foreign_key="testcase.id") # int から str に変更
     sequence: int  # ステップの実行順序
     name: Optional[str] = None
     method: str
@@ -41,8 +36,8 @@ class TestChainStep(TimestampModel, table=True):
     extract_rules_str: Optional[str] = Field(default=None)  # JSONPath形式の抽出ルール
     
     # リレーションシップ
-    chain: TestChain = Relationship(back_populates="steps")
-    results: List["StepResult"] = Relationship(back_populates="step")
+    test_case: "TestCase" = Relationship(back_populates="test_steps")
+    step_results: List["StepResult"] = Relationship(back_populates="test_step", sa_relationship_kwargs={"cascade": "delete, all"})
     
     # JSON シリアライズ/デシリアライズのためのプロパティ
     @property
@@ -96,64 +91,3 @@ class TestChainStep(TimestampModel, table=True):
             self.extract_rules_str = json.dumps(value)
         else:
             self.extract_rules_str = None
-
-class ChainRun(TimestampModel, table=True):
-    __tablename__ = "chainrun"
-    """テストチェーン実行モデル"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    run_id: str = Field(index=True, unique=True)
-    chain_id: int = Field(foreign_key="testchain.id")
-    project_id: int = Field(foreign_key="project.id")
-    status: str  # running, completed, failed
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    
-    # リレーションシップ
-    chain: TestChain = Relationship(back_populates="runs")
-    project: Project = Relationship(back_populates="chain_runs")
-    step_results: List["StepResult"] = Relationship(back_populates="chain_run", sa_relationship_kwargs={"cascade": "delete, all"})
-
-class StepResult(TimestampModel, table=True):
-    __tablename__ = "stepresult"
-    """テストチェーンステップ結果モデル"""
-    id: Optional[int] = Field(default=None, primary_key=True)
-    chain_run_id: int = Field(foreign_key="chainrun.id")
-    step_id: int = Field(foreign_key="testchainstep.id")
-    sequence: int
-    status_code: Optional[int] = None
-    passed: bool
-    response_time: Optional[float] = None
-    error_message: Optional[str] = None
-    response_body_str: Optional[str] = Field(default=None)
-    extracted_values_str: Optional[str] = Field(default=None)
-    
-    # リレーションシップ
-    chain_run: ChainRun = Relationship(back_populates="step_results")
-    step: TestChainStep = Relationship(back_populates="results")
-    
-    # JSON シリアライズ/デシリアライズのためのプロパティ
-    @property
-    def response_body(self) -> Any:
-        if self.response_body_str:
-            return json.loads(self.response_body_str)
-        return None
-    
-    @response_body.setter
-    def response_body(self, value: Any):
-        if value is not None:
-            self.response_body_str = json.dumps(value)
-        else:
-            self.response_body_str = None
-    
-    @property
-    def extracted_values(self) -> Dict[str, Any]:
-        if self.extracted_values_str:
-            return json.loads(self.extracted_values_str)
-        return {}
-    
-    @extracted_values.setter
-    def extracted_values(self, value: Dict[str, Any]):
-        if value is not None:
-            self.extracted_values_str = json.dumps(value)
-        else:
-            self.extracted_values_str = None
