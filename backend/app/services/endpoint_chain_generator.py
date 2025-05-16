@@ -8,6 +8,7 @@ from app.logging_config import logger
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.vectorstores import FAISS
+from app.utils.path_manager import path_manager
 
 class EndpointChainGenerator:
     """選択されたエンドポイントからテストチェーンを生成するクラス"""
@@ -37,24 +38,32 @@ class EndpointChainGenerator:
         model_name = settings.LLM_MODEL_NAME
         api_base = settings.OPENAI_API_BASE
         
-        # LLMの設定をログに出力
-        logger.info(f"Using LLM model: {model_name}, API base: {api_base}")
+        # LLMクライアントの設定
+        from app.services.llm.client import LLMClientFactory, LLMProviderType, Message, MessageRole, LLMException, LLMResponseFormatException
+        from app.services.llm.prompts import get_prompt_template
+        
+        logger.info(f"Using LLM model: {model_name}")
         
         try:
-            llm = ChatOpenAI(
+            # LLMクライアントを作成
+            llm_client = LLMClientFactory.create(
+                provider_type=LLMProviderType.LOCAL,
                 model_name=model_name,
-                openai_api_base=api_base,
                 temperature=0.2,
-                api_key=settings.OPENAI_API_KEY,
             )
-            logger.info("LLM initialized successfully")
+            logger.info("LLM client initialized successfully")
         except Exception as e:
-            logger.error(f"Error initializing LLM: {e}", exc_info=True)
+            logger.error(f"Error initializing LLM client: {e}", exc_info=True)
             raise
         
         # プロンプトの設定 (ループの外で一度だけ行う)
-        prompt = ChatPromptTemplate.from_template(
-    """あなたはAPIテストの専門家です。以下のターゲットエンドポイントと、関連するOpenAPIスキーマ情報を元に、そのエンドポイントに対するテストスイート（TestSuite）を生成してください。
+        try:
+            prompt_template = get_prompt_template("endpoint_test_generation")
+            logger.info("Using endpoint_test_generation prompt template from registry")
+        except KeyError:
+            logger.warning("endpoint_test_generation prompt template not found, using hardcoded prompt")
+            # プロンプトが見つからない場合は、従来のプロンプトを使用
+            prompt_template_str = """あなたはAPIテストの専門家です。以下のターゲットエンドポイントと、関連するOpenAPIスキーマ情報を元に、そのエンドポイントに対するテストスイート（TestSuite）を生成してください。
 
 ターゲットエンドポイント:
 {target_endpoint_info}
@@ -120,7 +129,7 @@ class EndpointChainGenerator:
 8. 各テストケースの名前には、そのテストケースの種類（正常系、または異常系の種類）を含めること。
 9. 異常系テストケースの場合、`error_type` フィールドに適切な異常系の種類（"missing_field", "invalid_input", "unauthorized", "not_found" など）を設定すること。正常系テストケースの場合は `null` とすること。
 """
-        )
+            prompt_template = prompt_template_str
 
         # error_types に基づいて異常系テストに関する指示を生成
         error_types_instruction = "以下の異常系の種類（missing_field, invalid_input, unauthorized, not_found など）"
@@ -148,9 +157,23 @@ class EndpointChainGenerator:
                 # 4. LLMを呼び出してチェーンを生成
                 logger.info(f"Invoking LLM for endpoint {target_endpoint.method} {target_endpoint.path}")
                 try:
-                    resp = (prompt | llm).invoke(context).content
-                    logger.info(f"Raw LLM response for {target_endpoint.method} {target_endpoint.path}: {resp[:200]}...")
-                except Exception as llm_error:
+                    # プロンプトテンプレートを使用してLLMを呼び出し、JSONレスポンスを直接取得
+                    if 'prompt_template' in locals():
+                        # プロンプトレジストリからのテンプレートを使用
+                        suite_data = llm_client.call_with_json_response(
+                            [Message(MessageRole.USER,
+                                    prompt_template.format(**context))]
+                        )
+                    else:
+                        # ハードコードされたプロンプトを使用
+                        suite_data = llm_client.call_with_json_response(
+                            [Message(MessageRole.USER,
+                                    prompt_template_str.format(**context))]
+                        )
+                    
+                    logger.info(f"LLM response received for {target_endpoint.method} {target_endpoint.path}")
+                
+                except (LLMException, LLMResponseFormatException) as llm_error:
                     logger.error(f"Error invoking LLM for endpoint {target_endpoint.method} {target_endpoint.path}: {llm_error}", exc_info=True)
                     # LLM呼び出しエラーの場合は、シンプルなテストチェーンを生成
                     logger.info(f"Generating fallback test chain for {target_endpoint.method} {target_endpoint.path}")
@@ -160,11 +183,11 @@ class EndpointChainGenerator:
                     continue
                 
                 try:
-                    suite_data = json.loads(resp)
+                    # JSONパースは既にLLMClientによって行われているため、構造の検証のみを行う
 
                     # LLMからの応答が期待するTestSuite構造になっているか検証
                     if not isinstance(suite_data, dict) or \
-                       "suite_name" not in suite_data or \
+                       "name" not in suite_data or \
                        "target_method" not in suite_data or \
                        "target_path" not in suite_data or \
                        "test_cases" not in suite_data or \
@@ -174,23 +197,35 @@ class EndpointChainGenerator:
                     # 各テストケースの構造を検証
                     for case_data in suite_data["test_cases"]:
                         if not isinstance(case_data, dict) or \
-                           "case_name" not in case_data or \
+                           "name" not in case_data or \
                            "description" not in case_data or \
                            "error_type" not in case_data or \
-                           "steps" not in case_data or \
-                           not isinstance(case_data["steps"], list):
+                           "test_steps" not in case_data or \
+                           not isinstance(case_data["test_steps"], list):
                             raise ValueError("LLM response contains invalid TestCase structure")
 
                         # 各ステップの構造を検証
-                        for step_data in case_data["steps"]:
+                        for step_data in case_data["test_steps"]:
                              if not isinstance(step_data, dict) or \
                                 "method" not in step_data or \
                                 "path" not in step_data or \
-                                "request" not in step_data or \
-                                "response" not in step_data:
+                                "request_headers" not in step_data or \
+                                "request_body" not in step_data or \
+                                "request_params" not in step_data or \
+                                "extract_rules" not in step_data or \
+                                "expected_status" not in step_data:
                                  raise ValueError("LLM response contains invalid TestStep structure")
 
                     # 正常にパースできた場合、生成されたスイートデータをリストに追加
+                    
+                    # データベースのNOT NULL制約に対応するため、target_methodとtarget_pathを補完
+                    if 'target_method' not in suite_data or suite_data['target_method'] is None:
+                        suite_data['target_method'] = target_endpoint.method
+                        logger.warning(f"target_method not found in LLM response, using endpoint method: {target_endpoint.method}")
+                    if 'target_path' not in suite_data or suite_data['target_path'] is None:
+                        suite_data['target_path'] = target_endpoint.path
+                        logger.warning(f"target_path not found in LLM response, using endpoint path: {target_endpoint.path}")
+
                     generated_chains.append(suite_data)
                     logger.info(f"Successfully generated test suite for {target_endpoint.method} {target_endpoint.path} with {len(suite_data.get('test_cases', []))} test cases")
 
@@ -340,13 +375,13 @@ class EndpointChainGenerator:
         """
         try:
             # 永続化されるディレクトリからベクトルDBをロード
-            data_dir = os.environ.get("DATA_DIR", "/app/data")
-            faiss_path = f"{data_dir}/faiss/{self.project_id}"
+            # 永続化ディレクトリのパス
+            faiss_path = path_manager.get_faiss_dir(self.project_id, temp=False)
             
             # 永続化ディレクトリにベクトルDBがない場合は、/tmpも確認
-            if not os.path.exists(faiss_path):
-                tmp_faiss_path = f"/tmp/faiss/{self.project_id}"
-                if os.path.exists(tmp_faiss_path):
+            if not path_manager.exists(faiss_path):
+                tmp_faiss_path = path_manager.get_faiss_dir(self.project_id, temp=True)
+                if path_manager.exists(tmp_faiss_path):
                     logger.info(f"FAISS vector DB found in temporary directory: {tmp_faiss_path}")
                     faiss_path = tmp_faiss_path
                 else:

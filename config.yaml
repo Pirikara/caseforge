@@ -1,0 +1,36 @@
+app:
+  name: Caseforge
+  debug: false
+  debug_port: 4444
+
+paths:
+  schema_dir: /code/data/schemas
+  tests_dir: /code/data/generated_tests
+  log_dir: /code/data/test_runs
+
+llm:
+  model_name: Hermes-3-Llama-3.1-8B
+  openai_api_base: http://192.168.2.101:1234/v1
+  openai_api_key: not-needed
+  provider: openai
+  anthropic_api_key: ""
+  anthropic_model_name: claude-3-opus-20240229
+
+test:
+  target_url: http://backend:8000
+
+redis:
+  url: redis://redis:6379/0
+
+database:
+  url: postgresql://caseforge:caseforge@db:5432/caseforge
+
+timeout:
+  default: 30.0
+  llm_call: 60.0
+  embedding: 120.0
+  api_call: 10.0
+  http_request: 30.0
+  db_query: 15.0
+  db_connection: 5.0
+  file_operation: 10.0

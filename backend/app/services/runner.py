@@ -6,6 +6,7 @@ from app.services.teststore import list_testcases
 from app.config import settings
 from app.logging_config import logger
 from typing import List, Dict, Any
+from app.utils.path_manager import path_manager
 
 async def run_tests(project_id: str) -> list[dict]:
     base_url = settings.TEST_TARGET_URL
@@ -18,8 +19,8 @@ async def run_tests(project_id: str) -> list[dict]:
             return []
             
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        log_path = f"{settings.LOG_DIR}/{project_id}"
-        os.makedirs(log_path, exist_ok=True)
+        log_path = path_manager.get_log_dir(project_id)
+        path_manager.ensure_dir(log_path)
     
         async with httpx.AsyncClient(base_url=base_url, timeout=10.0) as client:
             for test in tests:
@@ -66,7 +67,8 @@ async def run_tests(project_id: str) -> list[dict]:
                     })
     
         try:
-            with open(f"{log_path}/{timestamp}.json", "w") as f:
+            log_file = path_manager.join_path(log_path, f"{timestamp}.json")
+            with open(log_file, "w") as f:
                 json.dump(results, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save test results: {e}")
@@ -88,11 +90,11 @@ def list_test_runs(project_id: str) -> list[str]:
         テスト実行IDのリスト（日時の降順）
     """
     try:
-        path = f"{settings.LOG_DIR}/{project_id}"
-        if not os.path.exists(path):
+        path = path_manager.get_log_dir(project_id)
+        if not path_manager.exists(path):
             logger.debug(f"No test runs found for project {project_id}")
             return []
-        runs = sorted(os.listdir(path), reverse=True)
+        runs = sorted(os.listdir(str(path)), reverse=True)
         logger.debug(f"Found {len(runs)} test runs for project {project_id}")
         return runs
     except Exception as e:
@@ -111,8 +113,8 @@ def get_run_result(project_id: str, run_id: str) -> list[dict] | None:
         テスト実行結果。ファイルが存在しない場合はNone。
     """
     try:
-        path = f"{settings.LOG_DIR}/{project_id}/{run_id}.json"
-        if not os.path.exists(path):
+        path = path_manager.get_log_dir(project_id, run_id)
+        if not path_manager.exists(path):
             logger.warning(f"Test run log not found: {path}")
             return None
         with open(path, "r") as f:
@@ -145,8 +147,8 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
     completed_runs = 0
     running_runs = 0 # 現在のログファイル構造では正確なrunningは判定困難だが、スキーマに合わせて追加
 
-    log_dir = settings.LOG_DIR
-    if not os.path.exists(log_dir):
+    log_dir = path_manager.get_log_dir()
+    if not path_manager.exists(log_dir):
         logger.warning(f"Log directory not found: {log_dir}")
         return {
             "recent_runs": [],
@@ -157,16 +159,16 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
             "running_runs": 0,
         }
 
-    projects = [d for d in os.listdir(log_dir) if os.path.isdir(os.path.join(log_dir, d))]
+    projects = [d for d in os.listdir(str(log_dir)) if path_manager.is_dir(path_manager.join_path(log_dir, d))]
     logger.debug(f"Found {len(projects)} projects with test runs logs")
 
     for project_id in projects:
-        project_path = os.path.join(log_dir, project_id)
-        run_files = [f for f in os.listdir(project_path) if f.endswith('.json')]
+        project_path = path_manager.get_log_dir(project_id)
+        run_files = [f for f in os.listdir(str(project_path)) if f.endswith('.json')]
 
         for run_file in run_files:
             run_id = run_file.replace('.json', '')
-            run_path = os.path.join(project_path, run_file)
+            run_path = path_manager.join_path(project_path, run_file)
 
             try:
                 # ファイル名から開始時間を推測 (YYYYMMDD-HHMMSS 形式を想定)
@@ -178,7 +180,7 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
                     suite_id = name_parts[1] if len(name_parts) > 1 else "" # None の代わりに空文字列を割り当てる
                 except ValueError:
                     # ファイル名から取得できない場合はファイルの更新時間を使用
-                    start_time = datetime.fromtimestamp(os.path.getmtime(run_path), tzinfo=timezone.utc)
+                    start_time = datetime.fromtimestamp(os.path.getmtime(str(run_path)), tzinfo=timezone.utc)
                     suite_id = "" # suite_idも不明とする場合は空文字列
 
                 # 実行結果を読み込む
@@ -212,7 +214,7 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
                     "suite_id": suite_id,
                     "status": status,
                     "start_time": start_time, # isoformat() を削除
-                    "end_time": datetime.fromtimestamp(os.path.getmtime(run_path), tz=timezone.utc), # isoformat() を削除
+                    "end_time": datetime.fromtimestamp(os.path.getmtime(str(run_path)), tz=timezone.utc), # isoformat() を削除
                     "test_case_results": [], # TestRun スキーマに合わせて追加 (空リスト)
                 })
             except FileNotFoundError:

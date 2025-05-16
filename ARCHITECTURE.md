@@ -13,10 +13,39 @@ caseforge/
 │   ├── app/
 │   │   ├── api/           # FastAPI ルーター
 │   │   ├── config.py      # 環境変数・設定管理
+│   │   ├── exceptions.py  # 例外クラス階層
 │   │   ├── logging_config.py # ロギング設定
 │   │   ├── models/        # SQLModel データモデル定義
+│   │   │   ├── base.py    # 基本モデル
+│   │   │   ├── project.py # プロジェクト関連モデル
+│   │   │   ├── endpoint.py # エンドポイント関連モデル
+│   │   │   └── test/      # テスト関連モデル
+│   │   │       ├── suite.py # テストスイートモデル
+│   │   │       ├── case.py # テストケースモデル
+│   │   │       ├── step.py # テストステップモデル
+│   │   │       └── result.py # テスト結果モデル
 │   │   ├── schemas/       # Pydantic スキーマ
-│   │   ├── services/      # ドメインロジック（RAG, Schemaパース, テスト生成・実行）
+│   │   ├── services/      # ドメインロジック
+│   │   │   ├── llm/       # LLM関連
+│   │   │   │   ├── client.py # LLMクライアント
+│   │   │   │   └── prompts.py # プロンプト管理
+│   │   │   ├── openapi/   # OpenAPI関連
+│   │   │   │   ├── parser.py # スキーマパーサー
+│   │   │   │   └── analyzer.py # スキーマ解析
+│   │   │   ├── rag/       # RAG関連
+│   │   │   │   ├── embeddings.py # 埋め込み処理
+│   │   │   │   ├── chunker.py # チャンカー
+│   │   │   │   └── indexer.py # インデクサー
+│   │   │   ├── test/      # テスト生成・実行関連
+│   │   │   │   ├── test_runner.py # テスト実行
+│   │   │   │   └── variable_manager.py # 変数管理
+│   │   │   └── vector_db/ # ベクトルDB関連
+│   │   │       ├── embeddings.py # 埋め込みモデル
+│   │   │       └── manager.py # ベクトルDB管理
+│   │   ├── utils/         # ユーティリティ
+│   │   │   ├── path_manager.py # パス管理
+│   │   │   ├── retry.py   # リトライ機構
+│   │   │   └── timeout.py # タイムアウト処理
 │   │   ├── workers/       # Celery タスク定義
 │   │   └── main.py        # FastAPI エントリーポイント
 │   ├── tests/             # テストコード（単体・統合テスト）
@@ -42,9 +71,10 @@ caseforge/
 | レイヤ | 技術 |
 |--------|------|
 | フロントエンド | Next.js (App Router) / Tailwind CSS / SWR / Recharts / shadcn/ui / Zod / React Hook Form |
-| バックエンド | FastAPI / Celery / LangChain (RAG) / FAISS / SQLModel / Pydantic Settings |
+| バックエンド | FastAPI / Celery / LangChain Core / LangChain OpenAI / LangChain Community / FAISS / SQLModel / Pydantic V2 / Pydantic Settings |
 | インフラ | Docker Compose / Redis (Broker) / PostgreSQL |
 | テスト | Pytest / Pytest-asyncio |
+| 堅牢性 | 構造化例外処理 / タイムアウト処理 / リトライ機構 |
 
 ---
 
@@ -61,12 +91,23 @@ graph TD;
   subgraph Backend
     B -- Celery Task --> C[Worker]
     C -- DB ORM --> D[PostgreSQL]
-    C -- Vector Search --> E[FAISS]
+    C -- Vector Search --> E[Vector DB]
     
     F[Config] --> B
     F --> C
     G[Logging] --> B
     G --> C
+    
+    H[Exception Handling] --> B
+    H --> C
+    
+    I[Timeout & Retry] --> B
+    I --> C
+    
+    J[LLM Client] --> C
+    K[Vector DB Manager] --> C
+    L[Path Manager] --> C
+    M[Variable Manager] --> C
   end
 
   subgraph Database
@@ -79,6 +120,11 @@ graph TD;
     D --- D7[Endpoint]
   end
 
+  subgraph "Vector Database"
+    E --- E1[FAISS]
+    E --- E2[Chroma]
+  end
+
   R[Redis Broker]
   C --- R
   B --> R
@@ -89,7 +135,7 @@ graph TD;
 ## 動作フロー概要
 
 1. ユーザーが OpenAPI schema をアップロード
-2. スキーマをデータベースに保存し、LangChain を通じてベクトル化して FAISS に保存（RAGの準備）
+2. スキーマをデータベースに保存し、LangChain を通じてベクトル化してベクトルDBに保存（RAGの準備）
 3. ユーザーが「テストチェーン生成」を指示 → Celery 経由で非同期タスクを実行
 4. LLM を用いた RAG によりテストチェーンを生成し、データベースに保存
 5. テスト実行時、データベースからテストチェーンを読み込んで各 API を叩き、レスポンスを評価
@@ -107,7 +153,7 @@ sequenceDiagram
   participant API as FastAPI
   participant Worker as Celery Worker
   participant DB as PostgreSQL
-  participant Vector as FAISS
+  participant Vector as Vector DB
   participant LLM as LLM API
 
   User->>UI: テストスイート生成リクエスト
@@ -308,12 +354,14 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
 
 ## 拡張設計ポイント
 
-- **LLM**：Claude / GPT / HuggingFace など、API呼び出し部分は差し替え可能
-- **RAG**：LangChain 使用。必要に応じて chunker / retriever のカスタムも容易
+- **LLM**：抽象化されたLLMクライアントにより、Claude / GPT / HuggingFace など、API呼び出し部分は差し替え可能
+- **RAG**：モジュール化されたRAG実装。chunker / embeddings / indexer のカスタムも容易
+- **ベクトルDB**：抽象化されたベクトルDBマネージャーにより、FAISS / ChromaDB など異なるベクトルDBを柔軟に切り替え可能
 - **テスト形式**：生成結果は JSON 形式で保存されるため、`pytest` や `Postman` 等と連携可能
 - **UI層**：API ファースト設計。将来的に GraphQL や gRPC への置換も視野
-- **環境変数管理**：Pydantic Settings を使用した型安全な設定管理
-- **エラーハンドリング**：構造化された例外処理と詳細なロギング
+- **環境変数管理**：Pydantic V2 Settings を使用した型安全な設定管理
+- **エラーハンドリング**：階層化された例外クラスと構造化された例外処理
+- **堅牢性**：タイムアウト処理とリトライ機構による安定した実行
 - **データベース**：SQLModel による型安全なORM、マイグレーション対応
 - **デバッグ**：debugpy によるリモートデバッグ対応
 - **エンドポイント管理**：OpenAPIスキーマからエンドポイント情報を抽出し、個別または選択的にテストチェーンを生成可能
@@ -498,6 +546,172 @@ Caseforgeは、OpenAPIスキーマから依存関係を考慮したテストチ�
    - リクエストボディの生成
    - レスポンスからの変数抽出ルールの設定
    - 後続リクエストでの変数利用
+
+---
+
+## 例外処理アーキテクチャ
+
+Caseforgeは、階層化された例外クラスを提供し、一貫したエラーハンドリングを実現します。各例外クラスには適切なエラーコードが割り当てられ、エラーの種類を明確に区別できます。
+
+```mermaid
+graph TD;
+  A[CaseforgeException] --> B1[SystemException]
+  A --> B2[LLMException]
+  A --> B3[TestException]
+  A --> B4[APIException]
+  A --> B5[DataException]
+  
+  B1 --> C1[ConfigurationException]
+  B1 --> C2[TimeoutException]
+  B1 --> C3[ResourceException]
+  
+  B2 --> C4[PromptException]
+  B2 --> C5[ModelCallException]
+  B2 --> C6[RAGException]
+  
+  B3 --> C7[TestGenerationException]
+  B3 --> C8[TestExecutionException]
+  B3 --> C9[TestValidationException]
+  
+  B4 --> C10[OpenAPIParseException]
+  B4 --> C11[EndpointException]
+  B4 --> C12[RequestException]
+  B4 --> C13[ResponseException]
+  
+  B5 --> C14[DatabaseException]
+  B5 --> C15[ValidationException]
+  B5 --> C16[SerializationException]
+```
+
+例外処理のヘルパー関数も提供されており、例外のキャッチと処理を簡単に行えます：
+
+```python
+@handle_exceptions(fallback_value=None, reraise=False, log_level=logging.ERROR)
+def process_data(data):
+    # 処理中に例外が発生する可能性がある処理
+    pass
+
+@convert_exception(DatabaseException, message="データベース操作に失敗しました")
+def query_database():
+    # 一般的な例外をDatabaseExceptionに変換
+    pass
+```
+
+---
+
+## タイムアウト処理とリトライ機構
+
+Caseforgeは、同期・非同期関数の実行にタイムアウト機能とリトライ機能を提供します。
+
+### タイムアウト処理
+
+- デコレータベースの簡単な使用法
+- 同期・非同期関数の両方に対応
+- 設定から柔軟にタイムアウト値を取得
+
+```python
+@timeout(timeout_key="LLM_CALL")
+def call_llm(prompt):
+    # LLM呼び出し処理
+    pass
+
+@async_timeout(timeout_key="DB_QUERY")
+async def query_database():
+    # データベースクエリ処理
+    pass
+```
+
+### リトライ機構
+
+- 複数のリトライ戦略（一定間隔、線形増加、指数関数的増加）
+- ジッター（ランダム性）によるサーバー負荷の分散
+- 特定の例外クラスに対するリトライ設定
+
+```python
+@retry(retry_key="API_CALL")
+def call_external_api():
+    # 外部API呼び出し処理
+    pass
+
+@async_retry(
+    max_retries=5,
+    retry_delay=1.0,
+    backoff_factor=2.0,
+    retry_exceptions=[ConnectionError, TimeoutError]
+)
+async def unstable_operation():
+    # 不安定な操作
+    pass
+```
+
+---
+
+## LLMクライアントとプロンプト管理
+
+Caseforgeは、異なるLLMプロバイダーに対して統一的なインターフェースを提供します。
+
+### LLMクライアント
+
+- 抽象化されたインターフェースによる複数のLLMプロバイダー対応（OpenAI, Anthropic, ローカルモデル）
+- 同期・非同期呼び出しの両方に対応
+- タイムアウト処理とリトライ機構の組み込み
+- JSONレスポンスの自動パース
+
+```python
+# OpenAI GPTモデルの使用
+client = LLMClientFactory.create(LLMProviderType.OPENAI, model_name="gpt-4")
+
+# Anthropic Claudeモデルの使用
+client = LLMClientFactory.create(LLMProviderType.ANTHROPIC, model_name="claude-3-opus-20240229")
+
+# 同期呼び出し
+response = client.call([
+    Message(MessageRole.SYSTEM, "You are a helpful assistant."),
+    Message(MessageRole.USER, "What is the capital of France?")
+])
+
+# 非同期呼び出し
+response = await client.acall([
+    Message(MessageRole.SYSTEM, "You are a helpful assistant."),
+    Message(MessageRole.USER, "What is the capital of France?")
+])
+```
+
+### プロンプト管理
+
+- テンプレート化されたプロンプト
+- 変数の埋め込み
+- 再利用可能なプロンプトコンポーネント
+
+---
+
+## ベクトルDB管理
+
+Caseforgeは、異なるベクトルデータベースに対して統一的なインターフェースを提供します。
+
+### ベクトルDBマネージャー
+
+- 抽象化されたインターフェースによる複数のベクトルDB対応（FAISS, ChromaDB）
+- 同期・非同期操作の両方に対応
+- タイムアウト処理とリトライ機構の組み込み
+- キャッシュ機能によるパフォーマンス最適化
+
+```python
+# FAISSベクトルDBの使用
+vector_db = VectorDBManagerFactory.create("faiss", persist_directory="./data/faiss")
+
+# ChromaDBの使用
+vector_db = VectorDBManagerFactory.create("chroma", collection_name="documents")
+
+# ドキュメントの追加
+vector_db.add_documents(documents)
+
+# 類似度検索
+results = vector_db.similarity_search("What is the capital of France?", k=5)
+
+# 非同期での類似度検索
+results = await vector_db.asimilarity_search("What is the capital of France?", k=5)
+```
 
 ---
 

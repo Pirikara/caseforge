@@ -12,6 +12,9 @@ from app.config import settings
 from app.logging_config import logger
 from app.models import TestSuite, TestStep, Project, TestCase, engine
 from sqlmodel import select, Session
+from app.exceptions import TimeoutException
+from app.utils.timeout import timeout, async_timeout, run_with_timeout
+from app.utils.path_manager import path_manager
 
 from sqlalchemy.orm import selectinload
 
@@ -37,53 +40,41 @@ class DependencyAwareRAG:
             self.vectordb = None
         else:
             try:
-                # タイムアウト処理を追加
-                import signal
+                # 埋め込み関数の初期化
+                logger.info("DependencyAwareRAG: 埋め込み関数の初期化を開始")
+                embedding_fn = EmbeddingFunctionForCaseforge()
+                logger.info("DependencyAwareRAG: 埋め込み関数の初期化完了")
                 
-                class TimeoutException(Exception):
-                    pass
-                
-                def timeout_handler(signum, frame):
-                    raise TimeoutException("FAISS initialization timed out")
-                
-                # 10秒のタイムアウトを設定
-                signal.signal(signal.SIGALRM, timeout_handler)
-                signal.alarm(10)
-                
+                # タイムアウト付きでFAISSを初期化
+                logger.info("DependencyAwareRAG: FAISSの初期化を開始")
                 try:
-                    logger.info("DependencyAwareRAG: 埋め込み関数の初期化を開始")
-                    embedding_fn = EmbeddingFunctionForCaseforge()
-                    logger.info("DependencyAwareRAG: 埋め込み関数の初期化完了")
-                    
-                    # FAISSの初期化 - 空のテキストリストではなく、小さなサンプルテキストを使用
-                    logger.info("DependencyAwareRAG: FAISSの初期化を開始")
-                    self.vectordb = FAISS.from_texts(
-                        texts=["OpenAPI schema initialization text"],
-                        embedding=embedding_fn
+                    self.vectordb = run_with_timeout(
+                        lambda: FAISS.from_texts(
+                            texts=["OpenAPI schema initialization text"],
+                            embedding=embedding_fn
+                        ),
+                        timeout_value=settings.TIMEOUT_EMBEDDING
                     )
                     logger.info("DependencyAwareRAG: FAISSの初期化完了")
                     
                     # 既存のベクトルDBがあれば読み込む
-                    faiss_path = f"/tmp/faiss/{project_id}"
-                    if os.path.exists(faiss_path):
+                    faiss_path = path_manager.get_faiss_dir(project_id, temp=True)
+                    if path_manager.exists(faiss_path):
                         try:
                             logger.info(f"DependencyAwareRAG: 既存のベクトルDBを読み込み: {faiss_path}")
-                            self.vectordb = FAISS.load_local(faiss_path, embedding_fn)
+                            self.vectordb = run_with_timeout(
+                                lambda: FAISS.load_local(faiss_path, embedding_fn),
+                                timeout_value=settings.TIMEOUT_EMBEDDING
+                            )
                             logger.info("DependencyAwareRAG: 既存のベクトルDBの読み込み完了")
                         except Exception as load_error:
                             logger.warning(f"DependencyAwareRAG: 既存のベクトルDBの読み込みに失敗: {load_error}")
                             # 読み込みに失敗した場合は、新しいインスタンスをそのまま使用
-                    
-                    # タイムアウトを解除
-                    signal.alarm(0)
-                    
-                except TimeoutException:
-                    logger.warning("DependencyAwareRAG: 初期化処理がタイムアウトしました")
+                
+                except TimeoutException as e:
+                    logger.warning(f"DependencyAwareRAG: 初期化処理がタイムアウトしました: {e}")
                     self.vectordb = None
                     logger.info("DependencyAwareRAG: ベクトルDBなしで続行します")
-                finally:
-                    # 念のため、タイムアウトを解除
-                    signal.alarm(0)
                     
             except Exception as e:
                 logger.warning(f"DependencyAwareRAG: 初期化エラー: {e}", exc_info=True)
@@ -256,20 +247,24 @@ class DependencyAwareRAG:
             # 1. チェーン候補からコンテキストを構築
             context = self._build_context_for_candidate(candidate)
             
-            # 2. LLMの設定
-            model_name = settings.LLM_MODEL_NAME
-            api_base = settings.OPENAI_API_BASE
+            # 2. LLMクライアントの設定
+            from app.services.llm.client import LLMClientFactory, LLMProviderType
+            from app.services.llm.prompts import get_prompt_template
             
-            llm = ChatOpenAI(
-                model_name=model_name,
-                openai_api_base=api_base,
+            # LLMクライアントを作成
+            llm_client = LLMClientFactory.create(
+                provider_type=LLMProviderType.LOCAL,
                 temperature=0.2,
-                api_key=settings.OPENAI_API_KEY,
             )
             
             # 3. プロンプトの設定
-            prompt = ChatPromptTemplate.from_template(
-                """あなたはAPIテストの専門家です。以下のOpenAPIエンドポイント情報を使用してください。
+            # プロンプトレジストリからテンプレートを取得
+            try:
+                prompt_template = get_prompt_template("test_suite_generation")
+            except KeyError:
+                # プロンプトが見つからない場合は、従来のプロンプトを使用
+                logger.warning("test_suite_generation prompt template not found, using hardcoded prompt")
+                prompt_template_str = """あなたはAPIテストの専門家です。以下のOpenAPIエンドポイント情報を使用してください。
 {context}
 
 提供されたエンドポイント情報に基づき、そのエンドポイントに対するテストスイート（TestSuite）と、それに含まれる複数のテストケース（TestCase）を生成してください。
@@ -317,7 +312,6 @@ class DependencyAwareRAG:
 4. request_headers, request_body, request_params はJSON形式のオブジェクトとして記述してください。
 5. 出力はJSONのみで構成し、説明文やコメントを含めないでください。
 """
-            )
 
             # error_types に基づいて異常系テストに関する指示を生成
             error_types_instruction = "様々な異常系テストケース（例: 必須フィールドの欠落、無効な入力値、認証エラーなど）"
@@ -330,17 +324,38 @@ class DependencyAwareRAG:
 
             # 4. LLMを呼び出してチェーンを生成
             try:
-                # プロンプトに error_types_instruction を渡す
-                resp = (prompt | llm).invoke({"context": context, "error_types_instruction": error_types_instruction}).content
-                chain = json.loads(resp)
-                logger.info(f"Successfully generated request chain with {len(chain.get('steps', []))} steps")
+                # LLMクライアントを使用してJSONレスポンスを取得
+                if 'prompt_template' in locals():
+                    # プロンプトテンプレートを使用
+                    chain = llm_client.call_with_json_response(
+                        [llm_client.Message(llm_client.MessageRole.USER,
+                                           prompt_template.format(
+                                               context=context,
+                                               error_types_instruction=error_types_instruction
+                                           ))]
+                    )
+                else:
+                    # ハードコードされたプロンプトを使用
+                    chain = llm_client.call_with_json_response(
+                        [llm_client.Message(llm_client.MessageRole.USER,
+                                           prompt_template_str.format(
+                                               context=context,
+                                               error_types_instruction=error_types_instruction
+                                           ))]
+                    )
+                
+                logger.info(f"Successfully generated request chain with {len(chain.get('test_cases', []))} test cases")
                 return chain
-            except json.JSONDecodeError as e:
+            except llm_client.LLMResponseFormatException as e:
                 logger.error(f"Failed to parse LLM response as JSON: {e}")
-                logger.debug(f"Raw response: {resp}")
+                if hasattr(e, "details") and e.details:
+                    logger.debug(f"Raw response: {e.details.get('response', '')[:200]}...")
+                return None
+            except llm_client.LLMException as e:
+                logger.error(f"Error invoking LLM: {e}")
                 return None
             except Exception as e:
-                logger.error(f"Error invoking LLM: {e}")
+                logger.error(f"Unexpected error generating chain: {e}")
                 return None
             
         except Exception as e:
@@ -437,11 +452,12 @@ class ChainStore:
         """
         try:
             # ファイルシステムにも保存（デバッグ用）
-            os.makedirs(f"{settings.TESTS_DIR}/{project_id}", exist_ok=True)
+            tests_dir = path_manager.get_tests_dir(project_id)
+            path_manager.ensure_dir(tests_dir)
             
             # overwriteがFalseの場合は、既存のファイルを読み込んで追加する
-            suites_file_path = f"{settings.TESTS_DIR}/{project_id}/test_suites.json"
-            if not overwrite and os.path.exists(suites_file_path):
+            suites_file_path = path_manager.join_path(tests_dir, "test_suites.json")
+            if not overwrite and path_manager.exists(suites_file_path):
                 try:
                     with open(suites_file_path, "r") as f:
                         existing_suites = json.load(f)
@@ -589,8 +605,8 @@ class ChainStore:
             
             # ファイルシステムからの読み込みを試みる（フォールバック）
             try:
-                path = f"{settings.TESTS_DIR}/{project_id}/test_suites.json"
-                if os.path.exists(path):
+                path = path_manager.join_path(path_manager.get_tests_dir(project_id), "test_suites.json")
+                if path_manager.exists(path):
                     with open(path, "r") as f:
                         test_suites = json.load(f)
                     return test_suites

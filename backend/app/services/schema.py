@@ -9,6 +9,7 @@ import os
 from typing import Optional
 from datetime import datetime
 import json # json をインポート
+from app.utils.path_manager import path_manager
 
 async def save_and_index_schema(project_id: str, content: bytes, filename: str, session: Optional[Session] = None):
     """
@@ -27,8 +28,9 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
     try:
         # ファイルシステムへの保存
         logger.info(f"Step 1: Saving schema file for project {project_id}")
-        os.makedirs(f"{settings.SCHEMA_DIR}/{project_id}", exist_ok=True)
-        save_path = f"{settings.SCHEMA_DIR}/{project_id}/{filename}"
+        schema_dir = path_manager.get_schema_dir(project_id)
+        path_manager.ensure_dir(schema_dir)
+        save_path = path_manager.join_path(schema_dir, filename)
         
         with open(save_path, "wb") as f:
             f.write(content)
@@ -53,7 +55,7 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
         schema = Schema(
             project_id=db_project.id,
             filename=filename,
-            file_path=save_path,
+            file_path=str(save_path),  # PosixPathオブジェクトを文字列に変換
             content_type=content_type
         )
         session.add(schema)
@@ -188,8 +190,8 @@ async def list_projects(session: Optional[Session] = None):
         # ファイルシステムからプロジェクトを取得する代替手段
         try:
             logger.info("Attempting to list projects from filesystem as fallback")
-            schema_dir = Path(settings.SCHEMA_DIR)
-            if schema_dir.exists() and schema_dir.is_dir():
+            schema_dir = path_manager.get_schema_dir()
+            if path_manager.exists(schema_dir) and path_manager.is_dir(schema_dir):
                 projects = [d.name for d in schema_dir.iterdir() if d.is_dir()]
                 logger.info(f"Found {len(projects)} projects in filesystem")
                 # ファイルシステムからの取得では作成日時が不明なので現在時刻を使用
@@ -238,9 +240,9 @@ async def create_project(project_id: str, name: str = None, description: str = N
                 return {"status": "error", "message": "Project already exists"}
         
         # ディレクトリ作成
-        path = os.path.join(settings.SCHEMA_DIR, project_id)
-        if not os.path.exists(path):
-            os.makedirs(path)
+        path = path_manager.get_schema_dir(project_id)
+        if not path_manager.exists(path):
+            path_manager.ensure_dir(path)
             logger.info(f"Created new project directory: {project_id}")
         
         # データベースに保存
@@ -271,8 +273,8 @@ def get_schema_content(project_id: str, filename: str) -> str:
         スキーマファイルの内容
     """
     try:
-        file_path = f"{settings.SCHEMA_DIR}/{project_id}/{filename}"
-        if not os.path.exists(file_path):
+        file_path = path_manager.join_path(path_manager.get_schema_dir(project_id), filename)
+        if not path_manager.exists(file_path):
             logger.error(f"Schema file not found: {file_path}")
             raise FileNotFoundError(f"Schema file not found: {file_path}")
             

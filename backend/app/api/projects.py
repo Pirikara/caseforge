@@ -8,6 +8,7 @@ from app.workers.tasks import generate_test_suites_task, generate_test_suites_fo
 from fastapi.responses import JSONResponse
 from pathlib import Path
 from app.config import settings
+from app.utils.path_manager import path_manager
 from app.logging_config import logger
 from app.schemas.project import ProjectCreate
 from app.schemas.project import Endpoint as EndpointSchema 
@@ -61,8 +62,8 @@ def get_project_or_404(project_id: str) -> Path:
     Raises:
         HTTPException: プロジェクトが存在しない場合
     """
-    project_path = Path(f"{settings.SCHEMA_DIR}/{project_id}")
-    if not project_path.exists():
+    project_path = path_manager.get_schema_dir(project_id)
+    if not path_manager.exists(project_path):
         logger.error(f"Project directory not found: {project_path}")
         raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
     return project_path
@@ -397,8 +398,8 @@ async def create_project(project: ProjectCreate):
     try:
         # ファイルシステムのチェック
         logger.debug(f"Checking filesystem for project directory: {settings.SCHEMA_DIR}/{project.project_id}")
-        path = Path(f"{settings.SCHEMA_DIR}/{project.project_id}")
-        if path.exists():
+        path = path_manager.get_schema_dir(project.project_id)
+        if path_manager.exists(path):
             logger.warning(f"Filesystem check failed: Project directory already exists at {path}")
             raise HTTPException(status_code=409, detail="Project already exists")
         
@@ -544,10 +545,20 @@ async def import_endpoints(project_id: str, project_path: Path = Depends(get_pro
             # 新しいエンドポイントを登録
             updated_endpoints = []
             for ep_data in endpoints_data:
-                ep_data.pop("project_id", None)
                 # Endpoint モデルのインスタンスを作成
                 # project_id は Project モデルとのリレーションシップに使われるDB上のID (int) を設定
-                endpoint = Endpoint(project_id=project_db_id, **ep_data)
+                endpoint = Endpoint(
+                    project_id=project_db_id,
+                    path=ep_data["path"],
+                    method=ep_data["method"],
+                    summary=ep_data.get("summary"),
+                    description=ep_data.get("description"),
+                    # プロパティセッターを使用してJSON文字列として保存
+                    request_body=ep_data.get("request_body"),
+                    request_headers=ep_data.get("request_headers"),
+                    request_query_params=ep_data.get("request_query_params"),
+                    responses=ep_data.get("responses")
+                )
                 session.add(endpoint)
                 updated_endpoints.append(endpoint) # 追加されたエンドポイントをリストに追加
 

@@ -11,6 +11,9 @@ from app.logging_config import logger
 from app.models import Project, TestSuite, TestRun, StepResult, TestStep, TestCase, TestCaseResult, engine # TestCaseResult, TestCase を追加
 from sqlmodel import Session, select
 from app.services.chain_generator import ChainStore
+from app.exceptions import TimeoutException
+from app.utils.timeout import timeout, async_timeout
+from app.services.test.variable_manager import VariableManager, VariableScope, VariableType
 
 class ChainRunner:
     """リクエストチェーンを実行するクラス"""
@@ -25,8 +28,8 @@ class ChainRunner:
         self.session = session
         self.chain = test_suite # chain を test_suite に変更
         self.base_url = base_url or settings.TEST_TARGET_URL
-        self.variables = {} # ステップ間で引き継ぐ変数
-        self.client = httpx.AsyncClient(base_url=self.base_url, timeout=30.0) # HTTP クライアント
+        self.variable_manager = VariableManager() # 変数管理クラスを使用
+        self.client = httpx.AsyncClient(base_url=self.base_url, timeout=settings.TIMEOUT_HTTP_REQUEST) # HTTP クライアント
     
     async def run_test_suite(self, test_suite_data: Dict) -> Dict: # 関数名と引数名を変更
         """
@@ -100,11 +103,13 @@ class ChainRunner:
             "error_message": None
         }
         
-        self.variables = {} # テストケースごとに変数をリセット
+        # テストケースごとに変数をリセット
+        self.variable_manager.clear_scope(VariableScope.STEP)
+        self.variable_manager.clear_scope(VariableScope.CASE)
         
         try:
             for step_data in case_data.get("test_steps", []):
-                step_result = await self._execute_step(client, step_data, self.variables)
+                step_result = await self._execute_step(client, step_data)
                 test_case_result["step_results"].append(step_result)
                 
                 # ステップが失敗した場合、テストケースの実行を中止
@@ -113,8 +118,9 @@ class ChainRunner:
                     test_case_result["error_message"] = step_result.get("error_message", "Step failed")
                     break
                 
-                # 抽出した値を次のステップのために保存
-                self.variables.update(step_result.get("extracted_values", {}))
+                # 抽出した値を次のステップのために保存（CASEスコープに設定）
+                for key, value in step_result.get("extracted_values", {}).items():
+                    self.variable_manager.set_variable(key, value, VariableScope.CASE)
             
             # テストケースのステータス判定
             if test_case_result["status"] != "failed":
@@ -133,18 +139,20 @@ class ChainRunner:
         test_case_result["end_time"] = datetime.now(timezone.utc).isoformat()
         return test_case_result
     
-    async def _execute_step(self, client: httpx.AsyncClient, step: Dict, variables: Dict) -> Dict:
+    @async_timeout(timeout_key="HTTP_REQUEST")
+    async def _execute_step(self, client: httpx.AsyncClient, step: Dict) -> Dict:
         """
         テストケースの1ステップを実行する
         
         Args:
             client: HTTPクライアント
             step: 実行するステップ
-            variables: ステップ間で引き継ぐ変数
             
         Returns:
             ステップの実行結果
         """
+        # ステップごとに変数をリセット
+        self.variable_manager.clear_scope(VariableScope.STEP)
         start_time = datetime.now(timezone.utc)
         
         step_result = {
@@ -164,27 +172,39 @@ class ChainRunner:
         
         try:
             # パスパラメータの置換
-            path = self._replace_path_params(step["path"], variables)
+            path = await self.variable_manager.replace_variables_in_string_async(step["path"])
             
             # リクエストの準備
             request = step.get("request", {})
-            headers = request.get("headers", {})
+            headers = await self.variable_manager.replace_variables_in_object_async(request.get("headers", {}))
             body = step.get("request_body")
-            params = request.get("params", {})
+            params = await self.variable_manager.replace_variables_in_object_async(request.get("params", {}))
             
             # 抽出した値でリクエストボディを更新
             if body:
-                body = self._replace_values_in_body(body, variables)
+                body = await self.variable_manager.replace_variables_in_object_async(body)
             
             # リクエストの実行
             logger.info(f"Executing request: {step['method']} {path} with headers={headers}, params={params}, body={body}")
-            response = await client.request(
-                method=step["method"],
-                url=path,
-                headers=headers,
-                json=body,
-                params=params
+            
+            from app.utils.retry import async_retry, RetryStrategy
+            
+            # HTTPリクエストをリトライ機構で包む
+            @async_retry(
+                retry_key="API_CALL",
+                retry_exceptions=[httpx.RequestError, httpx.HTTPStatusError, ConnectionError, TimeoutError],
+                retry_strategy=RetryStrategy.EXPONENTIAL
             )
+            async def execute_request_with_retry():
+                return await client.request(
+                    method=step["method"],
+                    url=path,
+                    headers=headers,
+                    json=body,
+                    params=params
+                )
+            
+            response = await execute_request_with_retry()
             
             # レスポンスの処理
             end_time = datetime.now(timezone.utc)
@@ -212,7 +232,12 @@ class ChainRunner:
             # 値の抽出
             extract_rules = step.get("extract_rules", {})
             if extract_rules:
-                step_result["extracted_values"] = self._extract_values(response_body, extract_rules)
+                extracted_values = self._extract_values(response_body, extract_rules)
+                step_result["extracted_values"] = extracted_values
+                
+                # 抽出した値をSTEPスコープに設定
+                for key, value in extracted_values.items():
+                    self.variable_manager.set_variable(key, value, VariableScope.STEP)
             
         except httpx.RequestError as e:
             end_time = datetime.now(timezone.utc)
@@ -260,73 +285,7 @@ class ChainRunner:
         
         return extracted
     
-    def _replace_path_params(self, path: str, values: Dict[str, Any]) -> str:
-        """
-        パスパラメータを抽出した値で置換する
-        
-        Args:
-            path: パス（例: /users/{id}）
-            values: 抽出した値の辞書
-            
-        Returns:
-            置換後のパス
-        """
-        # パスパラメータを正規表現で検出
-        pattern = r'\{([^}]+)\}'
-        
-        def replace_match(match):
-            param_name = match.group(1)
-            if param_name in values:
-                return str(values[param_name])
-            logger.warning(f"Path parameter {param_name} not found in extracted values")
-            return match.group(0)  # 置換できない場合は元のまま
-        
-        return re.sub(pattern, replace_match, path)
-    
-    def _replace_values_in_body(self, body: Any, values: Dict[str, Any]) -> Any:
-        """
-        リクエストボディ内の値を抽出した値で置換する
-        
-        Args:
-            body: リクエストボディ
-            values: 抽出した値の辞書
-            
-        Returns:
-            置換後のリクエストボディ
-        """
-        if isinstance(body, dict):
-            result = {}
-            for key, value in body.items():
-                if isinstance(value, (dict, list)):
-                    result[key] = self._replace_values_in_body(value, values)
-                elif isinstance(value, str) and value.startswith("${") and value.endswith("}"):
-                    # ${variable_name} 形式の変数参照を置換
-                    var_name = value[2:-1]
-                    if var_name in values:
-                        result[key] = values[var_name]
-                    else:
-                        logger.warning(f"Variable {var_name} not found in extracted values")
-                        result[key] = value
-                else:
-                    result[key] = value
-            return result
-        elif isinstance(body, list):
-            result = []
-            for item in body:
-                if isinstance(item, (dict, list)):
-                    result.append(self._replace_values_in_body(item, values))
-                elif isinstance(item, str) and item.startswith("${") and item.endswith("}"):
-                    var_name = item[2:-1]
-                    if var_name in values:
-                        result.append(values[var_name])
-                    else:
-                        logger.warning(f"Variable {var_name} not found in extracted values")
-                        result.append(item)
-                else:
-                    result.append(item)
-            return result
-        else:
-            return body
+    # _replace_path_params と _replace_values_in_body メソッドは VariableManager に置き換えられたため削除
 
 async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Dict: # 関数名と引数名を変更
     """

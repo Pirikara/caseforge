@@ -58,7 +58,7 @@ export interface TestCase {
   error_type?: string;
   target_method: string;
   target_path: string;
-  steps?: TestStep[];
+  test_steps?: TestStep[];
 }
 
 export interface TestSuite {

@@ -83,7 +83,7 @@ async def test_execute_step():
     # テスト実行
     runner = ChainRunner(session=mock_session, test_suite=mock_chain)
     step = SAMPLE_TEST_SUITE["test_cases"][0]["test_steps"][0]
-    result = await runner._execute_step(mock_client, step, {})
+    result = await runner._execute_step(mock_client, step)
     
     # 検証
     assert result["passed"] is True # success を passed に変更
@@ -119,31 +119,27 @@ async def test_extract_values():
     assert extracted["user_name"] == "Test User"
 
 @pytest.mark.asyncio
-async def test_replace_path_params():
-    """パスパラメータ置換のテスト"""
+async def test_variable_manager_replace():
+    """VariableManagerによる変数置換のテスト"""
     # ダミーのsessionとchainを作成
     mock_session = MagicMock()
     mock_chain = MagicMock()
 
     # テスト実行
     runner = ChainRunner(session=mock_session, test_suite=mock_chain)
-    path = "/users/{user_id}/posts/{post_id}"
-    values = {"user_id": "123", "post_id": "456"}
     
-    result = runner._replace_path_params(path, values)
+    # パスパラメータの置換テスト
+    from app.services.test.variable_manager import VariableScope
+    path = "/users/${user_id}/posts/${post_id}"
+    runner.variable_manager.set_variable("user_id", "123", VariableScope.CASE)
+    runner.variable_manager.set_variable("post_id", "456", VariableScope.CASE)
+    
+    result = await runner.variable_manager.replace_variables_in_string_async(path)
     
     # 検証
     assert result == "/users/123/posts/456"
-
-@pytest.mark.asyncio
-async def test_replace_values_in_body():
-    """リクエストボディ内の値置換のテスト"""
-    # ダミーのsessionとchainを作成
-    mock_session = MagicMock()
-    mock_chain = MagicMock()
-
-    # テスト実行
-    runner = ChainRunner(session=mock_session, test_suite=mock_chain)
+    
+    # リクエストボディの置換テスト
     body = {
         "user_id": "${user_id}",
         "data": {
@@ -152,9 +148,12 @@ async def test_replace_values_in_body():
         },
         "items": ["${item1}", "${item2}"]
     }
-    values = {"user_id": "123", "reference_id": "456", "item1": "item1", "item2": "item2"}
     
-    result = runner._replace_values_in_body(body, values)
+    runner.variable_manager.set_variable("reference_id", "456", VariableScope.CASE)
+    runner.variable_manager.set_variable("item1", "item1", VariableScope.CASE)
+    runner.variable_manager.set_variable("item2", "item2", VariableScope.CASE)
+    
+    result = await runner.variable_manager.replace_variables_in_object_async(body)
     
     # 検証
     assert result["user_id"] == "123"
@@ -378,8 +377,7 @@ def test_list_test_runs(session, test_project):
     assert test_runs[0]["status"] == "completed"
 
 def test_get_test_run(session, test_project):
-    from app.models.chain import TestSuite, TestStep
-    from app.models.test_models import TestCase, TestCaseResult, StepResult, TestRun
+    from app.models.test import TestSuite, TestCase, TestStep, TestRun, TestCaseResult, StepResult
     
     test_suite = TestSuite(
         id="test-suite-1",
