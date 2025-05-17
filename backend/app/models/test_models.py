@@ -1,9 +1,10 @@
 from sqlmodel import Field, Relationship
+from sqlalchemy import Column
 from typing import Optional, List, Any, Dict
 from datetime import datetime
-import json
 from .base import TimestampModel
 from .project import Project
+from app.models.json_encode_dict import JSONEncodedDict
 
 class TestCase(TimestampModel, table=True):
     __test__ = False
@@ -61,30 +62,9 @@ class StepResult(TimestampModel, table=True):
     passed: bool
     response_time: Optional[float] = None
     error_message: Optional[str] = None
-    response_body_str: Optional[str] = Field(default=None)
-    extracted_values_str: Optional[str] = Field(default=None)
+    response_body: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
+    extracted_values: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
     
     # リレーションシップ
     test_case_result: TestCaseResult = Relationship(back_populates="step_results")
     test_step: "TestStep" = Relationship(back_populates="step_results")
-    
-    # JSON シリアライズ/デシリアライズのためのプロパティ
-    @property
-    def response_body(self) -> Any:
-        if self.response_body_str:
-            return json.loads(self.response_body_str)
-        return None
-    
-    @response_body.setter
-    def response_body(self, value: Any):
-        if value is not None:
-            self.response_body_str = json.dumps(value)
-        else:
-            self.response_body_str = None
-    
-    @property
-    def extracted_values(self) -> Dict[str, Any]:
-        if self.extracted_values_str:
-            return json.loads(self.extracted_values_str)
-        else:
-            self.extracted_values_str = None

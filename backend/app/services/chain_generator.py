@@ -303,6 +303,15 @@ class DependencyAwareRAG:
   ]
 }}
 ```
+フィールドについて：
+各テストステップには必ず以下のフィールドを含めること：
+- method（HTTPメソッド）
+- path（パス）
+- request_headers（ヘッダー）
+- request_body（リクエストボディ）
+- request_params（クエリパラメータが不要でも空オブジェクト）
+- extract_rules（レスポンスから値を取り出す定義。不要でも空のオブジェクト）
+- expected_status（想定されるHTTPステータスコード）
 
 注意事項（絶対遵守）：
 1. expected_status は必ず整数（例: 200, 404）で指定してください（文字列ではなく）。
@@ -737,12 +746,12 @@ class ChainStore:
         try:
             # プロジェクトの取得 (test_suites リレーションシップを Eager Load)
             project_query = select(Project).where(Project.project_id == project_id).options(selectinload(Project.test_suites))
-            db_project = session.exec(project_query).first() # 引数の session を使用
+            db_project = session.exec(project_query).first()
 
             if not db_project:
                 logger.error(f"Project not found: {project_id}")
                 return None
-                
+            
             # テストスイートの取得
             for suite in db_project.test_suites:
                 if suite.id == suite_id:
@@ -794,13 +803,13 @@ class ChainStore:
                     
                     return suite_data
                 
-            logger.warning(f"Test suite not found: {suite_id}") # chain_id を suite_id に修正
+            logger.warning(f"Test suite not found: {suite_id}")
             return None
 
         except Exception as e:
-            logger.error(f"Error getting test suite {suite_id} for project {project_id}: {e}") # chain_id を suite_id に修正
+            logger.error(f"Error getting test suite {suite_id} for project {project_id}: {e}")
             return None
 
         except Exception as e:
-            logger.error(f"Error getting chain {chain_id} for project {project_id}: {e}")
+            logger.error(f"Error getting chain {suite_id} for project {project_id}: {e}")
             return None

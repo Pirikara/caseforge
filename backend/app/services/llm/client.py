@@ -237,31 +237,46 @@ class LLMClient(abc.ABC):
         
         return await self.acall(messages)
     
-    def call_with_json_response(self, messages: List[Message], **kwargs) -> Dict[str, Any]:
+    
+    def call_with_json_response(self, messages: List["Message"], **kwargs) -> Dict[str, Any]:
         """
-        LLMを呼び出し、JSONレスポンスを取得する
-        
+        Calls LLM and robustly extracts JSON from its response.
+
         Args:
-            messages: メッセージのリスト
-            **kwargs: その他のパラメータ
-            
+            messages: List of prompt messages.
+            **kwargs: Additional parameters.
+
         Returns:
-            JSONとしてパースされたLLMレスポンス
+            Parsed JSON dictionary.
         """
         response = self.call(messages, **kwargs)
-        
+
         try:
-            # MarkdownコードブロックからJSONを抽出
-            import re
-            json_match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)
-                logger.debug(f"Extracted JSON string: {json_str}")
-                return json.loads(json_str)
-            else:
-                # コードブロックが見つからない場合は、レスポンス全体をJSONとしてパースを試みる
-                logger.warning("JSON code block not found in LLM response, attempting to parse entire response as JSON.")
-                return json.loads(response)
+            import regex
+            # 1. Extract all ```json ... ``` blocks
+            json_blocks = regex.findall(r"```json\s*(\{(?:[^{}]|(?R))*\})\s*```", response, regex.DOTALL)
+            for block in json_blocks:
+                try:
+                    logger.debug("Trying to parse JSON from code block.")
+                    return json.loads(block)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse block from ```json``` code block: {e}")
+                    continue  # Try other methods
+
+            # 2. Try to extract the first top-level { ... } block
+            brace_match = regex.search(r"(\{(?:[^{}]|(?R))*\})", response, regex.DOTALL)
+            if brace_match:
+                json_str = brace_match.group(1)
+                try:
+                    logger.debug("Trying to parse JSON from top-level braces.")
+                    return json.loads(json_str)
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse top-level braces JSON: {e}")
+
+            # 3. Fallback: try the entire response
+            logger.warning("Attempting to parse entire response as JSON.")
+            return json.loads(response)
+
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
             logger.debug(f"Raw response: {response}")
@@ -269,7 +284,7 @@ class LLMClient(abc.ABC):
                 "response": response,
                 "error": str(e)
             })
-    
+
     async def acall_with_json_response(self, messages: List[Message], **kwargs) -> Dict[str, Any]:
         """
         LLMを非同期で呼び出し、JSONレスポンスを取得する

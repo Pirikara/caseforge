@@ -2,6 +2,7 @@ from typing import List, Dict, Optional
 import json
 import os
 from app.models import Endpoint
+from app.schemas.project import Endpoint as EndpointSchema 
 from app.services.rag import EmbeddingFunctionForCaseforge
 from app.config import settings
 from app.logging_config import logger
@@ -63,71 +64,67 @@ class EndpointChainGenerator:
         except KeyError:
             logger.warning("endpoint_test_generation prompt template not found, using hardcoded prompt")
             # プロンプトが見つからない場合は、従来のプロンプトを使用
-            prompt_template_str = """あなたはAPIテストの専門家です。以下のターゲットエンドポイントと、関連するOpenAPIスキーマ情報を元に、そのエンドポイントに対するテストスイート（TestSuite）を生成してください。
+            prompt_template_str = """You are an expert in API testing. Based on the following target endpoint and related OpenAPI schema information, generate a complete test suite (TestSuite) in strict JSON format.
 
-ターゲットエンドポイント:
+Target endpoint:
 {target_endpoint_info}
 
-関連スキーマ情報:
+Related OpenAPI schema:
 {relevant_schema_info}
 
-テストスイートには、以下のテストケースを含めてください。
-1. 正常系テストケース: ターゲットエンドポイントが正常に処理されるリクエスト。必要な前提リクエスト（リソース作成など）を含めること。
-2. 異常系テストケース: {error_types_instruction}に基づいたテストケースを複数生成してください。
+The test suite must include the following test cases:
+1. **Normal case**: A request that successfully triggers the expected behavior. Include any necessary setup steps (e.g. creating required resources).
+2. **Error cases**: Generate multiple test cases according to the following instruction:
+{error_types_instruction}
 
-各テストケースは、そのテストケースを実行するために必要な前提ステップと、ターゲットエンドポイントへのリクエストステップで構成される必要があります。エンドポイント間の依存関係を考慮し、例えばターゲットエンドポイントがパスパラメータにリソースIDを必要とする場合、そのリソースを作成しIDを抽出する先行リクエストを含めてください。
+Each test case must include both setup steps and a final step that sends a request to the **target endpoint**. Consider endpoint dependencies: if the target path, query parameter or body includes resource IDs, insert appropriate setup steps that create and extract them.
 
-以下の形式に従い、テストスイート（TestSuite）をJSONオブジェクトとして返してください。説明文などJSON以外のテキストは**絶対に含めないでください**。
+Return only a single valid JSON object matching the following format. **Do not include any explanations, markdown formatting, or non-JSON text.**
 
 ```json
 {{
-  "name": "テストスイートの名前（例: PUT /users のテストスイート）",
-  "target_method": "対象エンドポイントのHTTPメソッド（例: PUT）",
-  "target_path": "対象エンドポイントのパス（例: /users/{{id}}）",
+  "name": "Name of the test suite (e.g., PUT /users Test Suite)",
+  "target_method": "HTTP method (e.g., PUT)",
+  "target_path": "Path of the target endpoint (e.g., /users/{{id}})",
   "test_cases": [
     {{
-      "name": "テストケース名（例: 正常系）",
-      "description": "テストケースの目的や意図",
-      "error_type": null,  // 異常系は "invalid_input" などの文字列、正常系は null
+      "name": "Test case name (e.g., Normal case)",
+      "description": "What this test case is verifying",
+      "error_type": null,  // For error cases: e.g., "invalid_input", "missing_field", etc.
       "test_steps": [
         {{
-          "method": "HTTPメソッド（例: POST）",
-          "path": "APIのパス（例: /users）",
+          "method": "HTTP method (e.g., POST)",
+          "path": "API path (e.g., /users)",
           "request_headers": {{
             "Content-Type": "application/json"
           }},
           "request_body": {{
             "name": "John Doe"
           }},
-          "request_params": {{
-            "id": "123"
-          }},
+          "request_params": {{}},
           "extract_rules": {{
             "user_id": "$.id"
           }},
-          "expected_status": 200
+          "expected_status": 201
         }}
-        // ... 他のステップ ...
       ]
     }}
-    // ... 他のテストケース ...
   ]
 }}
-```
+````
 
-注意事項（絶対遵守）：
-0. 各 test_steps には以下のフィールドをすべて含めること：
-   method, path, request_headers, request_body, request_params, extract_rules, expected_status。
-   空のオブジェクトでも構わないが、フィールド自体は省略しないこと。
-1. レスポンスから値を抽出するために、"extract"に適切なJSONPath式を含めること。
-2. 抽出した値を、後続のリクエストのパスパラメータやリクエストボディで使用すること。
-3. 各テストケースの最後のステップが必ずターゲットエンドポイントへのリクエストであること。
-4. 必要なリソースのセットアップを含め、各テストケースを徹底的にテストするための論理的なフローを作成すること。
-5. JSONオブジェクトのみを返し、説明や他のテキストを含めないこと。
-6. 各ターゲットエンドポイントに対して個別のテストスイートを生成すること。
-7. テストスイートの名前には、ターゲットエンドポイントのメソッドとパスを含めること。
-8. 各テストケースの名前には、そのテストケースの種類（正常系、または異常系の種類）を含めること。
-9. 異常系テストケースの場合、`error_type` フィールドに適切な異常系の種類（"missing_field", "invalid_input", "unauthorized", "not_found" など）を設定すること。正常系テストケースの場合は `null` とすること。
+**Instructions (MUST FOLLOW STRICTLY):**
+0\. Each test step must include **all** of the following keys: `method`, `path`, `request_headers`, `request_body`, `request_params`, `extract_rules`, `expected_status`. Even if values are empty, all keys must be present.
+
+1. Use appropriate JSONPath expressions in `extract_rules` to capture IDs or other values from previous responses.
+2. Use the extracted values in subsequent steps (e.g., in path parameters or request body).
+3. The **final step of each test case must always be the target endpoint call**.
+4. Ensure logical, realistic sequences of steps (e.g., create resource → update → assert).
+5. The output must be **a single valid JSON object**, and **nothing else** (no comments, no explanation).
+6. Generate one test suite **per target endpoint**.
+7. Include both the HTTP method and path in the test suite’s `"name"` field.
+8. For each test case, the `"name"` field should indicate the case type (e.g., "Normal case", "Invalid input").
+9. Use the appropriate `error_type` for abnormal cases: `"missing_field"`, `"invalid_input"`, `"unauthorized"`, `"not_found"`, etc. Use `null` for normal cases.
 """
             prompt_template = prompt_template_str
 
@@ -234,7 +231,7 @@ class EndpointChainGenerator:
                     # JSONのパースに失敗した場合、レスポンスから JSON 部分を抽出してみる
                     try:
                         import re
-                        json_match = re.search(r'```json\s*(.*?)\s*```', resp, re.DOTALL)
+                        json_match = re.search(r'```json\s*(.*?)\s*```', suite_data, re.DOTALL)
                         if json_match:
                             json_str = json_match.group(1)
                             suite_data = json.loads(json_str)
@@ -287,6 +284,7 @@ class EndpointChainGenerator:
     def _build_endpoint_context(self, endpoint: Endpoint) -> str:
         """単一のエンドポイント情報からLLMのためのコンテキストを構築する"""
         endpoint_info = f"Endpoint: {endpoint.method} {endpoint.path}\n"
+        endpoint_model = EndpointSchema.from_orm(endpoint)
         
         if endpoint.summary:
             endpoint_info += f"Summary: {endpoint.summary}\n"
@@ -295,21 +293,21 @@ class EndpointChainGenerator:
             endpoint_info += f"Description: {endpoint.description}\n"
         
         # リクエストボディ情報
-        if endpoint.request_body:
+        if endpoint_model.request_body:
             endpoint_info += "Request Body:\n"
-            endpoint_info += f"```json\n{json.dumps(endpoint.request_body, indent=2)}\n```\n"
+            endpoint_info += f"```json\n{json.dumps(endpoint_model.request_body, indent=2)}\n```\n"
         
         # リクエストヘッダー情報
-        if endpoint.request_headers:
+        if endpoint_model.request_headers:
             endpoint_info += "Request Headers:\n"
-            for header_name, header_info in endpoint.request_headers.items():
+            for header_name, header_info in endpoint_model.request_headers.items():
                 required = "required" if header_info.get("required", False) else "optional"
                 endpoint_info += f"- {header_name} (in header, {required})\n" # in header を追加
         
         # クエリパラメータ情報
-        if endpoint.request_query_params:
+        if endpoint_model.request_query_params:
             endpoint_info += "Query Parameters:\n"
-            for param_name, param_info in endpoint.request_query_params.items():
+            for param_name, param_info in endpoint_model.request_query_params.items():
                 required = "required" if param_info.get("required", False) else "optional"
                 endpoint_info += f"- {param_name} (in query, {required})\n" # in query を追加
         
@@ -349,9 +347,9 @@ class EndpointChainGenerator:
                 endpoint_info += f"- {param_name} (in path, {required}, type: {param_type})\n"
 
         # レスポンス情報
-        if endpoint.responses:
+        if endpoint_model.responses:
             endpoint_info += "Responses:\n"
-            for status, response in endpoint.responses.items():
+            for status, response in endpoint_model.responses.items():
                 endpoint_info += f"- Status: {status}\n"
                 if "description" in response:
                     endpoint_info += f"  Description: {response['description']}\n"
@@ -468,17 +466,18 @@ class EndpointChainGenerator:
             return "No schema available for direct extraction."
         
         relevant_info_parts = []
+        endpoint_model = EndpointSchema.from_orm(target_endpoint)
         
         try:
             # 1. ターゲットエンドポイントのパス情報を抽出
-            if target_endpoint.path in self.schema.get("paths", {}):
-                path_item = self.schema["paths"][target_endpoint.path]
-                relevant_info_parts.append(f"## Path: {target_endpoint.path}")
+            if endpoint_model.path in self.schema.get("paths", {}):
+                path_item = self.schema["paths"][endpoint_model.path]
+                relevant_info_parts.append(f"## Path: {endpoint_model.path}")
                 relevant_info_parts.append(f"```json\n{json.dumps(path_item, indent=2)}\n```\n")
             
             # 2. リクエストボディのスキーマ参照を解決
-            if target_endpoint.request_body:
-                for content_type, content in target_endpoint.request_body.get("content", {}).items():
+            if endpoint_model.request_body:
+                for content_type, content in endpoint_model.request_body.get("content", {}).items():
                     if "schema" in content:
                         schema = content["schema"]
                         if "$ref" in schema:
@@ -494,8 +493,8 @@ class EndpointChainGenerator:
                                 relevant_info_parts.append(f"```json\n{json.dumps(ref_value, indent=2)}\n```\n")
             
             # 3. レスポンススキーマの参照を解決
-            if target_endpoint.responses:
-                for status, response in target_endpoint.responses.items():
+            if endpoint_model.responses:
+                for status, response in endpoint_model.responses.items():
                     if "content" in response:
                         for content_type, content in response["content"].items():
                             if "schema" in content:
@@ -515,7 +514,7 @@ class EndpointChainGenerator:
             # 4. 関連するコンポーネントスキーマを抽出
             if "components" in self.schema and "schemas" in self.schema["components"]:
                 # パスからリソース名を抽出（例: /users/{user_id} -> users）
-                path_parts = target_endpoint.path.strip("/").split("/")
+                path_parts = endpoint_model.path.strip("/").split("/")
                 resource_name = path_parts[0] if path_parts else ""
                 
                 # リソース名に関連するスキーマを探す
@@ -530,12 +529,12 @@ class EndpointChainGenerator:
                 return "No relevant schema information found through direct extraction."
             
             return f"""
-# Relevant Schema Information for {target_endpoint.method.upper()} {target_endpoint.path} (Direct Extraction)
+# Relevant Schema Information for {endpoint_model.method.upper()} {endpoint_model.path} (Direct Extraction)
 
 {relevant_info}
 """
         except Exception as e:
-            logger.error(f"Error during direct schema extraction for endpoint {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
+            logger.error(f"Error during direct schema extraction for endpoint {endpoint_model.method} {endpoint_model.path}: {e}", exc_info=True)
             return "Error during direct schema extraction."
             
     def _generate_fallback_chain(self, target_endpoint: Endpoint) -> Dict:

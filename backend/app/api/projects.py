@@ -554,10 +554,26 @@ async def import_endpoints(project_id: str, project_path: Path = Depends(get_pro
                     summary=ep_data.get("summary"),
                     description=ep_data.get("description"),
                     # プロパティセッターを使用してJSON文字列として保存
-                    request_body=ep_data.get("request_body"),
-                    request_headers=ep_data.get("request_headers"),
-                    request_query_params=ep_data.get("request_query_params"),
-                    responses=ep_data.get("responses")
+                    request_body=(
+                        json.dumps(ep_data.get("request_body"), ensure_ascii=False)
+                        if isinstance(ep_data.get("request_body"), dict)
+                        else str(ep_data.get("request_body"))
+                    ),
+                    request_headers=(
+                        json.dumps(ep_data.get("request_headers"), ensure_ascii=False)
+                        if isinstance(ep_data.get("request_headers"), dict)
+                        else str(ep_data.get("request_headers"))
+                    ),
+                    request_query_params=(
+                        json.dumps(ep_data.get("request_query_params"), ensure_ascii=False)
+                        if isinstance(ep_data.get("request_query_params"), dict)
+                        else str(ep_data.get("request_query_params"))
+                    ),
+                    responses=(
+                        json.dumps(ep_data.get("response"), ensure_ascii=False)
+                        if isinstance(ep_data.get("response"), dict)
+                        else str(ep_data.get("response"))
+                    )
                 )
                 session.add(endpoint)
                 updated_endpoints.append(endpoint) # 追加されたエンドポイントをリストに追加

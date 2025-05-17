@@ -233,57 +233,69 @@ class PromptTemplateRegistry:
         ))
         
         self.register("endpoint_test_generation", PromptTemplate(
-            template="""あなたはAPIテストの専門家です。以下のターゲットエンドポイントと、関連するOpenAPIスキーマ情報を元に、そのエンドポイントに対するテストスイート（TestSuite）を生成してください。
+            template="""You are an expert in API testing. Based on the following target endpoint and related OpenAPI schema information, generate a complete test suite (TestSuite) in strict JSON format.
 
-ターゲットエンドポイント:
+Target endpoint:
 {target_endpoint_info}
 
-関連するスキーマ情報:
+Related OpenAPI schema:
 {relevant_schema_info}
 
-テストスイートには、以下のテストケースを含めてください。
-1. 正常系テストケース: ターゲットエンドポイントが正常に処理されるリクエスト。必要な前提リクエスト（リソース作成など）を含めること。
-2. 異常系テストケース: {error_types_instruction}に基づいたテストケースを複数生成してください。
+The test suite must include the following test cases:
+1. **Normal case**: A request that successfully triggers the expected behavior. Include any necessary setup steps (e.g. creating required resources).
+2. **Error cases**: Generate multiple test cases according to the following instruction:
+{error_types_instruction}
 
-各テストケースは、そのテストケースを実行するために必要な前提ステップと、ターゲットエンドポイントへのリクエストステップで構成される必要があります。エンドポイント間の依存関係を考慮し、例えばターゲットエンドポイントがパスパラメータにリソースIDを必要とする場合、そのリソースを作成しIDを抽出する先行リクエストを含めてください。
+Each test case must include both setup steps and a final step that sends a request to the **target endpoint**. Consider endpoint dependencies: if the target path, query parameter or body includes resource IDs, insert appropriate setup steps that create and extract them.
 
-以下の形式に従い、テストスイート（TestSuite）をJSONオブジェクトとして返してください。説明文などJSON以外のテキストは**絶対に含めないでください**。
+Return only a single valid JSON object matching the following format. **Do not include any explanations, markdown formatting, or non-JSON text.**
 
 ```json
 {{
-  "name": "テストスイートの名前（例: PUT /users のテストスイート）",
-  "target_method": "対象エンドポイントのHTTPメソッド（例: PUT）",
-  "target_path": "対象エンドポイントのパス（例: /users/{{id}}）",
+  "name": "Name of the test suite (e.g., PUT /users Test Suite)",
+  "target_method": "HTTP method (e.g., PUT)",
+  "target_path": "Path of the target endpoint (e.g., /users/{{id}})",
   "test_cases": [
     {{
-      "name": "テストケース名（例: 正常系）",
-      "description": "テストケースの目的や意図",
-      "error_type": null,  // 異常系は "invalid_input" などの文字列、正常系は null
+      "name": "Test case name (e.g., Normal case)",
+      "description": "What this test case is verifying",
+      "error_type": null,  // For error cases: e.g., "invalid_input", "missing_field", etc.
       "test_steps": [
         {{
-          "method": "HTTPメソッド（例: POST）",
-          "path": "APIのパス（例: /users）",
+          "method": "HTTP method (e.g., POST)",
+          "path": "API path (e.g., /users)",
           "request_headers": {{
             "Content-Type": "application/json"
           }},
           "request_body": {{
             "name": "John Doe"
           }},
-          "request_params": {{
-            "id": "123"
-          }},
+          "request_params": {{}},
           "extract_rules": {{
             "user_id": "$.id"
           }},
-          "expected_status": 200
+          "expected_status": 201
         }}
-        // ... 他のステップ ...
       ]
     }}
-    // ... 他のテストケース ...
   ]
 }}
-```""",
+```
+
+**Instructions (MUST FOLLOW STRICTLY):**
+0\. Each test step must include **all** of the following keys: `method`, `path`, `request_headers`, `request_body`, `request_params`, `extract_rules`, `expected_status`. Even if values are empty, all keys must be present.
+
+1. Use appropriate JSONPath expressions in `extract_rules` to capture IDs or other values from previous responses.
+2. Use the extracted values in subsequent steps (e.g., in path parameters or request body).
+3. The **final step of each test case must always be the target endpoint call**.
+4. Ensure logical, realistic sequences of steps (e.g., create resource → update → assert).
+5. The output must be **a single valid JSON object**, and **nothing else** (no comments, no explanation).
+6. Generate one test suite **per target endpoint**.
+7. Include both the HTTP method and path in the test suite’s `"name"` field.
+8. For each test case, the `"name"` field should indicate the case type (e.g., "Normal case", "Invalid input").
+9. Use the appropriate `error_type` for abnormal cases: `"missing_field"`, `"invalid_input"`, `"unauthorized"`, `"not_found"`, etc. Use `null` for normal cases.
+10. Return only a single valid JSON object matching the following format. **Do not include any explanations, markdown formatting, or non-JSON text.**
+""",
             metadata={
                 "description": "特定のエンドポイントに対するテスト生成用のプロンプト",
                 "version": "1.2", # バージョンを更新

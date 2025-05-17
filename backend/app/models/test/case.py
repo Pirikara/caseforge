@@ -10,7 +10,7 @@ class TestCase(TimestampModel, table=True):
     suite_id: str = Field(foreign_key="testsuite.id")
     name: str
     description: Optional[str] = None
-    error_type: Optional[str] = None # 例: invalid_input, authentication_error
+    error_type: Optional[str] = None
     
     # リレーションシップ
     test_suite: "TestSuite" = Relationship(back_populates="test_cases")

@@ -1,8 +1,8 @@
 from sqlmodel import Field, Relationship
+from sqlalchemy import Column
 from typing import Optional, List, Dict, Any
-from datetime import datetime
-import json
 from ..base import TimestampModel
+from app.models.json_encode_dict import JSONEncodedDict 
 
 class TestStep(TimestampModel, table=True):
     __tablename__ = "teststep"
@@ -13,65 +13,11 @@ class TestStep(TimestampModel, table=True):
     name: Optional[str] = None
     method: str
     path: str
-    request_headers_str: Optional[str] = Field(default=None)
-    request_body_str: Optional[str] = Field(default=None)
-    request_params_str: Optional[str] = Field(default=None)
-    expected_status: Optional[int] = None
-    extract_rules_str: Optional[str] = Field(default=None)  # JSONPath形式の抽出ルール
+    request_headers: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
+    request_body: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
+    request_params: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
+    extract_rules: Optional[Dict[str, str]] = Field(sa_column=Column(JSONEncodedDict))
     
     # リレーションシップ
     test_case: "TestCase" = Relationship(back_populates="test_steps")
     step_results: List["StepResult"] = Relationship(back_populates="test_step", sa_relationship_kwargs={"cascade": "delete, all"})
-    
-    # JSON シリアライズ/デシリアライズのためのプロパティ
-    @property
-    def request_headers(self) -> Dict[str, Any]:
-        if self.request_headers_str:
-            return json.loads(self.request_headers_str)
-        return {}
-    
-    @request_headers.setter
-    def request_headers(self, value: Dict[str, Any]):
-        if value is not None:
-            self.request_headers_str = json.dumps(value)
-        else:
-            self.request_headers_str = None
-    
-    @property
-    def request_body(self) -> Any:
-        if self.request_body_str:
-            return json.loads(self.request_body_str)
-        return None
-    
-    @request_body.setter
-    def request_body(self, value: Any):
-        if value is not None:
-            self.request_body_str = json.dumps(value)
-        else:
-            self.request_body_str = None
-    
-    @property
-    def request_params(self) -> Dict[str, Any]:
-        if self.request_params_str:
-            return json.loads(self.request_params_str)
-        return {}
-    
-    @request_params.setter
-    def request_params(self, value: Dict[str, Any]):
-        if value is not None:
-            self.request_params_str = json.dumps(value)
-        else:
-            self.request_params_str = None
-    
-    @property
-    def extract_rules(self) -> Dict[str, str]:
-        if self.extract_rules_str:
-            return json.loads(self.extract_rules_str)
-        return {}
-    
-    @extract_rules.setter
-    def extract_rules(self, value: Dict[str, str]):
-        if value is not None:
-            self.extract_rules_str = json.dumps(value)
-        else:
-            self.extract_rules_str = None

@@ -1,6 +1,5 @@
 from sqlmodel import Field, Relationship
 from typing import Optional, List
-from datetime import datetime
 from ..base import TimestampModel
 from ..project import Project
 

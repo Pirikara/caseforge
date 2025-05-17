@@ -84,10 +84,10 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
                     db_endpoint.summary = ep_data.get("summary")
                     db_endpoint.description = ep_data.get("description")
                     # 詳細情報をJSON文字列として保存
-                    db_endpoint.request_body_str = json.dumps(ep_data.get("request_body")) if ep_data.get("request_body") is not None else None
-                    db_endpoint.request_headers_str = json.dumps(ep_data.get("request_headers")) if ep_data.get("request_headers") is not None else None
-                    db_endpoint.request_query_params_str = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None
-                    db_endpoint.responses_str = json.dumps(ep_data.get("responses")) if ep_data.get("responses") is not None else None
+                    db_endpoint.request_body = json.dumps(ep_data.get("request_body")) if ep_data.get("request_body") is not None else None
+                    db_endpoint.request_headers = json.dumps(ep_data.get("request_headers")) if ep_data.get("request_headers") is not None else None
+                    db_endpoint.request_query_params = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None
+                    db_endpoint.responses = json.dumps(ep_data.get("responses")) if ep_data.get("responses") is not None else None
                     session.add(db_endpoint)
                     logger.debug(f"Updated existing endpoint: {ep_data['method']} {ep_data['path']}")
                 else:
@@ -99,10 +99,10 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
                         summary=ep_data.get("summary"),
                         description=ep_data.get("description"),
                         # 詳細情報をJSON文字列として保存
-                        request_body_str = json.dumps(ep_data.get("request_body")) if ep_data.get("request_body") is not None else None,
-                        request_headers_str = json.dumps(ep_data.get("request_headers")) if ep_data.get("request_headers") is not None else None,
-                        request_query_params_str = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None,
-                        responses_str = json.dumps(ep_data.get("responses")) if ep_data.get("responses") is not None else None
+                        request_body = json.dumps(ep_data.get("request_body")) if ep_data.get("request_body") is not None else None,
+                        request_headers = json.dumps(ep_data.get("request_headers")) if ep_data.get("request_headers") is not None else None,
+                        request_query_params = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None,
+                        responses = json.dumps(ep_data.get("responses")) if ep_data.get("responses") is not None else None
                     )
                     endpoints_to_add.append(new_endpoint)
                     logger.debug(f"Adding new endpoint: {ep_data['method']} {ep_data['path']}")

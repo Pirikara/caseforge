@@ -19,8 +19,8 @@ class Project(TimestampModel, table=True):
     # リレーションシップ
     schemas: List["Schema"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
     # 新しいリレーションシップ
-    test_suites: List["TestSuite"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"}) # test_chains を test_suites に変更, TestChain を TestSuite に変更
-    test_runs: List["TestRun"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"}) # chain_runs を test_runs に変更, ChainRun を TestRun に変更
+    test_suites: List["TestSuite"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
+    test_runs: List["TestRun"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
     # エンドポイント管理のリレーションシップ
     endpoints: List["Endpoint"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
 

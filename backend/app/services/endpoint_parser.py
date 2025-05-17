@@ -108,7 +108,7 @@ class EndpointParser:
                         "request_body": request_body,
                         "request_headers": request_headers,
                         "request_query_params": request_query_params,
-                        "responses": resolved_responses # 解決済みのレスポンスを使用
+                        "responses": resolved_responses
                     }
                     
                     endpoints.append(endpoint_data)
