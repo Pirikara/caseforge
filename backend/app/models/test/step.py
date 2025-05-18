@@ -22,3 +22,4 @@ class TestStep(TimestampModel, table=True):
     # リレーションシップ
     test_case: "TestCase" = Relationship(back_populates="test_steps")
     step_results: List["StepResult"] = Relationship(back_populates="test_step", sa_relationship_kwargs={"cascade": "delete, all"})
+
