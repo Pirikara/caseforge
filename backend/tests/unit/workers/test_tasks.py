@@ -44,7 +44,7 @@ def test_generate_test_suites_task_success(mock_faiss, mock_llm, monkeypatch):
     assert result["count"] > 0
     # ChainStore.save_chainsが呼ばれたことを確認
     mock_store.save_suites.assert_called_once()
-    args, kwargs = mock_store.save_csuites.call_args
+    args, kwargs = mock_store.save_suites.call_args
     assert args[0] == "test_project"
     assert isinstance(args[1], list)
     assert len(args[1]) == 1

@@ -8,7 +8,7 @@ def test_trigger_test_generation_success():
     mock_task = MagicMock()
     mock_task.id = "test-task-id"
     
-    with patch("app.services.testgen.generate_test_suites_task") as mock_generate:
+    with patch("app.workers.tasks.generate_test_suites_task") as mock_generate:
         mock_generate.delay.return_value = mock_task
         
         # テスト実行
@@ -24,7 +24,7 @@ def test_trigger_test_generation_with_error_types():
     mock_task = MagicMock()
     mock_task.id = "test-task-id"
     
-    with patch("app.services.testgen.generate_test_suites_task") as mock_generate:
+    with patch("app.workers.tasks.generate_test_suites_task") as mock_generate:
         mock_generate.delay.return_value = mock_task
         
         # エラータイプを指定してテスト実行
@@ -37,7 +37,7 @@ def test_trigger_test_generation_with_error_types():
 
 def test_trigger_test_generation_error():
     """テスト生成タスクのエラー系テスト"""
-    with patch("app.services.testgen.generate_test_suites_task") as mock_generate:
+    with patch("app.workers.tasks.generate_test_suites_task") as mock_generate:
         # 例外を発生させる
         mock_generate.delay.side_effect = Exception("Test error")
         
