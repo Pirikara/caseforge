@@ -2,23 +2,21 @@ import httpx
 import json
 import os
 import uuid
-import re
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timezone
 import jsonpath_ng
 from app.config import settings
 from app.logging_config import logger
-from app.models import Project, TestSuite, TestRun, StepResult, TestStep, TestCase, TestCaseResult, engine # TestCaseResult, TestCase を追加
+from app.models import Project, TestSuite, TestRun, StepResult, TestStep, TestCase, TestCaseResult, engine
 from sqlmodel import Session, select
 from app.services.chain_generator import ChainStore
-from app.exceptions import TimeoutException
-from app.utils.timeout import timeout, async_timeout
-from app.services.test.variable_manager import VariableManager, VariableScope, VariableType
+from app.utils.timeout import async_timeout
+from app.services.test.variable_manager import VariableManager, VariableScope
 
 class ChainRunner:
     """リクエストチェーンを実行するクラス"""
     
-    def __init__(self, session: Session, test_suite: TestSuite, base_url: Optional[str] = None): # chain を test_suite に、TestChain を TestSuite に変更
+    def __init__(self, session: Session, test_suite: TestSuite, base_url: Optional[str] = None):
         """
         Args:
             session: データベースセッション
@@ -26,12 +24,12 @@ class ChainRunner:
             base_url: APIのベースURL（省略時はsettingsから取得）
         """
         self.session = session
-        self.chain = test_suite # chain を test_suite に変更
+        self.chain = test_suite
         self.base_url = base_url or settings.TEST_TARGET_URL
-        self.variable_manager = VariableManager() # 変数管理クラスを使用
-        self.client = httpx.AsyncClient(base_url=self.base_url, timeout=settings.TIMEOUT_HTTP_REQUEST) # HTTP クライアント
+        self.variable_manager = VariableManager()
+        self.client = httpx.AsyncClient(base_url=self.base_url, timeout=settings.TIMEOUT_HTTP_REQUEST)
     
-    async def run_test_suite(self, test_suite_data: Dict) -> Dict: # 関数名と引数名を変更
+    async def run_test_suite(self, test_suite_data: Dict) -> Dict:
         """
         テストスイートを実行する
         
@@ -41,24 +39,24 @@ class ChainRunner:
         Returns:
             実行結果
         """
-        test_suite_result = { # chain_result を test_suite_result に変更
-            "name": test_suite_data.get("name", "Unnamed TestSuite"), # 名前の変更
+        test_suite_result = {
+            "name": test_suite_data.get("name", "Unnamed TestSuite"),
             "start_time": datetime.now(timezone.utc).isoformat(),
             "end_time": None,
             "status": "running",
-            "test_case_results": [], # steps を test_case_results に変更
+            "test_case_results": [],
             "success": False
         }
         
-        test_case_results = [] # テストケースの結果を収集するためのリストを初期化
+        test_case_results = []
         try:
             for case_data in test_suite_data.get("test_cases", []):
                 test_case_result = await self._run_test_case(self.client, case_data)
-                test_case_results.append(test_case_result) # test_suite_result["test_case_results"] ではなくローカル変数に追加
+                test_case_results.append(test_case_result)
                     
                 # テストケースが失敗した場合、テストスイートの実行を中止（オプション：異常系は失敗しても続行する場合もある）
                 # ここではシンプルに失敗したら中止
-                if test_case_result["status"] in ["failed", "error"]: # "failed" または "error" で中止
+                if test_case_result["status"] in ["failed", "error"]:
                     test_suite_result["status"] = "failed"
                     break
                 
@@ -208,7 +206,7 @@ class ChainRunner:
             
             # レスポンスの処理
             end_time = datetime.now(timezone.utc)
-            response_time = (end_time - start_time).total_seconds() * 1000  # ミリ秒単位
+            response_time = (end_time - start_time).total_seconds() * 1000
             
             step_result["end_time"] = end_time.isoformat()
             step_result["status_code"] = response.status_code
@@ -284,10 +282,8 @@ class ChainRunner:
                 logger.error(f"Error extracting value for {key} with path {path}: {e}")
         
         return extracted
-    
-    # _replace_path_params と _replace_values_in_body メソッドは VariableManager に置き換えられたため削除
 
-async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Dict: # 関数名と引数名を変更
+async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Dict:
     """
     プロジェクトのテストスイートを実行する
     
@@ -300,32 +296,32 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
     """
     try:
         # テストスイートの取得
-        chain_store = ChainStore() # ChainStore の名前はそのまま
+        chain_store = ChainStore()
         
-        if suite_id: # chain_id を suite_id に変更
+        if suite_id:
             # 特定のテストスイートを実行
-            test_suite = chain_store.get_test_suite(project_id, suite_id) # get_chain を get_test_suite に変更
-            if not test_suite: # chain を test_suite に変更
-                logger.warning(f"TestSuite not found: {suite_id}") # ログメッセージを修正
-                return {"status": "error", "message": f"TestSuite not found: {suite_id}"} # メッセージを修正
-            test_suites = [test_suite] # chains を test_suites に変更
+            test_suite = chain_store.get_test_suite(project_id, suite_id)
+            if not test_suite:
+                logger.warning(f"TestSuite not found: {suite_id}")
+                return {"status": "error", "message": f"TestSuite not found: {suite_id}"}
+            test_suites = [test_suite]
         else:
             # プロジェクトの全テストスイートを実行
-            test_suites_info = chain_store.list_test_suites(project_id) # list_chains を list_test_suites に変更
-            test_suites = [] # chains を test_suites に変更
-            for test_suite_info in test_suites_info: # chain_info を test_suite_info に変更
-                test_suite = chain_store.get_test_suite(project_id, test_suite_info["id"]) # get_chain を get_test_suite に変更
-                if test_suite: # chain を test_suite に変更
-                    test_suites.append(test_suite) # chains を test_suites に変更
+            test_suites_info = chain_store.list_test_suites(project_id)
+            test_suites = []
+            for test_suite_info in test_suites_info:
+                test_suite = chain_store.get_test_suite(project_id, test_suite_info["id"])
+                if test_suite:
+                    test_suites.append(test_suite)
         
-        if not test_suites: # chains を test_suites に変更
-            logger.warning(f"No test suites found for project {project_id}") # ログメッセージを修正
+        if not test_suites:
+            logger.warning(f"No test suites found for project {project_id}")
             # テスト環境では、テストスイートが見つからない場合でもテスト用のダミーデータを使用
             if os.environ.get("TESTING") == "1":
-                logger.info(f"Using test data for project {project_id}") # ログメッセージを修正
-                test_suites = [SAMPLE_TEST_SUITE] # SAMPLE_CHAIN を SAMPLE_TEST_SUITE に変更
+                logger.info(f"Using test data for project {project_id}")
+                test_suites = [SAMPLE_TEST_SUITE]
             else:
-                return {"status": "error", "message": "No test suites found"} # メッセージを修正
+                return {"status": "error", "message": "No test suites found"}
         
         # データベースにTestRunを作成
         with Session(engine) as session:
@@ -341,117 +337,117 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
             # プロジェクトのbase_urlを取得し、ChainRunnerに渡す
             results = []
             
-            for test_suite_data in test_suites: # chain_data を test_suite_data に変更
+            for test_suite_data in test_suites:
                 # データベースにTestRunを作成
-                suite_id = test_suite_data.get("id") # chain_id を suite_id に変更
-                if not suite_id and os.environ.get("TESTING") == "1": # chain_id を suite_id に変更
+                suite_id = test_suite_data.get("id")
+                if not suite_id and os.environ.get("TESTING") == "1":
                     # テスト環境では、IDがない場合はテスト用のIDを使用
-                    suite_id = "test-suite-1" # chain_id を suite_id に変更
-                    logger.info(f"Using test suite ID: {suite_id}") # ログメッセージを修正
-                elif not suite_id: # chain_id を suite_id に変更
-                    logger.error(f"TestSuite ID not found in test suite data") # ログメッセージを修正
+                    suite_id = "test-suite-1"
+                    logger.info(f"Using test suite ID: {suite_id}")
+                elif not suite_id:
+                    logger.error(f"TestSuite ID not found in test suite data")
                     continue
                     
-                test_suite_query = select(TestSuite).where(TestSuite.id == suite_id) # chain_query を test_suite_query に変更, TestChain を TestSuite に変更, chain_id を id に変更
-                db_test_suite = session.exec(test_suite_query).first() # db_chain を db_test_suite に変更
+                test_suite_query = select(TestSuite).where(TestSuite.id == suite_id)
+                db_test_suite = session.exec(test_suite_query).first()
                 
-                if not db_test_suite: # db_chain を db_test_suite に変更
-                    logger.error(f"TestSuite not found in database: {suite_id}") # ログメッセージを修正
+                if not db_test_suite:
+                    logger.error(f"TestSuite not found in database: {suite_id}")
                     # テスト環境では、テストスイートが見つからない場合でもダミーのテストスイートを作成
                     if os.environ.get("TESTING") == "1":
-                        logger.info(f"Creating test suite in database for {suite_id}") # ログメッセージを修正
-                        db_test_suite = TestSuite( # db_chain を db_test_suite に変更, TestChain を TestSuite に変更
-                            id=suite_id, # chain_id を id に変更
+                        logger.info(f"Creating test suite in database for {suite_id}")
+                        db_test_suite = TestSuite(
+                            id=suite_id,
                             project_id=db_project.id,
-                            name=test_suite_data.get("name", "Test TestSuite"), # 名前の変更
-                            target_method=test_suite_data.get("target_method"), # target_method を追加
-                            target_path=test_suite_data.get("target_path") # target_path を追加
+                            name=test_suite_data.get("name", "Test TestSuite"),
+                            target_method=test_suite_data.get("target_method"),
+                            target_path=test_suite_data.get("target_path")
                         )
-                        session.add(db_test_suite) # db_chain を db_test_suite に変更
+                        session.add(db_test_suite)
                         session.commit()
-                        session.refresh(db_test_suite) # db_chain を db_test_suite に変更
+                        session.refresh(db_test_suite)
                     else:
                         continue
                 
                 run_id = str(uuid.uuid4())
-                test_run = TestRun( # chain_run を test_run に変更, ChainRun を TestRun に変更
+                test_run = TestRun(
                     run_id=run_id,
-                    suite_id=db_test_suite.id, # chain_id を suite_id に変更, db_chain を db_test_suite に変更
+                    suite_id=db_test_suite.id,
                     project_id=db_project.id,
                     status="running",
                     start_time=datetime.now(timezone.utc)
                 )
-                session.add(test_run) # chain_run を test_run に変更
+                session.add(test_run)
                 session.commit()
-                session.refresh(test_run) # chain_run を test_run に変更
+                session.refresh(test_run)
                 
                 # テストスイートを実行
                 # ChainRunnerにsessionとdb_test_suiteを渡す
-                runner = ChainRunner(session=session, test_suite=db_test_suite, base_url=db_project.base_url) # chain を test_suite に、db_chain を db_test_suite に変更
-                result = await runner.run_test_suite(test_suite_data) # run_chain を run_test_suite に変更, chain_data を test_suite_data に変更
+                runner = ChainRunner(session=session, test_suite=db_test_suite, base_url=db_project.base_url)
+                result = await runner.run_test_suite(test_suite_data)
                 results.append(result)
                 
                 # 実行結果を更新
-                test_run.status = result["status"] # chain_run を test_run に変更
-                test_run.end_time = datetime.now(timezone.utc) # chain_run を test_run に変更
+                test_run.status = result["status"]
+                test_run.end_time = datetime.now(timezone.utc)
                 
                 # テストケース結果とステップ結果を保存
-                for case_result_data in result.get("test_case_results", []): # step_result を case_result_data に変更, steps を test_case_results に変更
+                for case_result_data in result.get("test_case_results", []):
                     # テストケースの取得
-                    case_query = select(TestStep).join(TestCase).where( # step_query を case_query に変更, TestChainStep を TestCase に変更, join(TestCase) を追加
-                        TestCase.suite_id == db_test_suite.id, # TestStep.suite_id を TestCase.suite_id に変更
-                        TestStep.id == case_result_data.get("case_id") # sequence を id に変更, i を case_result_data.get("case_id") に変更
+                    case_query = select(TestStep).join(TestCase).where(
+                        TestCase.suite_id == db_test_suite.id,
+                        TestStep.id == case_result_data.get("case_id")
                     )
-                    db_case = session.exec(case_query).first() # db_step を db_case に変更
+                    db_case = session.exec(case_query).first()
                     
-                    if not db_case: # db_step を db_case に変更
-                        logger.error(f"TestCase not found for test suite {db_test_suite.id}, case_id {case_result_data.get('case_id')}") # ログメッセージを修正
+                    if not db_case:
+                        logger.error(f"TestCase not found for test suite {db_test_suite.id}, case_id {case_result_data.get('case_id')}")
                         continue
                     
                     # テストケース結果の保存
-                    test_case_result_obj = TestCaseResult( # step_result_obj を test_case_result_obj に変更, StepResult を TestCaseResult に変更
-                        test_run_id=test_run.id, # chain_run_id を test_run_id に変更, chain_run を test_run に変更
-                        case_id=db_case.id, # step_id を case_id に変更, db_step を db_case に変更
-                        status=case_result_data.get("status", "failed"), # sequence を status に変更, i を case_result_data.get("status", "failed") に変更
-                        error_message=case_result_data.get("error_message") # status_code を error_message に変更, step_result.get("status_code") を case_result_data.get("error_message") に変更
+                    test_case_result_obj = TestCaseResult(
+                        test_run_id=test_run.id,
+                        case_id=db_case.id,
+                        status=case_result_data.get("status", "failed"),
+                        error_message=case_result_data.get("error_message")
                     )
-                    session.add(test_case_result_obj) # step_result_obj を test_case_result_obj に変更
-                    session.flush() # IDを生成するためにflush
+                    session.add(test_case_result_obj)
+                    session.flush()
 
                     # ステップ結果を保存
-                    for step_result_data in case_result_data.get("step_results", []): # step_result を step_result_data に変更, result.get("steps", []) を case_result_data.get("step_results", []) に変更
+                    for step_result_data in case_result_data.get("step_results", []):
                         # ステップの取得
-                        step_query = select(TestStep).where( # step_query はそのまま, TestChainStep を TestStep に変更
-                            TestStep.case_id == db_case.id, # chain_id を case_id に変更, db_chain を db_case に変更
-                            TestStep.sequence == step_result_data.get("sequence") # sequence はそのまま, i を step_result_data.get("sequence") に変更
+                        step_query = select(TestStep).where(
+                            TestStep.case_id == db_case.id,
+                            TestStep.sequence == step_result_data.get("sequence")
                         )
-                        db_step = session.exec(step_query).first() # db_step はそのまま
+                        db_step = session.exec(step_query).first()
                         
-                        if not db_step: # db_step はそのまま
-                            logger.error(f"Step not found for test case {db_case.id}, sequence {step_result_data.get('sequence')}") # ログメッセージを修正
+                        if not db_step:
+                            logger.error(f"Step not found for test case {db_case.id}, sequence {step_result_data.get('sequence')}")
                             continue
                         
                         # ステップ結果の保存
-                        step_result_obj = StepResult( # step_result_obj はそのまま
-                            test_case_result_id=test_case_result_obj.id, # chain_run_id を test_case_result_id に変更, chain_run を test_case_result_obj に変更
-                            step_id=db_step.id, # step_id はそのまま
-                            sequence=step_result_data.get("sequence"), # sequence はそのまま
-                            status_code=step_result_data.get("status_code"), # status_code はそのまま
-                            passed=step_result_data.get("passed", False), # passed はそのまま
-                            response_time=step_result_data.get("response_time"), # response_time はそのまま
-                            error_message=step_result_data.get("error") # error_message はそのまま
+                        step_result_obj = StepResult(
+                            test_case_result_id=test_case_result_obj.id,
+                            step_id=db_step.id,
+                            sequence=step_result_data.get("sequence"),
+                            status_code=step_result_data.get("status_code"),
+                            passed=step_result_data.get("passed", False),
+                            response_time=step_result_data.get("response_time"),
+                            error_message=step_result_data.get("error")
                         )
                         
                         # レスポンスボディの設定
-                        step_result_obj.response_body = step_result_data.get("response_body") # response_body はそのまま
+                        step_result_obj.response_body = step_result_data.get("response_body")
                         
                         # 抽出した値の設定
                         extracted = {}
-                        for key, value in case_result_data.get("extracted_values", {}).items(): # result.get("extracted_values", {}).items() を case_result_data.get("extracted_values", {}).items() に変更
+                        for key, value in case_result_data.get("extracted_values", {}).items():
                             extracted[key] = value
-                        step_result_obj.extracted_values = extracted # extracted_values はそのまま
+                        step_result_obj.extracted_values = extracted
                         
-                        session.add(step_result_obj) # step_result_obj はそのまま
+                        session.add(step_result_obj)
                 
                 session.commit()
             
@@ -465,15 +461,15 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
             
             return {
                 "status": "completed",
-                "message": f"Executed {len(results)} test suites", # メッセージを修正
+                "message": f"Executed {len(results)} test suites",
                 "results": results
             }
             
     except Exception as e:
-        logger.error(f"Error running test suites for project {project_id}: {e}", exc_info=True) # ログメッセージを修正, exc_info を追加
-        return {"status": "error", "message": f"Failed to run test suites: {str(e)}"} # メッセージを修正
+        logger.error(f"Error running test suites for project {project_id}: {e}", exc_info=True)
+        return {"status": "error", "message": f"Failed to run test suites: {str(e)}"}
 
-def list_test_runs(project_id: str, limit: int = 10) -> List[Dict]: # 関数名を変更
+def list_test_runs(project_id: str, limit: int = 10) -> List[Dict]:
     """
     プロジェクトのテスト実行履歴を取得する
     
@@ -495,30 +491,30 @@ def list_test_runs(project_id: str, limit: int = 10) -> List[Dict]: # 関数名�
                 return []
             
             # テスト実行の取得（最新順）
-            test_runs = [] # runs を test_runs に変更
-            for test_run in sorted(db_project.test_runs, key=lambda r: r.start_time or datetime.min, reverse=True)[:limit]: # chain_runs を test_runs に変更, chain_run を test_run に変更
+            test_runs = []
+            for test_run in sorted(db_project.test_runs, key=lambda r: r.start_time or datetime.min, reverse=True)[:limit]:
                 # 成功したテストケースの数を計算
-                passed_cases = sum(1 for r in test_run.test_case_results if r.status == "passed") # passed_steps を passed_cases に変更, step_results を test_case_results に変更, passed を status == "passed" に変更
-                total_cases = len(test_run.test_case_results) # total_steps を total_cases に変更, step_results を test_case_results に変更
+                passed_cases = sum(1 for r in test_run.test_case_results if r.status == "passed")
+                total_cases = len(test_run.test_case_results)
                 
                 run_data = {
-                    "id": test_run.id, # id を追加
-                    "run_id": test_run.run_id, # chain_run を test_run に変更
-                    "suite_id": test_run.suite_id, # chain_id を suite_id に変更, chain_run.chain.chain_id を test_run.test_suite.id に変更
-                    "suite_name": test_run.test_suite.name, # chain_name を suite_name に変更, chain_run.chain.name を test_run.test_suite.name に変更
-                    "status": test_run.status, # chain_run を test_run に変更
-                    "start_time": test_run.start_time.isoformat() if test_run.start_time else None, # chain_run を test_run に変更
-                    "end_time": test_run.end_time.isoformat() if test_run.end_time else None, # chain_run を test_run に変更
-                    "test_cases_count": total_cases, # steps_count を test_cases_count に変更, total_steps を total_cases に変更
-                    "passed_test_cases": passed_cases, # passed_steps を passed_test_cases に変更, passed_steps を passed_cases に変更
-                    "success_rate": round(passed_cases / total_cases * 100) if total_cases > 0 else 0 # passed_steps を passed_cases に変更, total_steps を total_cases に変更
+                    "id": test_run.id,
+                    "run_id": test_run.run_id,
+                    "suite_id": test_run.suite_id,
+                    "suite_name": test_run.test_suite.name,
+                    "status": test_run.status,
+                    "start_time": test_run.start_time.isoformat() if test_run.start_time else None,
+                    "end_time": test_run.end_time.isoformat() if test_run.end_time else None,
+                    "test_cases_count": total_cases,
+                    "passed_test_cases": passed_cases,
+                    "success_rate": round(passed_cases / total_cases * 100) if total_cases > 0 else 0
                 }
-                test_runs.append(run_data) # runs を test_runs に変更
+                test_runs.append(run_data)
                         
             return test_runs
                 
     except Exception as e:
-        logger.error(f"Error listing test runs for project {project_id}: {e}", exc_info=True) # ログメッセージを修正, exc_info を追加
+        logger.error(f"Error listing test runs for project {project_id}: {e}", exc_info=True)
         return []
 
 def get_test_run(project_id: str, run_id: str) -> Optional[Dict]:

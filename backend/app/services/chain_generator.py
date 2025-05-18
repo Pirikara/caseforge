@@ -5,15 +5,13 @@ import uuid
 from datetime import datetime
 from langchain_community.vectorstores import FAISS
 from app.services.rag import EmbeddingFunctionForCaseforge
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 from app.services.schema_analyzer import OpenAPIAnalyzer
 from app.config import settings
 from app.logging_config import logger
 from app.models import TestSuite, TestStep, Project, TestCase, engine
 from sqlmodel import select, Session
 from app.exceptions import TimeoutException
-from app.utils.timeout import timeout, async_timeout, run_with_timeout
+from app.utils.timeout import run_with_timeout
 from app.utils.path_manager import path_manager
 
 from sqlalchemy.orm import selectinload
@@ -21,7 +19,7 @@ from sqlalchemy.orm import selectinload
 class DependencyAwareRAG:
     """依存関係を考慮したRAGクラス"""
     
-    def __init__(self, project_id: str, schema: dict, error_types: Optional[List[str]] = None): # error_types 引数を追加
+    def __init__(self, project_id: str, schema: dict, error_types: Optional[List[str]] = None):
         """
         Args:
             project_id: プロジェクトID
@@ -29,7 +27,7 @@ class DependencyAwareRAG:
         """
         self.project_id = project_id
         self.schema = schema
-        self.error_types = error_types # error_types を属性として保持
+        self.error_types = error_types
         self.analyzer = OpenAPIAnalyzer(schema)
         self.dependencies = self.analyzer.extract_dependencies()
         
@@ -219,7 +217,7 @@ class DependencyAwareRAG:
                                     "sequence": 1,
                                     "method": "GET",
                                     "path": "/users/{user_id}",
-                                    "request_params": {"user_id": "{user_id}"}, # 抽出した値を使用
+                                    "request_params": {"user_id": "{user_id}"},
                                     "expected_status": 200
                                 }
                             ]
@@ -449,7 +447,7 @@ class ChainStore:
         """初期化"""
         pass
     
-    def save_suites(self, session: Session, project_id: str, test_suites: List[Dict], overwrite: bool = True) -> None: # session 引数を追加
+    def save_suites(self, session: Session, project_id: str, test_suites: List[Dict], overwrite: bool = True) -> None:
         """
         生成されたテストスイートをデータベースに保存する
         
@@ -570,7 +568,7 @@ class ChainStore:
             session.rollback()
             raise
     
-    def list_test_suites(self, session: Session, project_id: str) -> List[Dict]: # session 引数を追加
+    def list_test_suites(self, session: Session, project_id: str) -> List[Dict]:
         """
         プロジェクトのテストスイート一覧を取得する
         
@@ -729,7 +727,7 @@ class ChainStore:
             session.rollback()
             raise
     
-    def get_test_suite(self, session: Session, project_id: str, suite_id: str) -> Optional[Dict]: # session 引数を追加
+    def get_test_suite(self, session: Session, project_id: str, suite_id: str) -> Optional[Dict]:
         """
         特定のテストスイートの詳細を取得する
         

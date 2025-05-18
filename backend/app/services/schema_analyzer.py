@@ -55,7 +55,7 @@ class OpenAPIAnalyzer:
                 
                 for source_path, source_method, source_op in source_endpoints:
                     for method_name, operation in methods.items():
-                        if method_name != "parameters":  # OpenAPIの予約語をスキップ
+                        if method_name != "parameters":
                             dependencies.append({
                                 "type": "path_parameter",
                                 "source": {
@@ -104,7 +104,7 @@ class OpenAPIAnalyzer:
         """レスポンスにパラメータ名が含まれるか確認する"""
         responses = operation.get("responses", {})
         for status_code, response in responses.items():
-            if status_code.startswith("2"):  # 成功レスポンス
+            if status_code.startswith("2"):
                 content = response.get("content", {})
                 for media_type, media_content in content.items():
                     schema = media_content.get("schema", {})

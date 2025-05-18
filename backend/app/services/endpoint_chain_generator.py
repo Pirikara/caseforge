@@ -6,8 +6,6 @@ from app.schemas.project import Endpoint as EndpointSchema
 from app.services.rag import EmbeddingFunctionForCaseforge
 from app.config import settings
 from app.logging_config import logger
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.vectorstores import FAISS
 from app.utils.path_manager import path_manager
 
@@ -24,7 +22,7 @@ class EndpointChainGenerator:
         self.project_id = project_id
         self.endpoints = endpoints
         self.schema = schema
-        self.error_types = error_types # error_types を属性として保持
+        self.error_types = error_types
     
     def generate_chains(self) -> List[Dict]:
         """
@@ -148,7 +146,7 @@ Return only a single valid JSON object matching the following format. **Do not i
                 context = {
                     "target_endpoint_info": target_endpoint_info,
                     "relevant_schema_info": relevant_schema_info,
-                    "error_types_instruction": error_types_instruction # error_types_instruction を追加
+                    "error_types_instruction": error_types_instruction
                 }
                 
                 # 4. LLMを呼び出してチェーンを生成
@@ -302,14 +300,14 @@ Return only a single valid JSON object matching the following format. **Do not i
             endpoint_info += "Request Headers:\n"
             for header_name, header_info in endpoint_model.request_headers.items():
                 required = "required" if header_info.get("required", False) else "optional"
-                endpoint_info += f"- {header_name} (in header, {required})\n" # in header を追加
+                endpoint_info += f"- {header_name} (in header, {required})\n"
         
         # クエリパラメータ情報
         if endpoint_model.request_query_params:
             endpoint_info += "Query Parameters:\n"
             for param_name, param_info in endpoint_model.request_query_params.items():
                 required = "required" if param_info.get("required", False) else "optional"
-                endpoint_info += f"- {param_name} (in query, {required})\n" # in query を追加
+                endpoint_info += f"- {param_name} (in query, {required})\n"
         
         # パスパラメータ情報
         path_parameters = []

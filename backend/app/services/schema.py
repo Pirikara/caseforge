@@ -1,14 +1,14 @@
 from app.config import settings
 from app.logging_config import logger
-from app.models import Project, Schema, Endpoint, engine # Endpoint をインポート
+from app.models import Project, Schema, Endpoint, engine
 from app.services.rag import index_schema
-from app.services.endpoint_parser import EndpointParser # EndpointParser をインポート
-from sqlmodel import Session, select # select をインポート
+from app.services.endpoint_parser import EndpointParser
+from sqlmodel import Session, select
 from pathlib import Path
 import os
 from typing import Optional
 from datetime import datetime
-import json # json をインポート
+import json
 from app.utils.path_manager import path_manager
 
 async def save_and_index_schema(project_id: str, content: bytes, filename: str, session: Optional[Session] = None):

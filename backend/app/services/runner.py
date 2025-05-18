@@ -145,7 +145,7 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
     passed_runs = 0
     failed_runs = 0
     completed_runs = 0
-    running_runs = 0 # 現在のログファイル構造では正確なrunningは判定困難だが、スキーマに合わせて追加
+    running_runs = 0
 
     log_dir = path_manager.get_log_dir()
     if not path_manager.exists(log_dir):
@@ -177,11 +177,11 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
                     name_parts = run_id.split('_')
                     start_time_str = name_parts[0]
                     start_time = datetime.strptime(start_time_str, "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc)
-                    suite_id = name_parts[1] if len(name_parts) > 1 else "" # None の代わりに空文字列を割り当てる
+                    suite_id = name_parts[1] if len(name_parts) > 1 else ""
                 except ValueError:
                     # ファイル名から取得できない場合はファイルの更新時間を使用
                     start_time = datetime.fromtimestamp(os.path.getmtime(str(run_path)), tzinfo=timezone.utc)
-                    suite_id = "" # suite_idも不明とする場合は空文字列
+                    suite_id = ""
 
                 # 実行結果を読み込む
                 with open(run_path, 'r') as f:
@@ -210,12 +210,12 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
 
                 # 実行情報を追加
                 all_runs.append({
-                    "id": run_id, # run_id を id に変更
+                    "id": run_id,
                     "suite_id": suite_id,
                     "status": status,
-                    "start_time": start_time, # isoformat() を削除
-                    "end_time": datetime.fromtimestamp(os.path.getmtime(str(run_path)), tz=timezone.utc), # isoformat() を削除
-                    "test_case_results": [], # TestRun スキーマに合わせて追加 (空リスト)
+                    "start_time": start_time,
+                    "end_time": datetime.fromtimestamp(os.path.getmtime(str(run_path)), tz=timezone.utc),
+                    "test_case_results": [],
                 })
             except FileNotFoundError:
                  logger.warning(f"Run file not found (possibly deleted during scan): {run_path}")
@@ -243,5 +243,5 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
         "passed_runs": passed_runs,
         "failed_runs": failed_runs,
         "completed_runs": completed_runs,
-        "running_runs": running_runs, # 現在は常に0
+        "running_runs": running_runs,
     }
