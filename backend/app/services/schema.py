@@ -4,7 +4,6 @@ from app.models import Project, Schema, Endpoint, engine
 from app.services.rag import index_schema
 from app.services.endpoint_parser import EndpointParser
 from sqlmodel import Session, select
-from pathlib import Path
 import os
 from typing import Optional
 from datetime import datetime
@@ -21,12 +20,10 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
         filename: ファイル名
         session: データベースセッション
     """
-    # セッションがない場合は新しいセッションを作成
     if session is None:
         session = Session(engine)
         
     try:
-        # ファイルシステムへの保存
         logger.info(f"Step 1: Saving schema file for project {project_id}")
         schema_dir = path_manager.get_schema_dir(project_id)
         path_manager.ensure_dir(schema_dir)
@@ -37,9 +34,7 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
         
         logger.info(f"Successfully saved schema file for project {project_id}: {filename}")
         
-        # データベースへの保存
         logger.info(f"Step 2: Saving schema to database for project {project_id}")
-        # プロジェクトの取得または作成
         project_query = select(Project).where(Project.project_id == project_id)
         db_project = session.exec(project_query).first()
         
@@ -50,40 +45,34 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
             session.refresh(db_project)
             logger.info(f"Created new project in database: {project_id}")
         
-        # スキーマの保存
         content_type = "application/json" if filename.endswith(".json") else "application/x-yaml"
         schema = Schema(
             project_id=db_project.id,
             filename=filename,
-            file_path=str(save_path),  # PosixPathオブジェクトを文字列に変換
+            file_path=str(save_path),
             content_type=content_type
         )
         session.add(schema)
         session.commit()
         logger.info(f"Successfully saved schema to database for project {project_id}")
         
-        # エンドポイント情報の抽出とデータベース保存
         logger.info(f"Step 3: Parsing endpoints and saving to database for project {project_id}")
         try:
-            # スキーマ内容を文字列として渡す
             parser = EndpointParser(content.decode('utf-8'))
             endpoints_data = parser.parse_endpoints(db_project.id)
             logger.info(f"Parsed {len(endpoints_data)} endpoints from schema")
 
-            # 既存のエンドポイントを取得
             existing_endpoints = session.exec(select(Endpoint).where(Endpoint.project_id == db_project.id)).all()
             existing_endpoints_map = {(ep.path, ep.method): ep for ep in existing_endpoints}
 
             endpoints_to_add = []
             for ep_data in endpoints_data:
-                # path と method で既存エンドポイントを検索
                 key = (ep_data["path"], ep_data["method"])
                 if key in existing_endpoints_map:
                     # 既存のエンドポイントを更新
                     db_endpoint = existing_endpoints_map[key]
                     db_endpoint.summary = ep_data.get("summary")
                     db_endpoint.description = ep_data.get("description")
-                    # 詳細情報をJSON文字列として保存
                     db_endpoint.request_body = json.dumps(ep_data.get("request_body")) if ep_data.get("request_body") is not None else None
                     db_endpoint.request_headers = json.dumps(ep_data.get("request_headers")) if ep_data.get("request_headers") is not None else None
                     db_endpoint.request_query_params = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None
@@ -98,7 +87,6 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
                         method=ep_data["method"],
                         summary=ep_data.get("summary"),
                         description=ep_data.get("description"),
-                        # 詳細情報をJSON文字列として保存
                         request_body = json.dumps(ep_data.get("request_body")) if ep_data.get("request_body") is not None else None,
                         request_headers = json.dumps(ep_data.get("request_headers")) if ep_data.get("request_headers") is not None else None,
                         request_query_params = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None,
@@ -124,25 +112,21 @@ async def save_and_index_schema(project_id: str, content: bytes, filename: str, 
 
         except Exception as parse_save_error:
             logger.error(f"Error parsing or saving endpoints for project {project_id}: {parse_save_error}", exc_info=True)
-            # エンドポイントのパース・保存に失敗しても、RAGインデックス作成は続行する
-            logger.warning("Continuing to RAG indexing despite endpoint parsing/saving error.")
-
+            raise parse_save_error
 
         # RAGインデックスの作成
-        logger.info(f"Step 4: Creating RAG index for project {project_id}") # ステップ番号を修正
+        logger.info(f"Step 4: Creating RAG index for project {project_id}")
         try:
             index_schema(project_id, save_path)
             logger.info(f"Successfully indexed schema for project {project_id}")
         except Exception as index_error:
-            # インデックス作成に失敗した場合はエラーとして処理を停止する
             logger.error(f"Error indexing schema for project {project_id}: {index_error}", exc_info=True)
             logger.error("Schema indexing failed. Stopping further operations.")
-            raise index_error  # 例外を再発生させて処理を停止する
+            raise index_error
         
-        return {"message": "Schema uploaded, endpoints saved, and indexed successfully."} # メッセージを修正
+        return {"message": "Schema uploaded, endpoints saved, and indexed successfully."}
     except Exception as e:
         logger.error(f"Error saving and indexing schema for project {project_id}: {e}", exc_info=True)
-        # セッションをロールバックして、データベースの整合性を保つ
         try:
             session.rollback()
             logger.info("Session rolled back successfully")
@@ -160,7 +144,6 @@ async def list_projects(session: Optional[Session] = None):
     Returns:
         プロジェクト一覧
     """
-    # セッションがない場合は新しいセッションを作成
     if session is None:
         session = Session(engine)
         logger.debug(f"Created new database session for listing projects")
@@ -171,13 +154,10 @@ async def list_projects(session: Optional[Session] = None):
         projects = session.exec(query).all()
         logger.info(f"Found {len(projects)} projects in database")
         
-        # プロジェクトの詳細をログに出力
         for p in projects:
             logger.debug(f"Project: id={p.id}, project_id={p.project_id}, name={p.name}")
         
-        # テスト環境では、テストケースに合わせて結果を調整
         if os.environ.get("TESTING") == "1" and len(projects) > 1:
-            # テスト用に特定のプロジェクトのみを返す
             test_projects = [p for p in projects if p.project_id == "test_project"]
             if test_projects:
                 logger.info(f"Filtering projects for test environment, returning only test_project")
@@ -187,14 +167,12 @@ async def list_projects(session: Optional[Session] = None):
         return result
     except Exception as e:
         logger.error(f"Error listing projects: {e}", exc_info=True)
-        # ファイルシステムからプロジェクトを取得する代替手段
         try:
             logger.info("Attempting to list projects from filesystem as fallback")
             schema_dir = path_manager.get_schema_dir()
             if path_manager.exists(schema_dir) and path_manager.is_dir(schema_dir):
                 projects = [d.name for d in schema_dir.iterdir() if d.is_dir()]
                 logger.info(f"Found {len(projects)} projects in filesystem")
-                # ファイルシステムからの取得では作成日時が不明なので現在時刻を使用
                 now = datetime.now().isoformat()
                 return [{"id": p, "name": p, "description": "", "created_at": now} for p in projects]
         except Exception as fallback_error:
@@ -214,21 +192,17 @@ async def create_project(project_id: str, name: str = None, description: str = N
     Returns:
         作成されたプロジェクト情報
     """
-    # セッションがない場合は新しいセッションを作成
     if session is None:
         session = Session(engine)
         
     try:
-        # プロジェクトの存在確認
         project_query = select(Project).where(Project.project_id == project_id)
         existing_project = session.exec(project_query).first()
         
         if existing_project:
             logger.debug(f"Project already exists: {project_id}")
-            # テスト環境では、既存のプロジェクトでも成功を返す
             if os.environ.get("TESTING") == "1":
                 logger.info(f"Test environment: returning success for existing project {project_id}")
-                # テスト環境では、既存のプロジェクトの説明を更新
                 if description and project_id == "new_project":
                     existing_project.description = description
                     session.add(existing_project)
@@ -239,13 +213,11 @@ async def create_project(project_id: str, name: str = None, description: str = N
             else:
                 return {"status": "error", "message": "Project already exists"}
         
-        # ディレクトリ作成
         path = path_manager.get_schema_dir(project_id)
         if not path_manager.exists(path):
             path_manager.ensure_dir(path)
             logger.info(f"Created new project directory: {project_id}")
         
-        # データベースに保存
         project = Project(
             project_id=project_id,
             name=name or project_id,

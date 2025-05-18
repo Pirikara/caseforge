@@ -144,39 +144,34 @@ class OpenAPISchemaChunker:
 
         for path, methods in self.schema["paths"].items():
             if not isinstance(methods, dict):
-                continue # Skip if not a dictionary (e.g., $ref at path level)
+                continue
 
             for method, details in methods.items():
                 if not isinstance(details, dict):
-                    continue # Skip if not a dictionary (e.g., $ref at method level)
+                    continue
 
-                # $refを解決したチャンク内容を構築
                 chunk_content: Dict[str, Any] = {
                     "method": method.upper(),
                     "path": path,
                 }
 
-                # parameters, requestBody, responses を含める（$ref解決済み）
                 if "parameters" in details:
                     chunk_content["parameters"] = self._resolve_references(details["parameters"])
                 if "requestBody" in details:
                     chunk_content["requestBody"] = self._resolve_references(details["requestBody"])
                 if "responses" in details:
-                    # 主要なレスポンスのみを含める（例: 200, 201）
                     relevant_responses = {
                         status: resp for status, resp in details["responses"].items()
-                        if status in ["200", "201", "204"] or status.startswith("2") # 2xx系を主要とみなす
+                        if status in ["200", "201", "204"] or status.startswith("2")
                     }
                     chunk_content["responses"] = self._resolve_references(relevant_responses)
 
-                # YAML形式の文字列としてpage_contentを作成
                 page_content = yaml.dump(chunk_content, indent=2, sort_keys=False)
 
-                # Documentオブジェクトを作成
                 metadata = {
                     "source": f"{self.path}::paths::{path}::{method}",
                     "type": "path-method",
-                    "path": path, # メタデータにもpathとmethodを追加しておくと便利かもしれない
+                    "path": path,
                     "method": method.upper(),
                 }
                 documents.append(Document(page_content=page_content, metadata=metadata))
@@ -224,7 +219,6 @@ def index_schema(project_id: str, path: str) -> None:
                 
                 path_manager.ensure_dir(os.path.dirname(str(tmp_dir)))
                 
-                # 既存のシンボリックリンクや古いディレクトリを削除
                 if path_manager.exists(tmp_dir):
                     if os.path.islink(str(tmp_dir)):
                         os.unlink(str(tmp_dir))
@@ -232,7 +226,6 @@ def index_schema(project_id: str, path: str) -> None:
                         import shutil
                         shutil.rmtree(str(tmp_dir))
                 
-                # 新しいシンボリックリンクを作成
                 os.symlink(save_dir, str(tmp_dir))
                 logger.info(f"Created symbolic link from {tmp_dir} to {save_dir}")
             
