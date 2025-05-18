@@ -23,7 +23,7 @@ class OpenAPISchemaChunker:
         """
         try:
             with open(self.path, "r", encoding="utf-8") as f:
-                if self.path.endswith((".yaml", ".yml")):
+                if str(self.path).endswith((".yaml", ".yml")):
                     return yaml.safe_load(f)
                 elif self.path.endswith(".json"):
                     return json.load(f)

@@ -18,12 +18,15 @@ from app.config import settings
 from app.exceptions import CaseforgeException, ErrorCode
 from app.utils.path_manager import path_manager
 from app.logging_config import logger
-from app.utils.retry import retry, async_retry, RetryStrategy, run_with_retry
-from app.utils.timeout import timeout, async_timeout, run_with_timeout
+from app.utils.retry import retry, async_retry, RetryStrategy
+from app.utils.timeout import timeout, async_timeout
 
 # サードパーティライブラリのインポート
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS, Chroma
+from faiss import IndexFlatL2
+from langchain.docstore.in_memory import InMemoryDocstore
+
 
 # 自作モジュールのインポート
 from app.services.vector_db.embeddings import (
@@ -169,6 +172,8 @@ class DocumentCache:
             削除されたキャッシュの数
         """
         count = 0
+
+
 class VectorDBManager(abc.ABC):
     """ベクトルDBマネージャーの抽象基底クラス"""
     
@@ -623,6 +628,8 @@ class VectorDBManager(abc.ABC):
                     os.remove(str(file_path))
                     count += 1
         return count
+
+
 class FAISSManager(VectorDBManager):
     """FAISSベクトルDBマネージャー"""
     
@@ -639,9 +646,16 @@ class FAISSManager(VectorDBManager):
                 logger.info(f"Loaded FAISS index from {self.persist_directory}")
             else:
                 # 新しいFAISSインデックスを作成
+                embedding_dim = 384  # あなたのモデル次第で確認
+                index = IndexFlatL2(embedding_dim)
+                docstore = InMemoryDocstore()
+                index_to_docstore_id = {}
+
                 self.vectordb = FAISS(
+                    index=index,
+                    docstore=docstore,
+                    index_to_docstore_id=index_to_docstore_id,
                     embedding_function=self.embedding_function,
-                    **{k: v for k, v in self.extra_params.items() if k != "embedding_function"}
                 )
                 logger.info("Created new FAISS index")
         except Exception as e:
@@ -1037,21 +1051,21 @@ class VectorDBManagerFactory:
         Returns:
             ベクトルDBマネージャー
         """
-        # 環境変数から設定を取得
         db_type = os.environ.get("VECTOR_DB_TYPE", "faiss")
+        logger.info(f"📌 VECTOR_DB_TYPE = {db_type}")
         
-        # 永続化ディレクトリの設定
         data_dir = os.environ.get("DATA_DIR", "/app/data")
-        persist_directory = None
-        if project_id:
-            persist_directory = path_manager.join_path(data_dir, db_type, project_id)
+        persist_directory = path_manager.join_path(data_dir, db_type, project_id) if project_id else None
+        logger.info(f"📂 persist_directory = {persist_directory}")
         
-        # コレクション名の設定
         collection_name = project_id if project_id else "default"
-        
-        # 埋め込みモデルの作成
+        logger.info(f"📁 collection_name = {collection_name}")
+
+        logger.info("🧠 Creating embedding model...")
         embedding_model = EmbeddingModelFactory.create_default()
-        
+        logger.info("✅ Embedding model created")
+
+        logger.info("🧱 Creating vector DB manager...")
         return VectorDBManagerFactory.create(
             db_type=db_type,
             embedding_model=embedding_model,

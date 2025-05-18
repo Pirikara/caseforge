@@ -41,6 +41,7 @@ class ErrorCode(Enum):
     DATABASE_ERROR = 5001
     VALIDATION_ERROR = 5002
     SERIALIZATION_ERROR = 5003
+    VECTOR_DB_ERROR = 5004
 
 
 class CaseforgeException(Exception):
