@@ -1,4 +1,3 @@
-import pytest
 from app.services.schema import save_and_index_schema, list_projects, create_project
 from app.models import Project, Schema
 from sqlmodel import select

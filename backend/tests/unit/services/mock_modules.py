@@ -4,13 +4,11 @@
 import sys
 from unittest.mock import MagicMock
 
-# langchain関連のモックモジュール
 class MockEmbeddings:
     pass
 
 class MockDocument:
     def __init__(self, page_content="", metadata=None):
-        # 必ず文字列として保存
         self.page_content = str(page_content) if page_content is not None else ""
         self.metadata = metadata or {}
         
@@ -31,13 +29,11 @@ class MockFAISS(MockVectorStore):
     def save_local(self, path):
         pass
 
-# モックモジュールの設定
 sys.modules['langchain'] = MagicMock()
 sys.modules['langchain_core'] = MagicMock()
 sys.modules['langchain_core.documents'] = MagicMock()
 sys.modules['langchain_core.documents'].Document = MockDocument
 
-# langchain_core関連のモック
 sys.modules['langchain_core'] = MagicMock()
 sys.modules['langchain_core.embeddings'] = MagicMock()
 sys.modules['langchain_core.embeddings'].Embeddings = MockEmbeddings
@@ -47,7 +43,6 @@ sys.modules['langchain_core.output_parsers'] = MagicMock()
 sys.modules['langchain_core.runnables'] = MagicMock()
 sys.modules['langchain_core.language_models'] = MagicMock()
 
-# langchain_community関連のモック
 sys.modules['langchain_community'] = MagicMock()
 sys.modules['langchain_community.vectorstores'] = MagicMock()
 sys.modules['langchain_community.vectorstores'].FAISS = MockFAISS
@@ -56,12 +51,10 @@ sys.modules['langchain_community.vectorstores.base'].VectorStore = MockVectorSto
 sys.modules['langchain_community.chat_models'] = MagicMock()
 sys.modules['langchain_community.llms'] = MagicMock()
 
-# langchain_huggingface関連のモック
 sys.modules['langchain_huggingface'] = MagicMock()
 sys.modules['langchain_huggingface.embeddings'] = MagicMock()
 sys.modules['langchain_huggingface'].HuggingFaceEmbeddings = MockEmbeddings
 
-# langchain_openai関連のモック
 sys.modules['langchain_openai'] = MagicMock()
 sys.modules['langchain_openai.chat_models'] = MagicMock()
 sys.modules['langchain_openai.llms'] = MagicMock()

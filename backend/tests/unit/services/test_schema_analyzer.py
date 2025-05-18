@@ -1,7 +1,5 @@
-import pytest
 from app.services.schema_analyzer import OpenAPIAnalyzer
 
-# テスト用のシンプルなOpenAPIスキーマ
 SAMPLE_SCHEMA = {
     "openapi": "3.0.0",
     "info": {
@@ -146,15 +144,12 @@ def test_extract_dependencies():
     analyzer = OpenAPIAnalyzer(SAMPLE_SCHEMA)
     dependencies = analyzer.extract_dependencies()
     
-    # 依存関係が抽出されていることを確認
     assert len(dependencies) > 0
     
-    # 依存関係の種類を確認
     dependency_types = set(dep["type"] for dep in dependencies)
     assert "path_parameter" in dependency_types
     assert "resource_operation" in dependency_types
     
-    # スキーマ参照の依存関係が抽出されていることを確認
     schema_refs = [dep for dep in dependencies if dep["type"] == "schema_reference"]
     assert len(schema_refs) > 0, "スキーマ参照の依存関係が見つかりません"
 
@@ -163,10 +158,8 @@ def test_extract_path_parameter_dependencies():
     analyzer = OpenAPIAnalyzer(SAMPLE_SCHEMA)
     dependencies = analyzer._extract_path_parameter_dependencies()
     
-    # パスパラメータの依存関係が抽出されていることを確認
     assert len(dependencies) > 0
     
-    # POST /users → GET /users/{id} の依存関係が存在することを確認
     post_to_get_dependency = False
     for dep in dependencies:
         if (dep["source"]["path"] == "/users" and 
@@ -183,10 +176,8 @@ def test_extract_resource_operation_dependencies():
     analyzer = OpenAPIAnalyzer(SAMPLE_SCHEMA)
     dependencies = analyzer._extract_resource_operation_dependencies()
     
-    # リソース操作の依存関係が抽出されていることを確認
     assert len(dependencies) > 0
     
-    # 操作の順序（POST→PUT→GET→DELETE）が正しいことを確認
     resource_paths = {}
     for dep in dependencies:
         source_path = dep["source"]["path"]
@@ -198,7 +189,6 @@ def test_extract_resource_operation_dependencies():
             resource_paths[source_path] = []
         resource_paths[source_path].append((source_method, target_method))
     
-    # /users リソースの操作順序を確認
     if "/users" in resource_paths:
         methods = [method_pair[0] for method_pair in resource_paths["/users"]]
         assert "post" in methods, "POST メソッドが見つかりません"
@@ -208,9 +198,7 @@ def test_extract_schema_reference_dependencies():
     analyzer = OpenAPIAnalyzer(SAMPLE_SCHEMA)
     dependencies = analyzer._extract_schema_reference_dependencies()
     
-    # スキーマ参照の依存関係が抽出されていることを確認
     assert len(dependencies) > 0
     
-    # User スキーマへの参照が存在することを確認
     user_references = [dep for dep in dependencies if dep["source"]["schema"] == "User"]
     assert len(user_references) > 0, "User スキーマへの参照が見つかりません"

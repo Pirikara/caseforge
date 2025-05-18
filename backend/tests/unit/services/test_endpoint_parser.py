@@ -1,7 +1,6 @@
 import pytest
 from app.services.endpoint_parser import EndpointParser
 
-# ダミーのプロジェクトID
 TEST_PROJECT_ID = 1
 
 def test_resolve_references_simple():
@@ -167,7 +166,6 @@ components:
     parser = EndpointParser(schema_content)
     resolved_schema = parser._resolve_references(parser.schema["components"]["schemas"]["SchemaWithBadRef"])
 
-    # 存在しない参照は解決されずにそのまま残ることを期待
     assert "$ref" in resolved_schema
     assert resolved_schema["$ref"] == '#/components/schemas/NonExistentSchema'
 
@@ -191,16 +189,12 @@ components:
           $ref: '#/components/schemas/A'
 """
     parser = EndpointParser(schema_content)
-    # 循環参照が発生しても、ある程度の深さで停止するか、エラーになることを期待
-    # 無限ループにならないことが重要
     try:
         resolved_schema = parser._resolve_references(parser.schema["components"]["schemas"]["A"])
-        # 循環参照が完全に解決されることはないが、エラーなく終了することを確認
         assert isinstance(resolved_schema, dict)
     except RecursionError:
         pytest.fail("Circular reference caused RecursionError")
     except Exception as e:
-        # その他の予期しないエラー
         pytest.fail(f"An unexpected error occurred: {e}")
 
 def test_parse_endpoints_with_ref():
@@ -246,7 +240,6 @@ components:
     assert endpoint["method"] == "POST"
     assert endpoint["summary"] == "Create a new item"
 
-    # request_bodyの$refが解決されていることを確認
     assert "request_body" in endpoint
     request_body_schema = endpoint["request_body"]
     assert "type" in request_body_schema
@@ -257,7 +250,6 @@ components:
     assert "name" in request_body_schema["properties"]
     assert request_body_schema["properties"]["name"]["type"] == "string"
 
-    # responses内の$refが解決されていることを確認
     assert "responses" in endpoint
     response_201 = endpoint["responses"].get("201")
     assert response_201 is not None

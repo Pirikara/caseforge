@@ -1,8 +1,7 @@
-import pytest
 from app.workers.tasks import generate_test_suites_task, generate_test_suites_for_endpoints_task
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import MagicMock
 
-def test_generate_test_suites_task_success(mock_faiss, mock_llm, monkeypatch):
+def test_generate_test_suites_task_success(monkeypatch):
     """テストスイート生成タスクの正常系テスト"""
     # get_schema_contentをモック化
     mock_get_schema = MagicMock()
@@ -50,7 +49,7 @@ def test_generate_test_suites_task_success(mock_faiss, mock_llm, monkeypatch):
     assert len(args[1]) == 1
     assert "test_cases" in args[1][0]
 
-def test_generate_test_suites_task_with_error_types(mock_faiss, mock_llm, monkeypatch):
+def test_generate_test_suites_task_with_error_types(monkeypatch):
     """エラータイプを指定したテストスイート生成タスクのテスト"""
     # get_schema_contentをモック化
     mock_get_schema = MagicMock()
@@ -185,7 +184,7 @@ def test_generate_test_suites_task_generate_chains_error(mock_faiss, mock_llm, m
     assert result["status"] == "error"
     assert "message" in result
 
-def test_generate_test_suites_for_endpoints_task_success(mock_faiss, mock_llm, monkeypatch, session):
+def test_generate_test_suites_for_endpoints_task_success(monkeypatch):
     """エンドポイント指定テストスイート生成タスクの正常系テスト"""
     # Projectモデルのモック
     mock_project = MagicMock()
@@ -337,7 +336,7 @@ def test_generate_test_suites_for_endpoints_task_no_schema_files(monkeypatch):
     assert result["status"] == "error"
     assert "No schema files found" in result["message"]
 
-def test_generate_test_suites_for_endpoints_task_with_error_types(mock_faiss, mock_llm, monkeypatch):
+def test_generate_test_suites_for_endpoints_task_with_error_types(monkeypatch):
     """エラータイプを指定したエンドポイント指定テストスイート生成タスクのテスト"""
     # Projectモデルのモック
     mock_project = MagicMock()
