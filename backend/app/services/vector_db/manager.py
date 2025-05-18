@@ -9,15 +9,13 @@ import abc
 import os
 import json
 import pickle
-import shutil
 import asyncio
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Type, TypeVar, Union, cast, Callable, Tuple
+from typing import List, Dict, Any, Optional, TypeVar, Tuple
 import hashlib
 
 from app.config import settings
-from app.exceptions import CaseforgeException, ErrorCode, TimeoutException
+from app.exceptions import CaseforgeException, ErrorCode
 from app.utils.path_manager import path_manager
 from app.logging_config import logger
 from app.utils.retry import retry, async_retry, RetryStrategy, run_with_retry
@@ -25,9 +23,7 @@ from app.utils.timeout import timeout, async_timeout, run_with_timeout
 
 # サードパーティライブラリのインポート
 from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
 from langchain_community.vectorstores import FAISS, Chroma
-from langchain_core.vectorstores import VectorStore
 
 # 自作モジュールのインポート
 from app.services.vector_db.embeddings import (

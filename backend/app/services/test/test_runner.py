@@ -11,10 +11,9 @@ import httpx
 import json
 import os
 import uuid
-import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, List, Any, Optional, Union, Type, TypeVar, Generic, Callable
+from typing import Dict, List, Any, Optional, TypeVar, Generic, Callable
 from pydantic import BaseModel, Field
 
 from sqlmodel import Session, select
@@ -24,8 +23,8 @@ from app.logging_config import logger
 from app.models import Project, TestSuite, TestRun, StepResult, TestStep, TestCase, TestCaseResult
 from app.services.chain_generator import ChainStore
 from app.exceptions import TimeoutException, CaseforgeException, ErrorCode
-from app.utils.timeout import timeout, async_timeout, run_with_timeout, run_async_with_timeout
-from app.utils.retry import retry, async_retry, RetryStrategy
+from app.utils.timeout import async_timeout
+from app.utils.retry import async_retry, RetryStrategy
 from app.services.test.variable_manager import VariableManager, VariableScope, VariableType
 
 # 型変数の定義

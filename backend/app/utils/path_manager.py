@@ -1,11 +1,10 @@
 import os
-import pathlib
 from pathlib import Path
-from typing import Optional, Union, List, Dict, Any
+from typing import Optional, Union, List, Any
 import logging
 from functools import lru_cache
 
-from app.config import settings, config
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 

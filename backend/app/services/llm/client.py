@@ -8,17 +8,16 @@ LLMクライアントの抽象化モジュール
 import abc
 import json
 import asyncio
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast, Callable
+from typing import Any, Dict, List, Optional, TypeVar
 from enum import Enum
 
-from app.config import config, settings  # settingsも互換性のために残す
-from app.exceptions import CaseforgeException, ErrorCode, TimeoutException
+from app.config import config
+from app.exceptions import CaseforgeException, ErrorCode
 from app.logging_config import logger
 from app.utils.retry import retry, async_retry, RetryStrategy
 from app.utils.timeout import timeout, async_timeout
 
 # サードパーティライブラリのインポート
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 

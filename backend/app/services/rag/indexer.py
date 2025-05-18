@@ -1,5 +1,4 @@
 import os
-from typing import List
 from langchain_community.vectorstores import FAISS
 from app.logging_config import logger
 from .chunker import OpenAPISchemaChunker

@@ -3,9 +3,9 @@ from typing import Optional, List, ForwardRef
 from .base import TimestampModel
 
 # 循環インポートを避けるために ForwardRef を使用
-TestSuite = ForwardRef("TestSuite") # TestChain を TestSuite に変更
-TestRun = ForwardRef("TestRun") # TestRun はそのまま
-Endpoint = ForwardRef("Endpoint") # Endpoint はそのまま
+TestSuite = ForwardRef("TestSuite")
+TestRun = ForwardRef("TestRun")
+Endpoint = ForwardRef("Endpoint")
 
 class Project(TimestampModel, table=True):
     __tablename__ = "project"

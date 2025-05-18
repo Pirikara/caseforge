@@ -9,7 +9,7 @@ class TestStep(TimestampModel, table=True):
     """テストステップモデル（テストケース内の1つのリクエスト）"""
     id: str = Field(index=True, primary_key=True)
     case_id: str = Field(foreign_key="testcase.id")
-    sequence: int  # ステップの実行順序
+    sequence: int
     name: Optional[str] = None
     method: str
     path: str
@@ -17,6 +17,7 @@ class TestStep(TimestampModel, table=True):
     request_body: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
     request_params: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
     extract_rules: Optional[Dict[str, str]] = Field(sa_column=Column(JSONEncodedDict))
+    expected_status: Optional[int] = None
     
     # リレーションシップ
     test_case: "TestCase" = Relationship(back_populates="test_steps")
