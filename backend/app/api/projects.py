@@ -34,12 +34,12 @@ def convert_datetime_to_iso(data):
         return {key: convert_datetime_to_iso(value) for key, value in data.items()}
     return data
 
-class TestRunTriggered(BaseModel): # テスト実行トリガー時のレスポンススキーマ
+class TestRunTriggered(BaseModel):
     message: str
-    task_id: Optional[str] = None # タスクIDは非同期実行の場合にのみ存在する
-    status: str # "generating" or "triggered"
+    task_id: Optional[str] = None
+    status: str
 
-class RecentTestRunsResponse(BaseModel): # 最近のテスト実行レスポンススキーマ
+class RecentTestRunsResponse(BaseModel):
     recent_runs: List[TestRun]
     total_runs: int
     passed_runs: int
@@ -102,20 +102,16 @@ async def get_schema(project_id: str, project_path: Path = Depends(get_project_o
     """
     logger.info(f"Getting schema for project {project_id}")
     try:
-        # プロジェクトディレクトリからスキーマファイルを検索
         schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
         if not schema_files:
             logger.error(f"No schema files found in project directory: {project_path}")
             raise HTTPException(status_code=404, detail="No schema files found for this project")
         
-        # 最新のスキーマファイルを取得
         latest_schema = max(schema_files, key=lambda x: x.stat().st_mtime)
         logger.info(f"Found latest schema file: {latest_schema.name}")
         
-        # スキーマファイルの内容を取得
         content = get_schema_content(project_id, latest_schema.name)
         
-        # ファイル形式に応じてContent-Typeを設定
         content_type = "application/json" if latest_schema.name.endswith(".json") else "application/x-yaml"
         
         return {
@@ -149,9 +145,9 @@ async def upload_schema(project_id: str, file: UploadFile = File(...)):
 async def generate_tests(
     project_id: str,
     project_path: Path = Depends(get_project_or_404),
-    schema_files: list = Depends(get_schema_files_or_400), # スキーマファイルの存在チェックのために残す
+    schema_files: list = Depends(get_schema_files_or_400),
     endpoint_ids: Optional[List[str]] = Body(None, description="生成対象のエンドポイントIDのリスト。指定しない場合はスキーマ全体から生成します。"),
-    error_types: Optional[List[str]] = Body(None, description="生成する異常系テストの種類リスト") # 異常系の種類リストを追加
+    error_types: Optional[List[str]] = Body(None, description="生成する異常系テストの種類リスト")
 ):
     """
     プロジェクトのテストスイートを生成するAPIエンドポイント。
@@ -171,14 +167,12 @@ async def generate_tests(
     
     try:
         if endpoint_ids:
-            # エンドポイントIDが指定された場合、エンドポイントごとの生成タスクを呼び出す
             logger.info(f"Generating test suites for selected endpoints: {endpoint_ids} with error types: {error_types}")
-            task_id = generate_test_suites_for_endpoints_task.delay(project_id, endpoint_ids, error_types).id # error_types を追加
+            task_id = generate_test_suites_for_endpoints_task.delay(project_id, endpoint_ids, error_types).id
             task_type = "endpoints"
         else:
-            # エンドポイントIDが指定されない場合、スキーマ全体からの生成タスクを呼び出す (既存の挙動)
             logger.info(f"Generating test suites from entire schema with error types: {error_types}.")
-            task_id = generate_test_suites_task.delay(project_id, error_types).id # error_types を追加
+            task_id = generate_test_suites_task.delay(project_id, error_types).id
             task_type = "full_schema"
             
         if not task_id:
@@ -194,32 +188,31 @@ async def generate_tests(
         logger.error(f"Unexpected error in generate_tests: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error generating test suites: {str(e)}")
 
-@router.get("/{project_id}/test-suites", response_model=List[TestSuite]) # response_model を追加
+@router.get("/{project_id}/test-suites", response_model=List[TestSuite])
 async def get_test_suites(
     project_id: str,
-    session: Session = Depends(get_session), # Session 依存性を追加
+    session: Session = Depends(get_session),
     project_path: Path = Depends(get_project_or_404)
 ):
     logger.info(f"Fetching test suites for project {project_id}")
     try:
         chain_store = ChainStore()
-        test_suites = chain_store.list_test_suites(session, project_id) # session を渡すように修正
+        test_suites = chain_store.list_test_suites(session, project_id)
         return JSONResponse(content=test_suites)
     except Exception as e:
         logger.error(f"Error fetching test suites for project {project_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching test suites: {str(e)}")
 
-@router.get("/{project_id}/test-suites/{suite_id}", response_model=TestSuiteWithCasesAndSteps) # response_model を追加
+@router.get("/{project_id}/test-suites/{suite_id}", response_model=TestSuiteWithCasesAndSteps)
 async def get_test_suite_detail(
     project_id: str,
     suite_id: str,
-    session: Session = Depends(get_session), # Session 依存性を追加
+    session: Session = Depends(get_session),
     project_path: Path = Depends(get_project_or_404)
 ):
     logger.info(f"Fetching test suite details for project {project_id}, suite {suite_id}")
     try:
         chain_store = ChainStore()
-        # session を渡すように修正
         test_suite = chain_store.get_test_suite(session, project_id, suite_id)
         if test_suite is None:
             logger.warning(f"Test suite not found: project {project_id}, suite {suite_id}")
@@ -231,25 +224,19 @@ async def get_test_suite_detail(
         logger.error(f"Error fetching test suite details for project {project_id}, suite {suite_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error fetching test suite details: {str(e)}")
 
-@router.delete("/{project_id}/test-suites/{suite_id}", response_model=Message) # response_model を追加
+@router.delete("/{project_id}/test-suites/{suite_id}", response_model=Message)
 async def delete_test_suite(
     project_id: str,
     suite_id: str,
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     テストスイートを削除するAPIエンドポイント
     """
     logger.info(f"Deleting test suite: project_id={project_id}, suite_id={suite_id}")
     try:
-        # データベースからテストスイートを削除 (カスケード設定により関連データも削除される)
         with Session(engine) as session:
-            # project_id と suite_id を使用して TestSuite を検索
-            # TestSuite モデルには project_id (int) と id (str) がある
-            # project_id (int) は Project モデルとのリレーションシップに使われるDB上のID
-            # id (str) はユーザーに見せるユニークなID
-            # ここでは id (str) を使用して検索する
-            from app.models.chain import TestSuite # TestSuite モデルをインポート
+            from app.models.chain import TestSuite
 
             test_suite_query = select(TestSuite).where(
                 TestSuite.id == suite_id,
@@ -294,11 +281,9 @@ async def get_test_cases(
     """
     logger.info(f"Getting test cases for project {project_id}")
     try:
-        # ChainStoreを使ってテストスイートを取得
         chain_store = ChainStore()
         test_suites = chain_store.list_test_suites(project_id)
         
-        # 各テストスイートからテストケースを抽出してフラットなリストにする
         test_cases = []
         for suite in test_suites:
             if "test_cases" in suite:
@@ -309,7 +294,7 @@ async def get_test_cases(
         logger.error(f"Error getting test cases for project {project_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error getting test cases: {str(e)}")
     
-@router.post("/{project_id}/run-test-suites", response_model=TestRunTriggered) # response_model を追加
+@router.post("/{project_id}/run-test-suites", response_model=TestRunTriggered)
 async def run_test_suites_endpoint(
     project_id: str,
     suite_id: str = None,
@@ -317,22 +302,19 @@ async def run_test_suites_endpoint(
 ):
     logger.info(f"Running test suites for project {project_id}")
     try:
-        # run_test_suites はテスト実行結果を直接返す
         results = await run_test_suites(project_id, suite_id)
         logger.info(f"Test suite run completed for project {project_id}")
         
-        # TestRunTriggered レスポンスモデルに合わせて情報を返す
-        # run_test_suites は同期的に実行されるため、task_id は None となる
         return {
             "message": "Test suite run complete",
-            "task_id": None, # 同期実行のため None
-            "status": "completed" # 同期実行のため completed
+            "task_id": None,
+            "status": "completed"
         }
     except Exception as e:
         logger.error(f"Error running test suites for project {project_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error running test suites: {str(e)}")
 
-@router.get("/{project_id}/runs", response_model=List[TestRunSummary]) # response_model を List[TestRunSummary] に変更
+@router.get("/{project_id}/runs", response_model=List[TestRunSummary])
 async def get_run_history(
     project_id: str,
     limit: int = 10,
@@ -345,7 +327,7 @@ async def get_run_history(
         logger.error(f"Error fetching run history for project {project_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching run history: {str(e)}")
 
-@router.get("/{project_id}/runs/{run_id}", response_model=TestRunWithResults) # response_model を追加
+@router.get("/{project_id}/runs/{run_id}", response_model=TestRunWithResults)
 async def get_run_detail(
     project_id: str,
     run_id: str,
@@ -364,7 +346,7 @@ async def get_run_detail(
         logger.error(f"Error fetching run details for project {project_id}, run {run_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching run details: {str(e)}")
 
-@router.get("/recent-runs", response_model=RecentTestRunsResponse) # response_model を追加
+@router.get("/recent-runs", response_model=RecentTestRunsResponse)
 async def get_recent_test_runs(limit: int = 5):
     """
     全プロジェクトの最近のテスト実行を取得する
@@ -396,14 +378,12 @@ async def list_projects():
 @router.post("/")
 async def create_project(project: ProjectCreate):
     try:
-        # ファイルシステムのチェック
         logger.debug(f"Checking filesystem for project directory: {settings.SCHEMA_DIR}/{project.project_id}")
         path = path_manager.get_schema_dir(project.project_id)
         if path_manager.exists(path):
             logger.warning(f"Filesystem check failed: Project directory already exists at {path}")
             raise HTTPException(status_code=409, detail="Project already exists")
         
-        # データベースにプロジェクトを作成
         logger.debug(f"Attempting to create project in database: {project.project_id}")
         from app.services.schema import create_project as db_create_project
         result = await db_create_project(
@@ -428,8 +408,6 @@ async def update_project(project_id: str, updated_project_data: dict = Body(...)
     """
     プロジェクトを更新するAPIエンドポイント
     """
-    logger.info(f"Updating project: {project_id}")
-    logger.info(f"Received update data: {updated_project_data}") # 追加
     try:
         with Session(engine) as session:
             project_query = select(Project).where(Project.project_id == project_id)
@@ -439,9 +417,7 @@ async def update_project(project_id: str, updated_project_data: dict = Body(...)
                 logger.warning(f"Project not found in DB during update: {project_id}")
                 raise HTTPException(status_code=404, detail="Project not found")
 
-            # 更新データをプロジェクトオブジェクトに適用
             for key, value in updated_project_data.items():
-                # Projectモデルに存在する属性のみを更新
                 if hasattr(db_project, key):
                     setattr(db_project, key, value)
                 else:
@@ -453,7 +429,6 @@ async def update_project(project_id: str, updated_project_data: dict = Body(...)
             session.refresh(db_project)
             logger.info(f"Project {project_id} updated successfully.")
 
-            # 更新されたプロジェクト情報を返す（必要に応じてスキーマを定義）
             return {
                 "id": db_project.project_id,
                 "name": db_project.name,
@@ -461,8 +436,6 @@ async def update_project(project_id: str, updated_project_data: dict = Body(...)
                 "base_url": db_project.base_url,
                 "created_at": db_project.created_at.isoformat()
             }
-        # except HTTPException: # このexceptブロックは不要
-        #     raise # このraiseは不要
     except Exception as e:
         logger.error(f"Error updating project {project_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error updating project: {str(e)}")
@@ -512,24 +485,19 @@ async def import_endpoints(project_id: str, project_path: Path = Depends(get_pro
     """
     logger.info(f"Importing endpoints for project {project_id}")
     try:
-        # スキーマファイルを読み込み、エンドポイントを抽出
         schema_files = list(project_path.glob("*.yaml")) + list(project_path.glob("*.yml")) + list(project_path.glob("*.json"))
         if not schema_files:
             logger.warning(f"No schema files found for project {project_id} during import.")
             raise HTTPException(status_code=400, detail="No schema files found for this project. Please upload a schema first.")
 
-        # 最新のスキーマファイルを取得
         latest_schema = max(schema_files, key=lambda x: x.stat().st_mtime)
         logger.info(f"Using latest schema file for import: {latest_schema.name}")
 
         content = get_schema_content(project_id, latest_schema.name)
         parser = EndpointParser(content)
-        endpoints_data = parser.parse_endpoints(project_id) # parse を parse_endpoints に修正し、project_id を渡す
+        endpoints_data = parser.parse_endpoints(project_id)
 
-        # データベースにエンドポイントを登録または更新
         with Session(engine) as session:
-            # 既存のエンドポイントを全て削除
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is not None:
                 delete_statement = delete(Endpoint).where(Endpoint.project_id == project_db_id)
@@ -537,23 +505,17 @@ async def import_endpoints(project_id: str, project_path: Path = Depends(get_pro
                 session.commit()
                 logger.info(f"Deleted existing endpoints for project {project_id} (DB ID: {project_db_id}).")
             else:
-                 # プロジェクトがDBに存在しない場合はエラー（get_project_or_404でチェック済みだが念のため）
                  logger.error(f"Project with project_id {project_id} not found in database during endpoint import.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-
-            # 新しいエンドポイントを登録
             updated_endpoints = []
             for ep_data in endpoints_data:
-                # Endpoint モデルのインスタンスを作成
-                # project_id は Project モデルとのリレーションシップに使われるDB上のID (int) を設定
                 endpoint = Endpoint(
                     project_id=project_db_id,
                     path=ep_data["path"],
                     method=ep_data["method"],
                     summary=ep_data.get("summary"),
                     description=ep_data.get("description"),
-                    # プロパティセッターを使用してJSON文字列として保存
                     request_body=(
                         json.dumps(ep_data.get("request_body"), ensure_ascii=False)
                         if isinstance(ep_data.get("request_body"), dict)
@@ -576,17 +538,15 @@ async def import_endpoints(project_id: str, project_path: Path = Depends(get_pro
                     )
                 )
                 session.add(endpoint)
-                updated_endpoints.append(endpoint) # 追加されたエンドポイントをリストに追加
+                updated_endpoints.append(endpoint)
 
             session.commit()
 
-            # 追加されたエンドポイントをリフレッシュしてIDなどを取得
             for ep in updated_endpoints:
                 session.refresh(ep)
 
             logger.info(f"Successfully imported and saved {len(updated_endpoints)} endpoints for project {project_id}")
 
-            # デバッグログの追加
             logger.info(f"Debug: updated_endpoints type: {type(updated_endpoints)}")
             if updated_endpoints:
                 logger.info(f"Debug: First element type: {type(updated_endpoints[0])}")
@@ -595,7 +555,6 @@ async def import_endpoints(project_id: str, project_path: Path = Depends(get_pro
                     logger.info(f"Debug: Dumped endpoints successfully. First dumped element: {dumped_endpoints[0] if dumped_endpoints else 'N/A'}")
                 except Exception as dump_error:
                     logger.error(f"Debug: Error during model_dump: {dump_error}", exc_info=True)
-                    # エラーが発生した要素を特定するためのログ
                     for i, ep in enumerate(updated_endpoints):
                          try:
                              EndpointSchema.from_orm(ep).model_dump()
@@ -630,14 +589,11 @@ async def list_endpoints(
     logger.info(f"Listing endpoints for project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
-                 # プロジェクトがDBに存在しない場合はエラー（get_project_or_404でチェック済みだが念のため）
                  logger.error(f"Project with project_id {project_id} not found in database during endpoint listing.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
             
-            # エンドポイントを path と method でソート
             endpoints = sorted(session.exec(select(Endpoint).where(Endpoint.project_id == project_db_id)).all(), key=lambda ep: (ep.path, ep.method))
 
             dumped_endpoints = [EndpointSchema.from_orm(ep).model_dump() for ep in endpoints]
@@ -654,14 +610,13 @@ async def list_endpoints(
 async def generate_test_suite_for_endpoints(
     project_id: str,
     endpoint_ids: List[int] = Body(..., description="テストスイートを生成するエンドポイントのIDのリスト"),
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     指定されたエンドポイントIDに基づいてテストスイートを生成するAPIエンドポイント。
     """
     logger.info(f"Generating test suite for specific endpoints in project {project_id}: {endpoint_ids}")
     try:
-        # 非同期タスクをトリガー
         task_id = generate_test_suites_for_endpoints_task.delay(project_id, endpoint_ids).id
 
         if not task_id:
@@ -681,7 +636,7 @@ async def generate_test_suite_for_endpoints(
 async def list_test_cases_for_suite(
     project_id: str,
     suite_id: str,
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストスイートに紐づくテストケース一覧を取得するAPIエンドポイント
@@ -689,14 +644,12 @@ async def list_test_cases_for_suite(
     logger.info(f"Listing test cases for suite {suite_id} in project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test case listing for suite.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestSuite を project_id (int) と suite_id (str) で検索
-            from app.models.chain import TestSuite # TestSuite モデルをインポート
+            from app.models.chain import TestSuite
             test_suite_query = select(TestSuite).where(
                 TestSuite.id == suite_id,
                 TestSuite.project_id == project_db_id
@@ -707,13 +660,9 @@ async def list_test_cases_for_suite(
                 logger.warning(f"Test suite not found in DB during test case listing: project_id={project_id}, suite_id={suite_id}")
                 raise HTTPException(status_code=404, detail="Test suite not found")
 
-            # TestSuite に紐づく TestCases を取得
-            # TestSuite モデルに test_cases リレーションシップがあることを前提とする
             test_cases = db_test_suite.test_cases
 
-            # TestCases のリストを返す (Pydantic モデルに変換が必要であればここで変換)
-            # TestSuiteWithCasesAndSteps スキーマの TestCases リストの要素の型を確認
-            from app.schemas.test_schemas import TestCase # TestCase スキーマをインポート
+            from app.schemas.test_schemas import TestCase
             return JSONResponse(content=[TestCase.from_orm(tc).model_dump() for tc in test_cases])
 
     except HTTPException:
@@ -726,7 +675,7 @@ async def list_test_cases_for_suite(
 async def get_test_case_detail(
     project_id: str,
     case_id: str,
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストケースの詳細を取得するAPIエンドポイント
@@ -734,14 +683,12 @@ async def get_test_case_detail(
     logger.info(f"Fetching test case details for case {case_id} in project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test case detail fetch.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestCase を project_id (int) と case_id (str) で検索
-            from app.models.chain import TestCase # TestCase モデルをインポート
+            from app.models.chain import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.project_id == project_db_id
@@ -752,8 +699,7 @@ async def get_test_case_detail(
                 logger.warning(f"Test case not found in DB during detail fetch: project_id={project_id}, case_id={case_id}")
                 raise HTTPException(status_code=404, detail="Test case not found")
 
-            # TestCaseWithSteps スキーマに変換して返す
-            from app.schemas.test_schemas import TestCaseWithSteps # TestCaseWithSteps スキーマをインポート
+            from app.schemas.test_schemas import TestCaseWithSteps
             return JSONResponse(content=TestCaseWithSteps.from_orm(db_test_case).model_dump())
 
     except HTTPException:
@@ -766,8 +712,8 @@ async def get_test_case_detail(
 async def create_test_case(
     project_id: str,
     suite_id: str,
-    test_case_data: dict = Body(...), # テストケースのデータを受け取る
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    test_case_data: dict = Body(...),
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストスイートに新しいテストケースを作成するAPIエンドポイント
@@ -775,14 +721,12 @@ async def create_test_case(
     logger.info(f"Creating new test case for suite {suite_id} in project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test case creation.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestSuite を project_id (int) と suite_id (str) で検索
-            from app.models.chain import TestSuite # TestSuite モデルをインポート
+            from app.models.chain import TestSuite
             test_suite_query = select(TestSuite).where(
                 TestSuite.id == suite_id,
                 TestSuite.project_id == project_db_id
@@ -793,10 +737,7 @@ async def create_test_case(
                 logger.warning(f"Test suite not found in DB during test case creation: project_id={project_id}, suite_id={suite_id}")
                 raise HTTPException(status_code=404, detail="Test suite not found")
 
-            # TestCase モデルのインスタンスを作成
-            # test_case_data には suite_id は含まれていないはずなので、ここで設定
-            # project_id は Project モデルとのリレーションシップに使われるDB上のID (int) を設定
-            from app.models.chain import TestCase # TestCase モデルをインポート
+            from app.models.chain import TestCase
             test_case = TestCase(suite_id=db_test_suite.id, project_id=project_db_id, **test_case_data)
 
             session.add(test_case)
@@ -804,8 +745,7 @@ async def create_test_case(
             session.refresh(test_case)
             logger.info(f"Test case {test_case.id} created successfully for suite {suite_id}.")
 
-            # 作成されたテストケースを返す (Pydantic モデルに変換)
-            from app.schemas.test_schemas import TestCase # TestCase スキーマをインポート
+            from app.schemas.test_schemas import TestCase
             return TestCase.from_orm(test_case)
 
     except HTTPException:
@@ -818,8 +758,8 @@ async def create_test_case(
 async def update_test_case(
     project_id: str,
     case_id: str,
-    updated_test_case_data: dict = Body(...), # 更新データを受け取る
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    updated_test_case_data: dict = Body(...),
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストケースを更新するAPIエンドポイント
@@ -827,27 +767,23 @@ async def update_test_case(
     logger.info(f"Updating test case {case_id} in project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test case update.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestCase を project_id (int) と case_id (str) で検索
-            from app.models.chain import TestCase # TestCase モデルをインポート
+            from app.models.chain import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.project_id == project_db_id
             )
-            db_test_case = session.exec(test_case_query).first() # ここが間違っている可能性あり、test_case_query であるべき
+            db_test_case = session.exec(test_case_query).first()
 
             if not db_test_case:
                 logger.warning(f"Test case not found in DB during update: project_id={project_id}, case_id={case_id}")
                 raise HTTPException(status_code=404, detail="Test case not found")
 
-            # 更新データをテストケースオブジェクトに適用
             for key, value in updated_test_case_data.items():
-                # TestCaseモデルに存在する属性のみを更新
                 if hasattr(db_test_case, key):
                     setattr(db_test_case, key, value)
                 else:
@@ -858,8 +794,7 @@ async def update_test_case(
             session.refresh(db_test_case)
             logger.info(f"Test case {case_id} updated successfully.")
 
-            # 更新されたテストケースを返す (Pydantic モデルに変換)
-            from app.schemas.test_schemas import TestCase # TestCase スキーマをインポート
+            from app.schemas.test_schemas import TestCase
             return TestCase.from_orm(db_test_case)
 
     except HTTPException:
@@ -872,7 +807,7 @@ async def update_test_case(
 async def delete_test_case(
     project_id: str,
     case_id: str,
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストケースを削除するAPIエンドポイント
@@ -880,14 +815,12 @@ async def delete_test_case(
     logger.info(f"Deleting test case: project_id={project_id}, case_id={case_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test case deletion.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestCase を project_id (int) と case_id (str) で検索
-            from app.models.chain import TestCase # TestCase モデルをインポート
+            from app.models.chain import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.project_id == project_db_id
@@ -913,7 +846,7 @@ async def delete_test_case(
 async def list_test_steps_for_case(
     project_id: str,
     case_id: str,
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストケースに紐づくテストステップ一覧を取得するAPIエンドポイント
@@ -921,14 +854,12 @@ async def list_test_steps_for_case(
     logger.info(f"Listing test steps for case {case_id} in project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test step listing for case.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestCase を project_id (int) と case_id (str) で検索
-            from app.models.chain import TestCase # TestCase モデルをインポート
+            from app.models.chain import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.project_id == project_db_id
@@ -939,12 +870,9 @@ async def list_test_steps_for_case(
                 logger.warning(f"Test case not found in DB during test step listing: project_id={project_id}, case_id={case_id}")
                 raise HTTPException(status_code=404, detail="Test case not found")
 
-            # TestCase に紐づく TestSteps を取得
-            # TestCase モデルに test_steps リレーションシップがあることを前提とする
             test_steps = db_test_case.test_steps
 
-            # TestSteps のリストを返す (Pydantic モデルに変換)
-            from app.schemas.test_schemas import TestStep # TestStep スキーマをインポート
+            from app.schemas.test_schemas import TestStep
             return JSONResponse(content=[TestStep.from_orm(ts).model_dump() for ts in test_steps])
 
     except HTTPException:
@@ -957,7 +885,7 @@ async def list_test_steps_for_case(
 async def get_test_step_detail(
     project_id: str,
     step_id: str,
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストステップの詳細を取得するAPIエンドポイント
@@ -965,14 +893,12 @@ async def get_test_step_detail(
     logger.info(f"Fetching test step details for step {step_id} in project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test step detail fetch.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestStep を project_id (int) と step_id (str) で検索
-            from app.models.chain import TestStep # TestStep モデルをインポート
+            from app.models.chain import TestStep
             test_step_query = select(TestStep).where(
                 TestStep.id == step_id,
                 TestStep.project_id == project_db_id
@@ -983,8 +909,7 @@ async def get_test_step_detail(
                 logger.warning(f"Test step not found in DB during detail fetch: project_id={project_id}, step_id={step_id}")
                 raise HTTPException(status_code=404, detail="Test step not found")
 
-            # TestStep スキーマに変換して返す
-            from app.schemas.test_schemas import TestStep # TestStep スキーマをインポート
+            from app.schemas.test_schemas import TestStep
             return JSONResponse(content=TestStep.from_orm(db_test_step).model_dump())
 
     except HTTPException:
@@ -997,8 +922,8 @@ async def get_test_step_detail(
 async def create_test_step(
     project_id: str,
     case_id: str,
-    test_step_data: dict = Body(...), # テストステップのデータを受け取る
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    test_step_data: dict = Body(...),
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストケースに新しいテストステップを作成するAPIエンドポイント
@@ -1006,14 +931,12 @@ async def create_test_step(
     logger.info(f"Creating new test step for case {case_id} in project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test step creation.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestCase を project_id (int) と case_id (str) で検索
-            from app.models.chain import TestCase # TestCase モデルをインポート
+            from app.models.chain import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.project_id == project_db_id
@@ -1024,10 +947,7 @@ async def create_test_step(
                 logger.warning(f"Test case not found in DB during test step creation: project_id={project_id}, case_id={case_id}")
                 raise HTTPException(status_code=404, detail="Test case not found")
 
-            # TestStep モデルのインスタンスを作成
-            # test_step_data には case_id は含まれていないはずなので、ここで設定
-            # project_id は Project モデルとのリレーションシップに使われるDB上のID (int) を設定
-            from app.models.chain import TestStep # TestStep モデルをインポート
+            from app.models.chain import TestStep
             test_step = TestStep(case_id=db_test_case.id, project_id=project_db_id, **test_step_data)
 
             session.add(test_step)
@@ -1035,8 +955,7 @@ async def create_test_step(
             session.refresh(test_step)
             logger.info(f"Test step {test_step.id} created successfully for case {case_id}.")
 
-            # 作成されたテストステップを返す (Pydantic モデルに変換)
-            from app.schemas.test_schemas import TestStep # TestStep スキーマをインポート
+            from app.schemas.test_schemas import TestStep
             return TestStep.from_orm(test_step)
 
     except HTTPException:
@@ -1049,8 +968,8 @@ async def create_test_step(
 async def update_test_step(
     project_id: str,
     step_id: str,
-    updated_test_step_data: dict = Body(...), # 更新データを受け取る
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    updated_test_step_data: dict = Body(...),
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストステップを更新するAPIエンドポイント
@@ -1058,14 +977,12 @@ async def update_test_step(
     logger.info(f"Updating test step {step_id} in project {project_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test step update.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestStep を project_id (int) と step_id (str) で検索
-            from app.models.chain import TestStep # TestStep モデルをインポート
+            from app.models.chain import TestStep
             test_step_query = select(TestStep).where(
                 TestStep.id == step_id,
                 TestStep.project_id == project_db_id
@@ -1076,9 +993,7 @@ async def update_test_step(
                 logger.warning(f"Test step not found in DB during update: project_id={project_id}, step_id={step_id}")
                 raise HTTPException(status_code=404, detail="Test step not found")
 
-            # 更新データをテストステップオブジェクトに適用
             for key, value in updated_test_step_data.items():
-                # TestStepモデルに存在する属性のみを更新
                 if hasattr(db_test_step, key):
                     setattr(db_test_step, key, value)
                 else:
@@ -1089,8 +1004,7 @@ async def update_test_step(
             session.refresh(db_test_step)
             logger.info(f"Test step {step_id} updated successfully.")
 
-            # 更新されたテストステップを返す (Pydantic モデルに変換)
-            from app.schemas.test_schemas import TestStep # TestStep スキーマをインポート
+            from app.schemas.test_schemas import TestStep
             return TestStep.from_orm(db_test_step)
 
     except HTTPException:
@@ -1103,7 +1017,7 @@ async def update_test_step(
 async def delete_test_step(
     project_id: str,
     step_id: str,
-    project_path: Path = Depends(get_project_or_404) # プロジェクトの存在確認
+    project_path: Path = Depends(get_project_or_404)
 ):
     """
     特定のテストステップを削除するAPIエンドポイント
@@ -1111,14 +1025,12 @@ async def delete_test_step(
     logger.info(f"Deleting test step: project_id={project_id}, step_id={step_id}")
     try:
         with Session(engine) as session:
-            # project_id (str) から Project の DB上の id (int) を取得
             project_db_id = session.scalar(select(Project.id).where(Project.project_id == project_id))
             if project_db_id is None:
                  logger.error(f"Project with project_id {project_id} not found in database during test step deletion.")
                  raise HTTPException(status_code=404, detail="Project not found in database.")
 
-            # TestStep を project_id (int) と step_id (str) で検索
-            from app.models.chain import TestStep # TestStep モデルをインポート
+            from app.models.chain import TestStep
             test_step_query = select(TestStep).where(
                 TestStep.id == step_id,
                 TestStep.project_id == project_db_id
