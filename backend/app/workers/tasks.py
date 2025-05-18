@@ -17,7 +17,7 @@ from typing import List, Dict, Optional
 logger = logging.getLogger(__name__)
 
 @celery_app.task
-def generate_test_suites_task(project_id: str, error_types: Optional[List[str]] = None): # error_types 引数を追加
+def generate_test_suites_task(project_id: str, error_types: Optional[List[str]] = None):
     """
     OpenAPIスキーマから依存関係を考慮したテストスイートを生成するCeleryタスク
     
@@ -27,7 +27,7 @@ def generate_test_suites_task(project_id: str, error_types: Optional[List[str]] 
     Returns:
         dict: 生成結果の情報
     """
-    logger.info(f"Generating test suites for project {project_id}") # ログメッセージを修正
+    logger.info(f"Generating test suites for project {project_id}")
     
     try:
         # スキーマファイルの取得
@@ -49,20 +49,20 @@ def generate_test_suites_task(project_id: str, error_types: Optional[List[str]] 
             schema = yaml.safe_load(schema_content)
         
         # 依存関係を考慮したRAGの初期化
-        rag = DependencyAwareRAG(project_id, schema, error_types) # error_types を渡す
+        rag = DependencyAwareRAG(project_id, schema, error_types)
         
         # テストスイートの生成
-        test_suites = rag.generate_request_chains() # メソッド名はそのまま
-        logger.info(f"Successfully generated {len(test_suites)} test suites") # ログメッセージを修正
+        test_suites = rag.generate_request_chains()
+        logger.info(f"Successfully generated {len(test_suites)} test suites")
         
         # テストスイートの保存
-        chain_store = ChainStore() # ChainStore の名前はそのまま
-        chain_store.save_chains(project_id, test_suites) # save_chains メソッドはそのまま
+        chain_store = ChainStore()
+        chain_store.save_suites(project_id, test_suites)
         
-        return {"status": "completed", "count": len(test_suites)} # count の対象を修正
+        return {"status": "completed", "count": len(test_suites)}
         
     except Exception as e:
-        logger.error(f"Error generating test suites: {e}", exc_info=True) # ログメッセージを修正, exc_info を追加
+        logger.error(f"Error generating test suites: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 def deprecated(func):
@@ -92,10 +92,9 @@ def generate_tests_task(project_id: str):
         dict: 生成結果の情報
     """
     logger.info(f"Generating tests for project {project_id} (DEPRECATED)")
-    logger.warning("This function is deprecated. Use generate_test_suites_task instead.") # 警告メッセージを修正
+    logger.warning("This function is deprecated. Use generate_test_suites_task instead.")
     
-    # 新しいタスクを呼び出す
-    return generate_test_suites_task(project_id, None) # error_types は渡さない (廃止予定のため)
+    return generate_test_suites_task(project_id, None)
 
 @celery_app.task
 def generate_test_suites_for_endpoints_task(project_id: str, endpoint_ids: List[str], error_types: Optional[List[str]] = None) -> Dict:
@@ -155,18 +154,13 @@ def generate_test_suites_for_endpoints_task(project_id: str, endpoint_ids: List[
             generated_suites_count = 0 # generated_chains_count を generated_suites_count に変更
             all_generated_suites = [] # all_generated_chains を all_generated_suites に変更
             
-            logger.info(f"Generating test suites for {len(selected_endpoints)} selected endpoints") # ログメッセージを修正
-            # EndpointChainGeneratorを初期化
-            generator = EndpointChainGenerator(project_id, selected_endpoints, schema, error_types) # error_types を渡す
+            logger.info(f"Generating test suites for {len(selected_endpoints)} selected endpoints")
+            generator = EndpointChainGenerator(project_id, selected_endpoints, schema, error_types)
             
-            # 各エンドポイントに対してテストスイートを生成
-            generated_suites = generator.generate_chains() # generate_chains はそのまま
-            logger.info(f"Generated {len(generated_suites)} test suites for selected endpoints") # ログメッセージを修正
-            # 生成されたテストスイートの詳細をログに出力
-            logger.info(f"Generated {len(generated_suites)} test suites for {len(selected_endpoints)} endpoints") # ログメッセージを修正
-            for i, suite in enumerate(generated_suites): # chain を suite に変更
-                logger.info(f"TestSuite {i+1}: {suite.get('name')} with {len(suite.get('test_cases', []))} test cases") # ログメッセージを修正
-                # 生成されたテストスイートの中身の一部をログに出力 (デバッグ用)
+            generated_suites = generator.generate_chains()
+            logger.info(f"Generated {len(generated_suites)} test suites for {len(selected_endpoints)} endpoints")
+            for i, suite in enumerate(generated_suites):
+                logger.info(f"TestSuite {i+1}: {suite.get('name')} with {len(suite.get('test_cases', []))} test cases")
                 if suite.get('test_cases'):
                     first_case = suite['test_cases'][0]
                     logger.info(f"  First TestCase: {first_case.get('name')} with {len(first_case.get('test_steps', []))} steps")
@@ -175,22 +169,19 @@ def generate_test_suites_for_endpoints_task(project_id: str, endpoint_ids: List[
                         logger.info(f"    First TestStep: {first_step.get('method')} {first_step.get('path')}")
 
             if generated_suites:
-                logger.info(f"Saving {len(generated_suites)} test suites to the database. Project ID: {project_id}") # ログメッセージを修正
-                # 生成されたテストスイートをデータベースに保存
-                chain_store = ChainStore() # ChainStore の名前はそのまま
-                # overwrite=Falseを指定して既存のテストスイートを上書きしないようにする
-                chain_store.save_chains(session, project_id, generated_suites, overwrite=False) # session 引数を追加
-                generated_suites_count = len(generated_suites) # generated_chains_count を generated_suites_count に変更
-                logger.info(f"Successfully generated and saved {generated_suites_count} test suites") # ログメッセージを修正
+                logger.info(f"Saving {len(generated_suites)} test suites to the database. Project ID: {project_id}")
+                chain_store = ChainStore()
+                chain_store.save_suites(session, project_id, generated_suites, overwrite=False)
+                generated_suites_count = len(generated_suites)
+                logger.info(f"Successfully generated and saved {generated_suites_count} test suites")
 
-        if generated_suites_count == 0: # generated_chains_count を generated_suites_count に変更
-                return {"status": "warning", "message": "No test suites were generated for the selected endpoints."} # メッセージを修正
+        if generated_suites_count == 0:
+                return {"status": "warning", "message": "No test suites were generated for the selected endpoints."}
 
-        return {"status": "success", "message": f"Successfully generated and saved {generated_suites_count} test suites."} # メッセージを修正
+        return {"status": "success", "message": f"Successfully generated and saved {generated_suites_count} test suites."}
 
     except Exception as e:
-        logger.error(f"Error generating test suites for project {project_id}: {e}", exc_info=True) # ログメッセージを修正
-        # タスク全体の失敗時はロールバック
+        logger.error(f"Error generating test suites for project {project_id}: {e}", exc_info=True)
         try:
             session.rollback()
             logger.info("Session rolled back successfully due to task error")

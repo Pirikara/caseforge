@@ -237,7 +237,7 @@ def test_chain_store_save_test_suites(session, test_project, monkeypatch):
     
     # テスト実行
     chain_store = ChainStore()
-    chain_store.save_chains(session, test_project.project_id, [SAMPLE_TEST_SUITE]) # session を渡すように変更
+    chain_store.save_suites(session, test_project.project_id, [SAMPLE_TEST_SUITE]) # session を渡すように変更
     
     # 検証
     # TestSuiteが作成されたことを確認

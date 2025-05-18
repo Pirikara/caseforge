@@ -43,8 +43,8 @@ def test_generate_test_suites_task_success(mock_faiss, mock_llm, monkeypatch):
     assert result["status"] == "completed"
     assert result["count"] > 0
     # ChainStore.save_chainsが呼ばれたことを確認
-    mock_store.save_chains.assert_called_once()
-    args, kwargs = mock_store.save_chains.call_args
+    mock_store.save_suites.assert_called_once()
+    args, kwargs = mock_store.save_csuites.call_args
     assert args[0] == "test_project"
     assert isinstance(args[1], list)
     assert len(args[1]) == 1
@@ -111,7 +111,7 @@ def test_generate_test_suites_task_with_error_types(mock_faiss, mock_llm, monkey
     elif "error_types" in kwargs:
         assert kwargs["error_types"] == error_types
     # ChainStore.save_chainsが呼ばれたことを確認
-    mock_store.save_chains.assert_called_once()
+    mock_store.save_suites.assert_called_once()
 
 def test_generate_test_suites_task_no_schema_files(monkeypatch):
     """スキーマファイルが存在しない場合のテスト"""
@@ -252,7 +252,7 @@ def test_generate_test_suites_for_endpoints_task_success(mock_faiss, mock_llm, m
     assert result["status"] == "success"
     assert "Successfully generated" in result["message"]
     # ChainStore.save_chainsが呼ばれたことを確認
-    mock_store.save_chains.assert_called_once()
+    mock_store.save_suites.assert_called_once()
 
 def test_generate_test_suites_for_endpoints_task_project_not_found(monkeypatch):
     """プロジェクトが存在しない場合のテスト"""
@@ -418,4 +418,4 @@ def test_generate_test_suites_for_endpoints_task_with_error_types(mock_faiss, mo
     assert args[0] == "test_project"
     assert args[3] == error_types
     # ChainStore.save_chainsが呼ばれたことを確認
-    mock_store.save_chains.assert_called_once()
+    mock_store.save_suites.assert_called_once()

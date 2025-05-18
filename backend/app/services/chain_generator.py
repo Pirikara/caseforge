@@ -449,7 +449,7 @@ class ChainStore:
         """初期化"""
         pass
     
-    def save_chains(self, session: Session, project_id: str, test_suites: List[Dict], overwrite: bool = True) -> None: # session 引数を追加
+    def save_suites(self, session: Session, project_id: str, test_suites: List[Dict], overwrite: bool = True) -> None: # session 引数を追加
         """
         生成されたテストスイートをデータベースに保存する
         
@@ -487,7 +487,7 @@ class ChainStore:
             
             # データベースに保存
             # プロジェクトの取得
-            logger.info(f"Exec save_chains Project ID: {project_id}")
+            logger.info(f"Exec save_suites Project ID: {project_id}")
             project_query = select(Project).where(Project.project_id == project_id)
             db_project = session.exec(project_query).first()
             logger.info(f"Found project with project_id (str): {project_id} and database id (int): {db_project.id}")
@@ -525,9 +525,12 @@ class ChainStore:
                 )
                 session.add(test_suite)
                 session.flush()  # IDを生成するためにflush
+
+                logger.info(f"All Test Cases: {suite_data.get('test_cases', "ないよ")}")
                 
                 # テストケースを保存
                 for case_data in suite_data.get("test_cases", []):
+                    logger.info(f"Test Case: {case_data}")
                     case_id = str(uuid.uuid4())
                     test_case = TestCase(
                         id=case_id,
@@ -539,8 +542,10 @@ class ChainStore:
                     session.add(test_case)
                     session.flush() # IDを生成するためにflush
 
+                    logger.info(f"All Test Steps: {case_data.get('test_steps', "ないよ")}")
                     # テストステップを保存
                     for i, step_data in enumerate(case_data.get("test_steps", [])):
+                        logger.info(f"Test Step: {step_data}")
                         step_id = str(uuid.uuid4())
                         test_step = TestStep(
                             id=step_id,
@@ -549,19 +554,12 @@ class ChainStore:
                             name=step_data.get("name"),
                             method=step_data.get("method"),
                             path=step_data.get("path"),
+                            request_headers=step_data.get("request_headers"),
+                            request_body=step_data.get("request_body"),
+                            request_params=step_data.get("request_params"),
+                            extract_rules=step_data.get("extract_rules"),
                             expected_status=step_data.get("expected_status")
                         )
-                        
-                        # リクエスト情報を設定
-                        request = step_data.get("request", {})
-                        test_step.request_headers = request.get("headers")
-                        test_step.request_body = request.get("body")
-                        test_step.request_params = request.get("params")
-                        
-                        # 抽出ルールを設定
-                        response = step_data.get("response", {})
-                        test_step.extract_rules = response.get("extract")
-                        
                         session.add(test_step)
                 
             session.commit()
