@@ -1,12 +1,12 @@
 from .base import TimestampModel, get_session, engine
-from .project import Project, Schema
+from .service import Service, Schema
 from .test import TestSuite, TestCase, TestStep, TestRun, TestCaseResult, StepResult
 from .endpoint import Endpoint
 
 # モデルをインポートしてSQLModelに認識させる
 __all__ = [
     "TimestampModel", "get_session", "engine",
-    "Project", "Schema",
+    "Service", "Schema",
     "TestSuite", "TestCase", "TestStep",
     "TestRun", "TestCaseResult", "StepResult",
     "Endpoint"

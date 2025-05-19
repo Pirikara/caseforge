@@ -24,11 +24,11 @@ import { fetcher } from '@/utils/fetcher'; // fetcher をインポート
 export default function TestStepDetailPage() {
   const params = useParams();
   const router = useRouter(); // useRouter を使用
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const caseId = params.case_id as string;
   const stepId = params.step_id as string;
 
-  const { testCase, isLoading: isLoadingCase, error: errorCase } = useTestCaseDetail(projectId, caseId);
+  const { testCase, isLoading: isLoadingCase, error: errorCase } = useTestCaseDetail(serviceId, caseId);
 
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false); // 削除確認ダイアログの表示状態
   const [isDeleting, setIsDeleting] = React.useState(false); // 削除処理中の状態
@@ -44,9 +44,9 @@ export default function TestStepDetailPage() {
   const handleDeleteStep = async () => {
     setIsDeleting(true);
     try {
-      await fetcher(`/api/projects/${projectId}/tests/${caseId}/steps/${stepId}`, 'DELETE');
+      await fetcher(`/api/services/${serviceId}/tests/${caseId}/steps/${stepId}`, 'DELETE');
       toast.success('テストステップが削除されました。');
-      router.push(`/projects/${projectId}/tests/${caseId}`); // 削除成功後、テストケース詳細ページにリダイレクト
+      router.push(`/services/${serviceId}/tests/${caseId}`); // 削除成功後、テストケース詳細ページにリダイレクト
     } catch (error: any) {
       toast.error('テストステップの削除に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -71,7 +71,7 @@ export default function TestStepDetailPage() {
       <div className="text-center py-8">
         <p>テストステップが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/projects/${projectId}/tests/${caseId}`}>テストケース詳細に戻る</Link>
+          <Link href={`/services/${serviceId}/tests/${caseId}`}>テストケース詳細に戻る</Link>
         </Button>
       </div>
     );
@@ -91,7 +91,7 @@ export default function TestStepDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/projects/${projectId}/tests/${caseId}`}>
+            <Link href={`/services/${serviceId}/tests/${caseId}`}>
               <ArrowLeftIcon className="h-4 w-4 mr-1" />
               テストケース詳細に戻る
             </Link>
@@ -103,7 +103,7 @@ export default function TestStepDetailPage() {
           {/* テストステップ編集・削除ボタン */}
           <div>
              <Button variant="outline" size="sm" className="mr-2" asChild> {/* asChild を追加 */}
-               <Link href={`/projects/${projectId}/tests/${caseId}/steps/${stepId}/edit`}> {/* 編集ページへのリンク */}
+               <Link href={`/services/${serviceId}/tests/${caseId}/steps/${stepId}/edit`}> {/* 編集ページへのリンク */}
                  <EditIcon className="h-4 w-4 mr-1" />編集
                </Link>
              </Button>

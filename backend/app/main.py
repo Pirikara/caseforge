@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.api import projects
+from app.api import services
 from app.logging_config import logger
 from app.config import settings
 from app.models import init_db
@@ -27,7 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(projects.router)
+app.include_router(services.router)
 
 @app.get("/health")
 def health():

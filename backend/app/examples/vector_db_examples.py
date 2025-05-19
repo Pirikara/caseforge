@@ -275,14 +275,14 @@ def example_factory_from_config():
         logger.error(f"エラーが発生しました: {e}", exc_info=True)
 
 
-def example_project_specific_usage():
-    """プロジェクト固有のベクトルDBマネージャーの使用例"""
+def example_service_specific_usage():
+    """サービス固有のベクトルDBマネージャーの使用例"""
     try:
-        logger.info("=== プロジェクト固有のベクトルDBマネージャーの使用例 ===")
+        logger.info("=== サービス固有のベクトルDBマネージャーの使用例 ===")
         
-        # プロジェクトIDを指定してベクトルDBマネージャーを作成
-        project_id = "example_project"
-        manager = VectorDBManagerFactory.create_default(project_id)
+        # サービスIDを指定してベクトルDBマネージャーを作成
+        service_id = "example_service"
+        manager = VectorDBManagerFactory.create_default(service_id)
         
         # サンプルドキュメントを作成
         documents = create_sample_documents()
@@ -314,7 +314,7 @@ async def run_all_examples():
     example_faiss_basic_usage()
     example_embedding_model_usage()
     example_factory_from_config()
-    example_project_specific_usage()
+    example_service_specific_usage()
     
     try:
         # ChromaDBの例（ChromaDBがインストールされている場合のみ実行）

@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { FileUpload } from '@/components/molecules/FileUpload';
 import { toast } from 'sonner';
 
-export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
+export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
   const [activeTab, setActiveTab] = React.useState('view');
   const [isUploading, setIsUploading] = React.useState(false);
   const [schema, setSchema] = React.useState<{ filename: string; content: string; content_type: string } | null>(null);
@@ -23,7 +23,7 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
     
     try {
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-      const response = await fetch(`${API}/api/projects/${projectId}/schema`);
+      const response = await fetch(`${API}/api/services/${serviceId}/schema`);
       
       // デバッグ情報を追加
       console.log('Schema API Response:', {
@@ -70,7 +70,7 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [serviceId]);
 
   // コンポーネントのマウント時にスキーマを取得
   React.useEffect(() => {
@@ -96,7 +96,7 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
       formData.append('file', file);
       
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-      const response = await fetch(`${API}/api/projects/${projectId}/schema`, {
+      const response = await fetch(`${API}/api/services/${serviceId}/schema`, {
         method: 'POST',
         body: formData,
       });
@@ -115,8 +115,8 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
       
       // スキーマアップロード後にエンドポイントをインポート
       try {
-        console.log('スキーマアップロード後のエンドポイントインポート開始:', projectId);
-        const importResponse = await fetch(`${API}/api/projects/${projectId}/endpoints/import`, {
+        console.log('スキーマアップロード後のエンドポイントインポート開始:', serviceId);
+        const importResponse = await fetch(`${API}/api/services/${serviceId}/endpoints/import`, {
           method: 'POST',
         });
         
@@ -166,7 +166,7 @@ export const SchemaManagementTab = ({ projectId }: { projectId: string }) => {
             <CardHeader>
               <CardTitle>OpenAPIスキーマ</CardTitle>
               <CardDescription>
-                プロジェクトのOpenAPIスキーマ情報
+                サービスのOpenAPIスキーマ情報
               </CardDescription>
             </CardHeader>
             <CardContent>

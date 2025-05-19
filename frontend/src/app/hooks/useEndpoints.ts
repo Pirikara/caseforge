@@ -15,9 +15,9 @@ export interface Endpoint {
   responses?: Record<string, any>;
 }
 
-export function useEndpoints(projectId: string) {
+export function useEndpoints(serviceId: string) {
   const { data, error, isLoading, mutate } = useSWR<Endpoint[]>(
-    `/api/projects/${projectId}/endpoints`,
+    `/api/services/${serviceId}/endpoints`,
     async (url: string) => {
       console.log('Fetching endpoints from:', `${API}${url}`);
       const response = await fetch(`${API}${url}`);

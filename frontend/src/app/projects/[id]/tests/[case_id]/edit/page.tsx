@@ -40,10 +40,10 @@ type FormValues = z.infer<typeof formSchema>;
 export default function EditTestCasePage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const caseId = params.case_id as string;
 
-  const { testCase, isLoading, error } = useTestCaseDetail(projectId, caseId);
+  const { testCase, isLoading, error } = useTestCaseDetail(serviceId, caseId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -92,9 +92,9 @@ export default function EditTestCasePage() {
         request_body: values.request_body ? JSON.parse(values.request_body) : null,
         expected_response: values.expected_response ? JSON.parse(values.expected_response) : null,
       };
-      await fetcher(`/api/projects/${projectId}/tests/${caseId}`, 'PUT', payload);
+      await fetcher(`/api/services/${serviceId}/tests/${caseId}`, 'PUT', payload);
       toast.success('テストケースが更新されました。');
-      router.push(`/projects/${projectId}/tests/${caseId}`);
+      router.push(`/services/${serviceId}/tests/${caseId}`);
     } catch (error: any) {
       toast.error('テストケースの更新に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -115,7 +115,7 @@ export default function EditTestCasePage() {
       <div className="text-center py-8">
         <p>テストケースが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/projects/${projectId}/tests`}>テストケース一覧に戻る</Link>
+          <Link href={`/services/${serviceId}/tests`}>テストケース一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -126,7 +126,7 @@ export default function EditTestCasePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${projectId}/tests/${caseId}`}>
+          <Link href={`/services/${serviceId}/tests/${caseId}`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             テストケース詳細に戻る
           </Link>

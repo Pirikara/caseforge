@@ -6,64 +6,64 @@ from datetime import datetime
 
 client = TestClient(app)
 
-def test_list_projects():
-    with patch("app.services.schema.list_projects", new_callable=AsyncMock) as mock_list_projects:
-        mock_list_projects.return_value = [
-            {"id": "test1", "name": "Test Project 1"},
-            {"id": "test2", "name": "Test Project 2"}
+def test_list_services():
+    with patch("app.services.schema.list_services", new_callable=AsyncMock) as mock_list_services:
+        mock_list_services.return_value = [
+            {"id": "test1", "name": "Test Service 1"},
+            {"id": "test2", "name": "Test Service 2"}
         ]
         
-        response = client.get("/api/projects/")
+        response = client.get("/api/services/")
         
         assert response.status_code == 200
         assert len(response.json()) == 2
         assert response.json()[0]["id"] == "test1"
-        assert response.json()[1]["name"] == "Test Project 2"
+        assert response.json()[1]["name"] == "Test Service 2"
 
-def test_create_project():
+def test_create_service():
     with patch("os.makedirs") as mock_makedirs, \
          patch("os.path.exists") as mock_exists, \
-         patch("app.services.schema.create_project", new_callable=AsyncMock) as mock_db_create_project:
+         patch("app.services.schema.create_service", new_callable=AsyncMock) as mock_db_create_service:
         mock_exists.return_value = False
-        mock_db_create_project.return_value = {"status": "created", "project_id": "new_project", "name": "New Project"}
+        mock_db_create_service.return_value = {"status": "created", "service_id": "new_service", "name": "New Service"}
 
         response = client.post(
-            "/api/projects/",
-            json={"project_id": "new_project", "name": "New Project"}
+            "/api/services/",
+            json={"service_id": "new_service", "name": "New Service"}
         )
 
         assert response.status_code == 200
         assert response.json()["status"] == "created"
-        assert response.json()["project_id"] == "new_project"
+        assert response.json()["service_id"] == "new_service"
 
-        mock_db_create_project.assert_called_once_with(
-            project_id="new_project",
-            name="New Project",
+        mock_db_create_service.assert_called_once_with(
+            service_id="new_service",
+            name="New Service",
             description=None
         )
 
 def test_upload_schema():
-    with patch("app.api.projects.save_and_index_schema") as mock_save:
+    with patch("app.api.services.save_and_index_schema") as mock_save:
         mock_save.return_value = {"message": "Schema uploaded and indexed successfully."}
         
         files = {"file": ("test.json", '{"openapi": "3.0.0"}', "application/json")}
-        response = client.post("/api/projects/test_project/schema", files=files)
+        response = client.post("/api/services/test_service/schema", files=files)
         
         assert response.status_code == 200
         assert response.json()["message"] == "Schema uploaded and indexed successfully."
 
 def test_generate_tests():
-    with patch("app.api.projects.generate_test_suites_task") as mock_task:
+    with patch("app.api.services.generate_test_suites_task") as mock_task:
         mock_task.delay.return_value = MagicMock(id="task-123")
         
-        response = client.post("/api/projects/test_project/generate-tests")
+        response = client.post("/api/services/test_service/generate-tests")
         
         assert response.status_code == 200
         assert response.json()["message"] == "Test suite generation (full_schema) started"
         assert response.json()["task_id"] == "task-123"
 
 def test_list_test_suites():
-    with patch("app.api.projects.ChainStore") as mock_store:
+    with patch("app.api.services.ChainStore") as mock_store:
         mock_store_instance = MagicMock()
         mock_store_instance.list_test_suites.return_value = [
             {"id": "suite-1", "name": "TestSuite 1", "test_cases_count": 2},
@@ -71,7 +71,7 @@ def test_list_test_suites():
         ]
         mock_store.return_value = mock_store_instance
         
-        response = client.get("/api/projects/test_project/test-suites")
+        response = client.get("/api/services/test_service/test-suites")
         
         assert response.status_code == 200
         assert len(response.json()) == 2
@@ -80,7 +80,7 @@ def test_list_test_suites():
         assert response.json()[0]["test_cases_count"] == 2
 
 def test_get_test_suite_detail():
-    with patch("app.api.projects.ChainStore") as mock_store:
+    with patch("app.api.services.ChainStore") as mock_store:
         mock_store_instance = MagicMock()
         mock_store_instance.get_test_suite.return_value = {
             "id": "suite-1",
@@ -98,7 +98,7 @@ def test_get_test_suite_detail():
         }
         mock_store.return_value = mock_store_instance
         
-        response = client.get("/api/projects/test_project/test-suites/suite-1")
+        response = client.get("/api/services/test_service/test-suites/suite-1")
         
         assert response.status_code == 200
         assert response.json()["id"] == "suite-1"
@@ -112,14 +112,14 @@ def test_run_test_suites():
             "task_id": "mock-task-id"
         }
         
-        response = client.post("/api/projects/test_project/run-test-suites")
+        response = client.post("/api/services/test_service/run-test-suites")
         
         assert response.status_code == 200
         assert response.json()["status"] == "completed"
         assert "task_id" in response.json()
 
 def test_get_test_run_history():
-    with patch("app.api.projects.list_test_runs") as mock_list:
+    with patch("app.api.services.list_test_runs") as mock_list:
         mock_list.return_value = [
             {
                 "id": str(uuid.uuid4()),
@@ -147,7 +147,7 @@ def test_get_test_run_history():
             }
         ]
         
-        response = client.get("/api/projects/test_project/runs")
+        response = client.get("/api/services/test_service/runs")
         
         assert response.status_code == 200
         assert len(response.json()) == 2
@@ -155,7 +155,7 @@ def test_get_test_run_history():
         assert response.json()[1]["status"] == "failed"
 
 def test_get_test_run_detail():
-    with patch("app.api.projects.get_test_run") as mock_get:
+    with patch("app.api.services.get_test_run") as mock_get:
         mock_get.return_value = {
             "id": "run-1-id",
             "run_id": "run-1",
@@ -199,7 +199,7 @@ def test_get_test_run_detail():
             ]
         }
         
-        response = client.get("/api/projects/test_project/runs/run-1")
+        response = client.get("/api/services/test_service/runs/run-1")
         
         assert response.status_code == 200
         assert response.json()["run_id"] == "run-1"

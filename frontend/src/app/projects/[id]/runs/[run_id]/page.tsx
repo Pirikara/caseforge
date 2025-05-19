@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useProjects } from '@/hooks/useProjects';
+import { useServices } from '@/hooks/useServices';
 import { useTestRuns } from '@/hooks/useTestRuns';
 import { TestCaseResult, StepResult, TestCase } from '@/hooks/useTestRuns'; // StepResult, TestCase を追加
 import { useTestCases } from '@/hooks/useTestCases';
@@ -55,12 +55,12 @@ const TestRunChart = dynamic(
 export default function TestRunDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const runId = params.run_id as string;
   
-  const { projects } = useProjects();
-  const { testRuns, isLoading: isLoadingRuns } = useTestRuns(projectId);
-  const { testCases, isLoading: isLoadingTestCases } = useTestCases(projectId);
+  const { services } = useServices();
+  const { testRuns, isLoading: isLoadingRuns } = useTestRuns(serviceId);
+  const { testCases, isLoading: isLoadingTestCases } = useTestCases(serviceId);
   
   const testRun = React.useMemo(() => {
     if (!testRuns) return null;
@@ -69,14 +69,14 @@ export default function TestRunDetailPage() {
 
   // テストチェーンの詳細を取得
   const chainId = testRun?.suite_id; // chain_id を suite_id に変更
-  const { testSuite, isLoading: isLoadingSuite } = useTestSuiteDetail(projectId, chainId ?? null); // chainId を chainId ?? null に変更, testChain を testSuite に変更, useTestChain を useTestSuiteDetail に変更
+  const { testSuite, isLoading: isLoadingSuite } = useTestSuiteDetail(serviceId, chainId ?? null); // chainId を chainId ?? null に変更, testChain を testSuite に変更, useTestChain を useTestSuiteDetail に変更
 
   const [searchQuery, setSearchQuery] = React.useState('');
   
-  const project = React.useMemo(() => {
-    if (!projects) return null;
-    return projects.find(p => p.id === projectId);
-  }, [projects, projectId]);
+  const service = React.useMemo(() => {
+    if (!services) return null;
+    return services.find(p => p.id === serviceId);
+  }, [services, serviceId]);
   
   // 検索フィルタリング
   const filteredResults = React.useMemo(() => {
@@ -116,12 +116,12 @@ export default function TestRunDetailPage() {
     return <div className="text-center py-8">読み込み中...</div>;
   }
   
-  if (!project || !testRun) {
+  if (!service || !testRun) {
     return (
       <div className="text-center py-8">
         <p>テスト実行が見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/projects/${projectId}/runs`}>テスト実行一覧に戻る</Link>
+          <Link href={`/services/${serviceId}/runs`}>テスト実行一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -140,7 +140,7 @@ export default function TestRunDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${projectId}/runs`}>
+          <Link href={`/services/${serviceId}/runs`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             テスト実行一覧に戻る
           </Link>
@@ -177,8 +177,8 @@ export default function TestRunDetailPage() {
           <CardContent>
             <dl className="space-y-4">
               <div className="flex justify-between">
-                <dt className="font-medium">プロジェクト</dt>
-                <dd className="text-muted-foreground">{project.name}</dd>
+                <dt className="font-medium">サービス</dt>
+                <dd className="text-muted-foreground">{service.name}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="font-medium">実行ID</dt>

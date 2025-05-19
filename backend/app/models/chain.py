@@ -2,21 +2,21 @@ from sqlmodel import Field, Relationship
 from sqlalchemy import Column
 from typing import Optional, List, Dict, Any
 from .base import TimestampModel
-from .project import Project
+from .service import Service
 from app.models.json_encode_dict import JSONEncodedDict 
 
 class TestSuite(TimestampModel, table=True):
     __tablename__ = "testsuite"
     """テストスイートモデル（APIエンドポイント単位のテスト群）"""
     id: str = Field(index=True, primary_key=True) # Optional[int] から str に変更し、index=True を追加
-    project_id: int = Field(foreign_key="project.id") 
+    service_id: int = Field(foreign_key="service.id") 
     target_method: str
     target_path: str
     name: str
     description: Optional[str] = None
     
     # リレーションシップ
-    project: Project = Relationship(back_populates="test_suites")
+    service: Service = Relationship(back_populates="test_suites")
     test_cases: List["TestCase"] = Relationship(back_populates="test_suite", sa_relationship_kwargs={"cascade": "delete, all"})
     test_runs: List["TestRun"] = Relationship(back_populates="test_suite", sa_relationship_kwargs={"cascade": "delete, all"})
 

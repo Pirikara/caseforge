@@ -9,7 +9,7 @@ import os
 import yaml
 import logging
 from app.config import settings
-from app.models import Endpoint, Project
+from app.models import Endpoint, Service
 from sqlmodel import select, Session
 from app.models import engine
 from typing import List, Dict, Optional
@@ -17,30 +17,30 @@ from typing import List, Dict, Optional
 logger = logging.getLogger(__name__)
 
 @celery_app.task
-def generate_test_suites_task(project_id: str, error_types: Optional[List[str]] = None):
+def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] = None):
     """
     OpenAPIスキーマから依存関係を考慮したテストスイートを生成するCeleryタスク
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         
     Returns:
         dict: 生成結果の情報
     """
-    logger.info(f"Generating test suites for project {project_id}")
+    logger.info(f"Generating test suites for service {service_id}")
     
     try:
         # スキーマファイルの取得
-        schema_path = f"{settings.SCHEMA_DIR}/{project_id}"
+        schema_path = f"{settings.SCHEMA_DIR}/{service_id}"
         schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
         
         if not schema_files:
-            logger.error(f"No schema files found for project {project_id}")
+            logger.error(f"No schema files found for service {service_id}")
             return {"status": "error", "message": "No schema files found"}
         
         # 最初のスキーマファイルを使用
         schema_file = schema_files[0]
-        schema_content = get_schema_content(project_id, schema_file)
+        schema_content = get_schema_content(service_id, schema_file)
         
         # スキーマのパース
         if schema_file.endswith('.json'):
@@ -49,7 +49,7 @@ def generate_test_suites_task(project_id: str, error_types: Optional[List[str]] 
             schema = yaml.safe_load(schema_content)
         
         # 依存関係を考慮したRAGの初期化
-        rag = DependencyAwareRAG(project_id, schema, error_types)
+        rag = DependencyAwareRAG(service_id, schema, error_types)
         
         # テストスイートの生成
         test_suites = rag.generate_request_chains()
@@ -57,7 +57,7 @@ def generate_test_suites_task(project_id: str, error_types: Optional[List[str]] 
         
         # テストスイートの保存
         chain_store = ChainStore()
-        chain_store.save_suites(project_id, test_suites)
+        chain_store.save_suites(service_id, test_suites)
         
         return {"status": "completed", "count": len(test_suites)}
         
@@ -81,68 +81,68 @@ def deprecated(func):
 # 既存のテストケース生成タスク（廃止予定）
 @celery_app.task
 @deprecated
-def generate_tests_task(project_id: str):
+def generate_tests_task(service_id: str):
     """
     OpenAPIスキーマからテストケースを生成するCeleryタスク（廃止予定）
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         
     Returns:
         dict: 生成結果の情報
     """
-    logger.info(f"Generating tests for project {project_id} (DEPRECATED)")
+    logger.info(f"Generating tests for service {service_id} (DEPRECATED)")
     logger.warning("This function is deprecated. Use generate_test_suites_task instead.")
     
-    return generate_test_suites_task(project_id, None)
+    return generate_test_suites_task(service_id, None)
 
 @celery_app.task
-def generate_test_suites_for_endpoints_task(project_id: str, endpoint_ids: List[str], error_types: Optional[List[str]] = None) -> Dict:
+def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[str], error_types: Optional[List[str]] = None) -> Dict:
     """
     選択したエンドポイントからテストスイートを生成するタスク
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         endpoint_ids: 選択したエンドポイントIDのリスト
         
     Returns:
         生成結果
     """
-    logger.info(f"Starting test suite generation for selected endpoints in project {project_id}")
+    logger.info(f"Starting test suite generation for selected endpoints in service {service_id}")
     try:
         with Session(engine) as session:
-            project_query = select(Project).where(Project.project_id == project_id)
-            db_project = session.exec(project_query).first()
+            service_query = select(Service).where(Service.service_id == service_id)
+            db_service = session.exec(service_query).first()
             
-            if not db_project:
-                logger.error(f"Project not found: {project_id}")
-                return {"status": "error", "message": "Project not found"}
+            if not db_service:
+                logger.error(f"Service not found: {service_id}")
+                return {"status": "error", "message": "Service not found"}
             
-            # 取得したプロジェクトのIDをログ出力 (デバッグ用)
-            logger.info(f"Found project with project_id (str): {project_id} and database id (int): {db_project.id}")
+            # 取得したサービスのIDをログ出力 (デバッグ用)
+            logger.info(f"Found service with service_id (str): {service_id} and database id (int): {db_service.id}")
 
             # 選択されたエンドポイントの取得
             endpoints_query = select(Endpoint).where(
-                Endpoint.project_id == db_project.id,
+                Endpoint.service_id == db_service.id,
                 Endpoint.endpoint_id.in_(endpoint_ids)
             )
             selected_endpoints = session.exec(endpoints_query).all()
 
             if not selected_endpoints:
-                logger.error(f"No valid endpoints selected for project {project_id}")
+                logger.error(f"No valid endpoints selected for service {service_id}")
                 return {"status": "error", "message": "No valid endpoints selected"}
 
             # スキーマファイルの取得
-            schema_path = f"{settings.SCHEMA_DIR}/{project_id}"
+            schema_path = f"{settings.SCHEMA_DIR}/{service_id}"
             schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
             
             if not schema_files:
-                logger.error(f"No schema files found for project {project_id}")
+                logger.error(f"No schema files found for service {service_id}")
                 return {"status": "error", "message": "No schema files found"}
             
             # 最初のスキーマファイルを使用
             schema_file = schema_files[0]
-            schema_content = get_schema_content(project_id, schema_file)
+            schema_content = get_schema_content(service_id, schema_file)
             
             # スキーマのパース
             if schema_file.endswith('.json'):
@@ -155,7 +155,7 @@ def generate_test_suites_for_endpoints_task(project_id: str, endpoint_ids: List[
             all_generated_suites = [] # all_generated_chains を all_generated_suites に変更
             
             logger.info(f"Generating test suites for {len(selected_endpoints)} selected endpoints")
-            generator = EndpointChainGenerator(project_id, selected_endpoints, schema, error_types)
+            generator = EndpointChainGenerator(service_id, selected_endpoints, schema, error_types)
             
             generated_suites = generator.generate_chains()
             logger.info(f"Generated {len(generated_suites)} test suites for {len(selected_endpoints)} endpoints")
@@ -169,9 +169,9 @@ def generate_test_suites_for_endpoints_task(project_id: str, endpoint_ids: List[
                         logger.info(f"    First TestStep: {first_step.get('method')} {first_step.get('path')}")
 
             if generated_suites:
-                logger.info(f"Saving {len(generated_suites)} test suites to the database. Project ID: {project_id}")
+                logger.info(f"Saving {len(generated_suites)} test suites to the database. Service ID: {service_id}")
                 chain_store = ChainStore()
-                chain_store.save_suites(session, project_id, generated_suites, overwrite=False)
+                chain_store.save_suites(session, service_id, generated_suites, overwrite=False)
                 generated_suites_count = len(generated_suites)
                 logger.info(f"Successfully generated and saved {generated_suites_count} test suites")
 
@@ -181,7 +181,7 @@ def generate_test_suites_for_endpoints_task(project_id: str, endpoint_ids: List[
         return {"status": "success", "message": f"Successfully generated and saved {generated_suites_count} test suites."}
 
     except Exception as e:
-        logger.error(f"Error generating test suites for project {project_id}: {e}", exc_info=True)
+        logger.error(f"Error generating test suites for service {service_id}: {e}", exc_info=True)
         try:
             session.rollback()
             logger.info("Session rolled back successfully due to task error")

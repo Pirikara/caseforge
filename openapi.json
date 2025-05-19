@@ -5,22 +5,22 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/api/projects/{project_id}/schema": {
+    "/api/services/{service_id}/schema": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Schema",
-        "description": "プロジェクトのスキーマを取得する\n\nArgs:\n    project_id: プロジェクトID\n    project_path: プロジェクトのパス\n    \nReturns:\n    スキーマの内容",
-        "operationId": "get_schema_api_projects__project_id__schema_get",
+        "description": "サービスのスキーマを取得する\n\nArgs:\n    service_id: サービスID\n    service_path: サービスのパス\n    \nReturns:\n    スキーマの内容",
+        "operationId": "get_schema_api_services__service_id__schema_get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -49,18 +49,18 @@
       },
       "post": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Upload Schema",
-        "operationId": "upload_schema_api_projects__project_id__schema_post",
+        "operationId": "upload_schema_api_services__service_id__schema_post",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -69,7 +69,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_upload_schema_api_projects__project_id__schema_post"
+                "$ref": "#/components/schemas/Body_upload_schema_api_services__service_id__schema_post"
               }
             }
           }
@@ -98,22 +98,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/generate-tests": {
+    "/api/services/{service_id}/generate-tests": {
       "post": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Generate Tests",
-        "description": "プロジェクトのテストスイートを生成するAPIエンドポイント。\nエンドポイントIDのリストが指定された場合は、それらのエンドポイントごとにテストスイートを生成します。\n指定されない場合は、スキーマ全体から依存関係を考慮したテストスイートを生成します。\n\nArgs:\n    project_id: プロジェクトID\n    project_path: プロジェクトのパス (Depends)\n    schema_files: スキーマファイルのリスト (Depends)\n    endpoint_ids: 生成対象のエンドポイントIDのリスト (Optional)\n    \nReturns:\n    dict: 生成タスクの情報",
-        "operationId": "generate_tests_api_projects__project_id__generate_tests_post",
+        "description": "サービスのテストスイートを生成するAPIエンドポイント。\nエンドポイントIDのリストが指定された場合は、それらのエンドポイントごとにテストスイートを生成します。\n指定されない場合は、スキーマ全体から依存関係を考慮したテストスイートを生成します。\n\nArgs:\n    service_id: サービスID\n    service_path: サービスのパス (Depends)\n    schema_files: スキーマファイルのリスト (Depends)\n    endpoint_ids: 生成対象のエンドポイントIDのリスト (Optional)\n    \nReturns:\n    dict: 生成タスクの情報",
+        "operationId": "generate_tests_api_services__service_id__generate_tests_post",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -121,7 +121,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_generate_tests_api_projects__project_id__generate_tests_post"
+                "$ref": "#/components/schemas/Body_generate_tests_api_services__service_id__generate_tests_post"
               }
             }
           }
@@ -150,21 +150,21 @@
         }
       }
     },
-    "/api/projects/{project_id}/test-suites": {
+    "/api/services/{service_id}/test-suites": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Test Suites",
-        "operationId": "get_test_suites_api_projects__project_id__test_suites_get",
+        "operationId": "get_test_suites_api_services__service_id__test_suites_get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -178,7 +178,7 @@
                   "items": {
                     "$ref": "#/components/schemas/TestSuite"
                   },
-                  "title": "Response Get Test Suites Api Projects  Project Id  Test Suites Get"
+                  "title": "Response Get Test Suites Api Services  Service Id  Test Suites Get"
                 }
               }
             }
@@ -196,21 +196,21 @@
         }
       }
     },
-    "/api/projects/{project_id}/test-suites/{suite_id}": {
+    "/api/services/{service_id}/test-suites/{suite_id}": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Test Suite Detail",
-        "operationId": "get_test_suite_detail_api_projects__project_id__test_suites__suite_id__get",
+        "operationId": "get_test_suite_detail_api_services__service_id__test_suites__suite_id__get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -248,19 +248,19 @@
       },
       "delete": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Delete Test Suite",
         "description": "テストスイートを削除するAPIエンドポイント",
-        "operationId": "delete_test_suite_api_projects__project_id__test_suites__suite_id__delete",
+        "operationId": "delete_test_suite_api_services__service_id__test_suites__suite_id__delete",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -297,22 +297,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/test-cases": {
+    "/api/services/{service_id}/test-cases": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Test Cases",
-        "description": "プロジェクトのテストケース一覧を取得する\n\nArgs:\n    project_id: プロジェクトID\n    project_path: プロジェクトのパス\n    \nReturns:\n    テストケースのリスト",
-        "operationId": "get_test_cases_api_projects__project_id__test_cases_get",
+        "description": "サービスのテストケース一覧を取得する\n\nArgs:\n    service_id: サービスID\n    service_path: サービスのパス\n    \nReturns:\n    テストケースのリスト",
+        "operationId": "get_test_cases_api_services__service_id__test_cases_get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -340,21 +340,21 @@
         }
       }
     },
-    "/api/projects/{project_id}/run-test-suites": {
+    "/api/services/{service_id}/run-test-suites": {
       "post": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Run Test Suites Endpoint",
-        "operationId": "run_test_suites_endpoint_api_projects__project_id__run_test_suites_post",
+        "operationId": "run_test_suites_endpoint_api_services__service_id__run_test_suites_post",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -391,21 +391,21 @@
         }
       }
     },
-    "/api/projects/{project_id}/runs": {
+    "/api/services/{service_id}/runs": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Run History",
-        "operationId": "get_run_history_api_projects__project_id__runs_get",
+        "operationId": "get_run_history_api_services__service_id__runs_get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -429,7 +429,7 @@
                   "items": {
                     "$ref": "#/components/schemas/TestRunSummary"
                   },
-                  "title": "Response Get Run History Api Projects  Project Id  Runs Get"
+                  "title": "Response Get Run History Api Services  Service Id  Runs Get"
                 }
               }
             }
@@ -447,21 +447,21 @@
         }
       }
     },
-    "/api/projects/{project_id}/runs/{run_id}": {
+    "/api/services/{service_id}/runs/{run_id}": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Run Detail",
-        "operationId": "get_run_detail_api_projects__project_id__runs__run_id__get",
+        "operationId": "get_run_detail_api_services__service_id__runs__run_id__get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -498,14 +498,14 @@
         }
       }
     },
-    "/api/projects/recent-runs": {
+    "/api/services/recent-runs": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Recent Test Runs",
-        "description": "全プロジェクトの最近のテスト実行を取得する\n\nArgs:\n    limit: 取得する実行数の上限\n    \nReturns:\n    最近のテスト実行と統計情報",
-        "operationId": "get_recent_test_runs_api_projects_recent_runs_get",
+        "description": "全サービスの最近のテスト実行を取得する\n\nArgs:\n    limit: 取得する実行数の上限\n    \nReturns:\n    最近のテスト実行と統計情報",
+        "operationId": "get_recent_test_runs_api_services_recent_runs_get",
         "parameters": [
           {
             "name": "limit",
@@ -542,13 +542,13 @@
         }
       }
     },
-    "/api/projects/": {
+    "/api/services/": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
-        "summary": "List Projects",
-        "operationId": "list_projects_api_projects__get",
+        "summary": "List Services",
+        "operationId": "list_services_api_services__get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -564,15 +564,15 @@
       },
       "post": {
         "tags": [
-          "projects"
+          "services"
         ],
-        "summary": "Create Project",
-        "operationId": "create_project_api_projects__post",
+        "summary": "Create Service",
+        "operationId": "create_service_api_services__post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProjectCreate"
+                "$ref": "#/components/schemas/ServiceCreate"
               }
             }
           },
@@ -602,22 +602,22 @@
         }
       }
     },
-    "/api/projects/{project_id}": {
+    "/api/services/{service_id}": {
       "put": {
         "tags": [
-          "projects"
+          "services"
         ],
-        "summary": "Update Project",
-        "description": "プロジェクトを更新するAPIエンドポイント",
-        "operationId": "update_project_api_projects__project_id__put",
+        "summary": "Update Service",
+        "description": "サービスを更新するAPIエンドポイント",
+        "operationId": "update_service_api_services__service_id__put",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -628,7 +628,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": true,
-                "title": "Updated Project Data"
+                "title": "Updated Service Data"
               }
             }
           }
@@ -658,19 +658,19 @@
       },
       "delete": {
         "tags": [
-          "projects"
+          "services"
         ],
-        "summary": "Delete Project",
-        "description": "プロジェクトを削除するAPIエンドポイント",
-        "operationId": "delete_project_api_projects__project_id__delete",
+        "summary": "Delete Service",
+        "description": "サービスを削除するAPIエンドポイント",
+        "operationId": "delete_service_api_services__service_id__delete",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -698,22 +698,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/endpoints/import": {
+    "/api/services/{service_id}/endpoints/import": {
       "post": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Import Endpoints",
-        "description": "スキーマからエンドポイントを抽出してDBに一括登録する\n\nArgs:\n    project_id: プロジェクトID\n    project_path: プロジェクトのパス",
-        "operationId": "import_endpoints_api_projects__project_id__endpoints_import_post",
+        "description": "スキーマからエンドポイントを抽出してDBに一括登録する\n\nArgs:\n    service_id: サービスID\n    service_path: サービスのパス",
+        "operationId": "import_endpoints_api_services__service_id__endpoints_import_post",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -741,22 +741,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/endpoints": {
+    "/api/services/{service_id}/endpoints": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "List Endpoints",
-        "description": "プロジェクトのエンドポイント一覧を取得する\n\nArgs:\n    project_id: プロジェクトID\n    project_path: プロジェクトのパス\n    \nReturns:\n    エンドポイントのリスト",
-        "operationId": "list_endpoints_api_projects__project_id__endpoints_get",
+        "description": "サービスのエンドポイント一覧を取得する\n\nArgs:\n    service_id: サービスID\n    service_path: サービスのパス\n    \nReturns:\n    エンドポイントのリスト",
+        "operationId": "list_endpoints_api_services__service_id__endpoints_get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -784,22 +784,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/endpoints/generate-suite": {
+    "/api/services/{service_id}/endpoints/generate-suite": {
       "post": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Generate Test Suite For Endpoints",
         "description": "指定されたエンドポイントIDに基づいてテストスイートを生成するAPIエンドポイント。",
-        "operationId": "generate_test_suite_for_endpoints_api_projects__project_id__endpoints_generate_suite_post",
+        "operationId": "generate_test_suite_for_endpoints_api_services__service_id__endpoints_generate_suite_post",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           }
         ],
@@ -842,22 +842,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/test-suites/{suite_id}/test-cases": {
+    "/api/services/{service_id}/test-suites/{suite_id}/test-cases": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "List Test Cases For Suite",
         "description": "特定のテストスイートに紐づくテストケース一覧を取得するAPIエンドポイント",
-        "operationId": "list_test_cases_for_suite_api_projects__project_id__test_suites__suite_id__test_cases_get",
+        "operationId": "list_test_cases_for_suite_api_services__service_id__test_suites__suite_id__test_cases_get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -880,7 +880,7 @@
                   "items": {
                     "$ref": "#/components/schemas/app__models__test__case__TestCase"
                   },
-                  "title": "Response List Test Cases For Suite Api Projects  Project Id  Test Suites  Suite Id  Test Cases Get"
+                  "title": "Response List Test Cases For Suite Api Services  Service Id  Test Suites  Suite Id  Test Cases Get"
                 }
               }
             }
@@ -899,19 +899,19 @@
       },
       "post": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Create Test Case",
         "description": "特定のテストスイートに新しいテストケースを作成するAPIエンドポイント",
-        "operationId": "create_test_case_api_projects__project_id__test_suites__suite_id__test_cases_post",
+        "operationId": "create_test_case_api_services__service_id__test_suites__suite_id__test_cases_post",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -960,22 +960,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/test-cases/{case_id}": {
+    "/api/services/{service_id}/test-cases/{case_id}": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Test Case Detail",
         "description": "特定のテストケースの詳細を取得するAPIエンドポイント",
-        "operationId": "get_test_case_detail_api_projects__project_id__test_cases__case_id__get",
+        "operationId": "get_test_case_detail_api_services__service_id__test_cases__case_id__get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -1013,19 +1013,19 @@
       },
       "put": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Update Test Case",
         "description": "特定のテストケースを更新するAPIエンドポイント",
-        "operationId": "update_test_case_api_projects__project_id__test_cases__case_id__put",
+        "operationId": "update_test_case_api_services__service_id__test_cases__case_id__put",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -1075,19 +1075,19 @@
       },
       "delete": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Delete Test Case",
         "description": "特定のテストケースを削除するAPIエンドポイント",
-        "operationId": "delete_test_case_api_projects__project_id__test_cases__case_id__delete",
+        "operationId": "delete_test_case_api_services__service_id__test_cases__case_id__delete",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -1124,22 +1124,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/test-cases/{case_id}/test-steps": {
+    "/api/services/{service_id}/test-cases/{case_id}/test-steps": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "List Test Steps For Case",
         "description": "特定のテストケースに紐づくテストステップ一覧を取得するAPIエンドポイント",
-        "operationId": "list_test_steps_for_case_api_projects__project_id__test_cases__case_id__test_steps_get",
+        "operationId": "list_test_steps_for_case_api_services__service_id__test_cases__case_id__test_steps_get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -1162,7 +1162,7 @@
                   "items": {
                     "$ref": "#/components/schemas/TestStep"
                   },
-                  "title": "Response List Test Steps For Case Api Projects  Project Id  Test Cases  Case Id  Test Steps Get"
+                  "title": "Response List Test Steps For Case Api Services  Service Id  Test Cases  Case Id  Test Steps Get"
                 }
               }
             }
@@ -1181,19 +1181,19 @@
       },
       "post": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Create Test Step",
         "description": "特定のテストケースに新しいテストステップを作成するAPIエンドポイント",
-        "operationId": "create_test_step_api_projects__project_id__test_cases__case_id__test_steps_post",
+        "operationId": "create_test_step_api_services__service_id__test_cases__case_id__test_steps_post",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -1242,22 +1242,22 @@
         }
       }
     },
-    "/api/projects/{project_id}/test-steps/{step_id}": {
+    "/api/services/{service_id}/test-steps/{step_id}": {
       "get": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Get Test Step Detail",
         "description": "特定のテストステップの詳細を取得するAPIエンドポイント",
-        "operationId": "get_test_step_detail_api_projects__project_id__test_steps__step_id__get",
+        "operationId": "get_test_step_detail_api_services__service_id__test_steps__step_id__get",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -1295,19 +1295,19 @@
       },
       "put": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Update Test Step",
         "description": "特定のテストステップを更新するAPIエンドポイント",
-        "operationId": "update_test_step_api_projects__project_id__test_steps__step_id__put",
+        "operationId": "update_test_step_api_services__service_id__test_steps__step_id__put",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -1357,19 +1357,19 @@
       },
       "delete": {
         "tags": [
-          "projects"
+          "services"
         ],
         "summary": "Delete Test Step",
         "description": "特定のテストステップを削除するAPIエンドポイント",
-        "operationId": "delete_test_step_api_projects__project_id__test_steps__step_id__delete",
+        "operationId": "delete_test_step_api_services__service_id__test_steps__step_id__delete",
         "parameters": [
           {
-            "name": "project_id",
+            "name": "service_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Project Id"
+              "title": "Service Id"
             }
           },
           {
@@ -1427,7 +1427,7 @@
   },
   "components": {
     "schemas": {
-      "Body_generate_tests_api_projects__project_id__generate_tests_post": {
+      "Body_generate_tests_api_services__service_id__generate_tests_post": {
         "properties": {
           "endpoint_ids": {
             "anyOf": [
@@ -1461,9 +1461,9 @@
           }
         },
         "type": "object",
-        "title": "Body_generate_tests_api_projects__project_id__generate_tests_post"
+        "title": "Body_generate_tests_api_services__service_id__generate_tests_post"
       },
-      "Body_upload_schema_api_projects__project_id__schema_post": {
+      "Body_upload_schema_api_services__service_id__schema_post": {
         "properties": {
           "file": {
             "type": "string",
@@ -1475,7 +1475,7 @@
         "required": [
           "file"
         ],
-        "title": "Body_upload_schema_api_projects__project_id__schema_post"
+        "title": "Body_upload_schema_api_services__service_id__schema_post"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1503,7 +1503,7 @@
         ],
         "title": "Message"
       },
-      "ProjectCreate": {
+      "ServiceCreate": {
         "properties": {
           "name": {
             "type": "string",
@@ -1531,17 +1531,17 @@
             ],
             "title": "Base Url"
           },
-          "project_id": {
+          "service_id": {
             "type": "string",
-            "title": "Project Id"
+            "title": "Service Id"
           }
         },
         "type": "object",
         "required": [
           "name",
-          "project_id"
+          "service_id"
         ],
-        "title": "ProjectCreate"
+        "title": "ServiceCreate"
       },
       "RecentTestRunsResponse": {
         "properties": {
@@ -2128,9 +2128,9 @@
             "type": "string",
             "title": "Id"
           },
-          "project_id": {
+          "service_id": {
             "type": "string",
-            "title": "Project Id"
+            "title": "Service Id"
           },
           "created_at": {
             "type": "string",
@@ -2152,7 +2152,7 @@
           "target_path",
           "name",
           "id",
-          "project_id",
+          "service_id",
           "created_at"
         ],
         "title": "TestSuite"
@@ -2186,9 +2186,9 @@
             "type": "string",
             "title": "Id"
           },
-          "project_id": {
+          "service_id": {
             "type": "string",
-            "title": "Project Id"
+            "title": "Service Id"
           },
           "created_at": {
             "type": "string",
@@ -2210,7 +2210,7 @@
           "target_path",
           "name",
           "id",
-          "project_id",
+          "service_id",
           "created_at"
         ],
         "title": "TestSuiteWithCasesAndSteps"

@@ -7,8 +7,8 @@ import { Button } from '../ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
-// プロジェクトの型定義
-interface Project {
+// サービスの型定義
+interface Service {
   id: string;
   name: string;
   description?: string;
@@ -18,14 +18,14 @@ interface Project {
 // テスト実行の型定義
 interface TestRun {
   run_id: string;
-  project_id: string;
-  project_name?: string;
+  service_id: string;
+  service_name?: string;
   status: 'running' | 'completed' | 'failed';
   start_time: string;
   end_time?: string;
 }
 
-import { useProjects } from '@/hooks/useProjects';
+import { useServices } from '@/hooks/useServices';
 
 // 最近のテスト実行を取得するためのカスタムフック
 function useRecentTestRuns() {
@@ -38,7 +38,7 @@ function useRecentTestRuns() {
       try {
         setIsLoading(true);
         const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-        const response = await fetch(`${API}/api/projects/recent-runs?limit=5`);
+        const response = await fetch(`${API}/api/services/recent-runs?limit=5`);
 
         if (!response.ok) {
           throw new Error(`API ${response.status}`);
@@ -61,34 +61,34 @@ function useRecentTestRuns() {
 }
 
 export function Sidebar({ className }: { className?: string }) {
-  const { projects, isLoading: projectsLoading, error: projectsError } = useProjects();
+  const { services, isLoading: servicesLoading, error: servicesError } = useServices();
   const { recentRuns, isLoading: runsLoading, error: runsError } = useRecentTestRuns();
 
   return (
     <aside className={`w-64 border-r border-border bg-background p-4 ${className}`}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">プロジェクト</h2>
+        <h2 className="text-lg font-semibold">サービス</h2>
         <Button size="sm" asChild>
-          <Link href="/projects/new">
+          <Link href="/services/new">
             <PlusIcon className="h-4 w-4 mr-1" />
             新規
           </Link>
         </Button>
       </div>
 
-      {projectsLoading ? (
+      {servicesLoading ? (
         <div>読み込み中...</div>
-      ) : projectsError ? (
+      ) : servicesError ? (
         <div>エラーが発生しました</div>
       ) : (
         <ul className="space-y-1">
-          {projects?.map((project) => (
-            <li key={project.id}>
+          {services?.map((service) => (
+            <li key={service.id}>
               <Link
-                href={`/projects/${project.id}?tab=test-chains`}
+                href={`/services/${service.id}?tab=test-chains`}
                 className="block p-2 rounded hover:bg-accent hover:text-accent-foreground"
               >
-                {project.name}
+                {service.name}
               </Link>
             </li>
           ))}
@@ -106,7 +106,7 @@ export function Sidebar({ className }: { className?: string }) {
             {recentRuns.map((run) => (
               <li key={run.run_id}>
                 <Link
-                  href={`/projects/${run.project_id}/runs/${run.run_id}`}
+                  href={`/services/${run.service_id}/runs/${run.run_id}`}
                   className="flex items-center gap-2 p-2 rounded text-sm hover:bg-accent hover:text-accent-foreground"
                 >
                   {run.status === 'completed' ? (
@@ -117,7 +117,7 @@ export function Sidebar({ className }: { className?: string }) {
                     <ClockIcon className="h-4 w-4 text-yellow-500 flex-shrink-0" />
                   )}
                   <div className="overflow-hidden">
-                    <div className="truncate font-medium">{run.project_name || run.project_id}</div>
+                    <div className="truncate font-medium">{run.service_name || run.service_id}</div>
                     <div className="text-xs text-muted-foreground truncate">
                       {formatDistanceToNow(new Date(run.start_time), { addSuffix: true, locale: ja })}
                     </div>

@@ -1041,12 +1041,12 @@ class VectorDBManagerFactory:
         )
     
     @staticmethod
-    def create_default(project_id: Optional[str] = None) -> VectorDBManager:
+    def create_default(service_id: Optional[str] = None) -> VectorDBManager:
         """
         デフォルトのベクトルDBマネージャーを作成する
         
         Args:
-            project_id: プロジェクトID
+            service_id: サービスID
             
         Returns:
             ベクトルDBマネージャー
@@ -1055,10 +1055,10 @@ class VectorDBManagerFactory:
         logger.info(f"📌 VECTOR_DB_TYPE = {db_type}")
         
         data_dir = os.environ.get("DATA_DIR", "/app/data")
-        persist_directory = path_manager.join_path(data_dir, db_type, project_id) if project_id else None
+        persist_directory = path_manager.join_path(data_dir, db_type, service_id) if service_id else None
         logger.info(f"📂 persist_directory = {persist_directory}")
         
-        collection_name = project_id if project_id else "default"
+        collection_name = service_id if service_id else "default"
         logger.info(f"📁 collection_name = {collection_name}")
 
         logger.info("🧠 Creating embedding model...")

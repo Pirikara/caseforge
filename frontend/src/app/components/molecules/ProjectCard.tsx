@@ -7,39 +7,39 @@ import { Button } from '@/components/ui/button';
 import { PlayIcon, FileTextIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { Project } from '@/hooks/useProjects';
+import { Service } from '@/hooks/useServices';
 
-interface ProjectCardProps {
-  project: Project;
+interface ServiceCardProps {
+  service: Service;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ServiceCard({ service }: ServiceCardProps) {
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-2">
         <CardTitle className="text-xl">
-          <Link href={`/projects/${project.id}`} className="hover:underline">
-            {project.name}
+          <Link href={`/services/${service.id}`} className="hover:underline">
+            {service.name}
           </Link>
         </CardTitle>
         <CardDescription>
-          {project.description || 'プロジェクトの説明はありません'}
+          {service.description || 'サービスの説明はありません'}
         </CardDescription>
       </CardHeader>
       <CardContent className="pb-2">
         <div className="text-sm text-muted-foreground">
-          作成日: {formatDistanceToNow(new Date(project.created_at), { addSuffix: true, locale: ja })}
+          作成日: {formatDistanceToNow(new Date(service.created_at), { addSuffix: true, locale: ja })}
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${project.id}/runs`}>
+          <Link href={`/services/${service.id}/runs`}>
             <PlayIcon className="h-4 w-4 mr-1" />
             テスト実行
           </Link>
         </Button>
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${project.id}`}>
+          <Link href={`/services/${service.id}`}>
             <FileTextIcon className="h-4 w-4 mr-1" />
             詳細
           </Link>

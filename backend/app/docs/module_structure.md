@@ -14,7 +14,7 @@ backend/app/
 ├── logging_config.py   # ロギング設定
 ├── models/             # データモデル
 │   ├── base.py         # 基本モデル
-│   ├── project.py      # プロジェクト関連モデル
+│   ├── service.py      # サービス関連モデル
 │   ├── endpoint.py     # エンドポイント関連モデル
 │   └── test/           # テスト関連モデル
 │       ├── suite.py    # テストスイートモデル
@@ -55,7 +55,7 @@ backend/app/
 
 #### 主要なモデル
 
-- **Project**: プロジェクト情報を管理するモデル
+- **Service**: サービス情報を管理するモデル
 - **Endpoint**: APIエンドポイント情報を管理するモデル
 - **TestSuite**: テストスイート（複数のテストケースをグループ化）を管理するモデル
 - **TestCase**: テストケース（1つのテストパターン）を管理するモデル
@@ -152,12 +152,12 @@ def parse_schema(schema_content: str, schema_format: str) -> List[Endpoint]:
 ### テストスイート生成
 
 ```python
-def generate_test_suites(project_id: str, error_types: Optional[List[str]] = None) -> List[Dict]:
+def generate_test_suites(service_id: str, error_types: Optional[List[str]] = None) -> List[Dict]:
     """
-    プロジェクトのテストスイートを生成する
+    サービスのテストスイートを生成する
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         error_types: 生成する異常系テストの種類リスト
         
     Returns:
@@ -168,12 +168,12 @@ def generate_test_suites(project_id: str, error_types: Optional[List[str]] = Non
 ### テスト実行
 
 ```python
-async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Dict:
+async def run_test_suites(service_id: str, suite_id: Optional[str] = None) -> Dict:
     """
-    プロジェクトのテストスイートを実行する
+    サービスのテストスイートを実行する
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         suite_id: 特定のテストスイートIDを指定する場合
         
     Returns:

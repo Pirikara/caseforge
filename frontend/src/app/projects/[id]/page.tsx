@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useProjects } from '@/hooks/useProjects';
+import { useServices } from '@/hooks/useServices';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import SchemaManagementTab from '@/components/tabs/SchemaManagementTab';
@@ -11,20 +11,20 @@ import EndpointManagementTab from '@/components/tabs/EndpointManagementTab';
 import TestSuiteManagementTab from '@/components/tabs/TestSuiteManagementTab';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { updateProject } from '@/utils/fetcher';
+import { updateService } from '@/utils/fetcher';
 // import TestExecutionTab from '@/components/tabs/TestExecutionTab'; // TestExecutionTabは削除
 
-export default function ProjectDetailPage() {
+export default function ServiceDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
 
-  const { projects, isLoading, error, mutate } = useProjects();
+  const { services, isLoading, error, mutate } = useServices();
 
-  const project = React.useMemo(() => {
-    if (!projects) return null;
-    return projects.find(p => p.id === projectId);
-  }, [projects, projectId]);
+  const service = React.useMemo(() => {
+    if (!services) return null;
+    return services.find(p => p.id === serviceId);
+  }, [services, serviceId]);
 
   // URLからタブを取得（例：?tab=test-chains）
   const [activeTab, setActiveTab] = React.useState<string>('schema');
@@ -44,12 +44,12 @@ export default function ProjectDetailPage() {
   }, []);
 
   React.useEffect(() => {
-    if (project) {
-      console.log('Project data updated:', project); // 追加
-      console.log('Base URL from project:', project.base_url); // 追加
-      setBaseUrl(project.base_url || '');
+    if (service) {
+      console.log('Service data updated:', service); // 追加
+      console.log('Base URL from service:', service.base_url); // 追加
+      setBaseUrl(service.base_url || '');
     }
-  }, [project]);
+  }, [service]);
 
   // タブ変更時にURLを更新
   const handleTabChange = (value: string) => {
@@ -63,8 +63,8 @@ export default function ProjectDetailPage() {
 
   const handleSaveBaseUrl = async () => {
     try {
-      await updateProject(projectId, { base_url: baseUrl });
-      mutate(); // プロジェクトデータを再取得
+      await updateService(serviceId, { base_url: baseUrl });
+      mutate(); // サービスデータを再取得
       console.log('Base URL saved successfully!'); // 仮の成功メッセージ
     } catch (error) {
       console.error('Failed to save Base URL:', error); // 仮のエラーメッセージ
@@ -82,18 +82,18 @@ export default function ProjectDetailPage() {
   if (error) {
     return (
       <div className="text-center py-8">
-        <p>プロジェクトの読み込みに失敗しました。</p>
+        <p>サービスの読み込みに失敗しました。</p>
         <p className="text-muted-foreground">{error.message}</p>
       </div>
     );
   }
 
-  if (!project) {
+  if (!service) {
     return (
       <div className="text-center py-8">
-        <p>プロジェクトが見つかりません</p>
+        <p>サービスが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href="/projects">プロジェクト一覧に戻る</Link>
+          <Link href="/services">サービス一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -102,16 +102,16 @@ export default function ProjectDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">{project.name}</h1>
+        <h1 className="text-3xl font-bold">{service.name}</h1>
         <Button asChild variant="outline">
-          <Link href="/projects">
-            プロジェクト一覧に戻る
+          <Link href="/services">
+            サービス一覧に戻る
           </Link>
         </Button>
       </div>
 
-      {project.description && (
-        <p className="text-muted-foreground">{project.description}</p>
+      {service.description && (
+        <p className="text-muted-foreground">{service.description}</p>
       )}
 
       {/* Base URL Setting */}
@@ -137,20 +137,20 @@ export default function ProjectDetailPage() {
         </TabsList>
 
         <TabsContent value="schema" className="space-y-4">
-          <SchemaManagementTab projectId={projectId} />
+          <SchemaManagementTab serviceId={serviceId} />
         </TabsContent>
 
         <TabsContent value="endpoints" className="space-y-4">
-          <EndpointManagementTab projectId={projectId} />
+          <EndpointManagementTab serviceId={serviceId} />
         </TabsContent>
 
         <TabsContent value="test-suites" className="space-y-4">
-          <TestSuiteManagementTab projectId={projectId} project={project} />
+          <TestSuiteManagementTab serviceId={serviceId} service={service} />
         </TabsContent>
 
         {/* test-execution タブのコンテンツを削除 */}
         {/* <TabsContent value="test-execution" className="space-y-4">
-          <TestExecutionTab projectId={projectId} project={project} />
+          <TestExecutionTab serviceId={serviceId} service={service} />
         </TabsContent> */}
       </Tabs>
     </div>

@@ -40,11 +40,11 @@ type FormValues = z.infer<typeof formSchema>;
 export default function EditTestStepPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const caseId = params.case_id as string;
   const stepId = params.step_id as string;
 
-  const { testCase, isLoading: isLoadingCase, error: errorCase } = useTestCaseDetail(projectId, caseId);
+  const { testCase, isLoading: isLoadingCase, error: errorCase } = useTestCaseDetail(serviceId, caseId);
 
   // テストケース詳細から該当するテストステップを検索
   const testStep = React.useMemo(() => {
@@ -101,9 +101,9 @@ export default function EditTestStepPage() {
         expected_response: values.expected_response ? JSON.parse(values.expected_response) : null,
         extracted_values: values.extracted_values ? JSON.parse(values.extracted_values) : null,
       };
-      await fetcher(`/api/projects/${projectId}/tests/${caseId}/steps/${stepId}`, 'PUT', payload);
+      await fetcher(`/api/services/${serviceId}/tests/${caseId}/steps/${stepId}`, 'PUT', payload);
       toast.success('テストステップが更新されました。');
-      router.push(`/projects/${projectId}/tests/${caseId}/steps/${stepId}`); // テストステップ詳細ページに戻る
+      router.push(`/services/${serviceId}/tests/${caseId}/steps/${stepId}`); // テストステップ詳細ページに戻る
     } catch (error: any) {
       toast.error('テストステップの更新に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -124,7 +124,7 @@ export default function EditTestStepPage() {
       <div className="text-center py-8">
         <p>テストステップが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/projects/${projectId}/tests/${caseId}`}>テストケース詳細に戻る</Link>
+          <Link href={`/services/${serviceId}/tests/${caseId}`}>テストケース詳細に戻る</Link>
         </Button>
       </div>
     );
@@ -135,7 +135,7 @@ export default function EditTestStepPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${projectId}/tests/${caseId}/steps/${stepId}`}>
+          <Link href={`/services/${serviceId}/tests/${caseId}/steps/${stepId}`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             テストステップ詳細に戻る
           </Link>

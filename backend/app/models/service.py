@@ -7,30 +7,30 @@ TestSuite = ForwardRef("TestSuite")
 TestRun = ForwardRef("TestRun")
 Endpoint = ForwardRef("Endpoint")
 
-class Project(TimestampModel, table=True):
-    __tablename__ = "project"
-    """プロジェクトモデル"""
+class Service(TimestampModel, table=True):
+    __tablename__ = "service"
+    """サービスモデル"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: str = Field(index=True, unique=True)
+    service_id: str = Field(index=True, unique=True)
     name: str
     description: Optional[str] = None
     base_url: Optional[str] = Field(default=None)
 
     # リレーションシップ
-    schemas: List["Schema"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
+    schemas: List["Schema"] = Relationship(back_populates="service", sa_relationship_kwargs={"cascade": "delete, all"})
     # 新しいリレーションシップ
-    test_suites: List["TestSuite"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
-    test_runs: List["TestRun"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
+    test_suites: List["TestSuite"] = Relationship(back_populates="service", sa_relationship_kwargs={"cascade": "delete, all"})
+    test_runs: List["TestRun"] = Relationship(back_populates="service", sa_relationship_kwargs={"cascade": "delete, all"})
     # エンドポイント管理のリレーションシップ
-    endpoints: List["Endpoint"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "delete, all"})
+    endpoints: List["Endpoint"] = Relationship(back_populates="service", sa_relationship_kwargs={"cascade": "delete, all"})
 
 class Schema(TimestampModel, table=True):
     """OpenAPIスキーマモデル"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id")
+    service_id: int = Field(foreign_key="service.id")
     filename: str
     file_path: str
     content_type: str
     
     # リレーションシップ
-    project: Project = Relationship(back_populates="schemas")
+    service: Service = Relationship(back_populates="schemas")

@@ -16,11 +16,11 @@ app.config.settings.LOG_DIR = f"{TEST_BASE_DIR}/test_runs"
 
 os.makedirs("/tmp/test_caseforge", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/schemas", exist_ok=True)
-os.makedirs("/tmp/test_caseforge/schemas/test_project", exist_ok=True)
+os.makedirs("/tmp/test_caseforge/schemas/test_service", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/generated_tests", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/test_runs", exist_ok=True)
 
-with open("/tmp/test_caseforge/schemas/test_project/test-schema.yaml", "w") as f:
+with open("/tmp/test_caseforge/schemas/test_service/test-schema.yaml", "w") as f:
     f.write("""
 openapi: 3.0.0
 info:
@@ -55,7 +55,7 @@ paths:
 import stat
 os.chmod("/tmp/test_caseforge", stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
 
-from app.models import Project, Schema
+from app.models import Service, Schema
 from app.models.base import DATABASE_URL
 from sqlmodel import SQLModel, create_engine
 
@@ -86,11 +86,11 @@ def setup_database():
         session.exec(text("DELETE FROM teststep"))
         session.exec(text("DELETE FROM testcase"))
         session.exec(text("DELETE FROM testsuite"))
-        session.exec(text("DELETE FROM project"))
+        session.exec(text("DELETE FROM service"))
         session.commit()
 
-        project = Project(project_id="test_project", name="Test Project")
-        session.add(project)
+        service = Service(service_id="test_service", name="Test Service")
+        session.add(service)
         session.commit()
     
     yield
@@ -129,15 +129,15 @@ def session_fixture():
     with Session(engine) as session:
         yield session
 
-@pytest.fixture(name="test_project")
-def test_project_fixture(session):
-    """テスト用のプロジェクトを取得"""
-    project_id = "test_project"
+@pytest.fixture(name="test_service")
+def test_service_fixture(session):
+    """テスト用のサービスを取得"""
+    service_id = "test_service"
     
-    project_dir = f"{TEST_BASE_DIR}/schemas/{project_id}"
-    os.makedirs(project_dir, exist_ok=True)
+    service_dir = f"{TEST_BASE_DIR}/schemas/{service_id}"
+    os.makedirs(service_dir, exist_ok=True)
     
-    with open(f"{project_dir}/test-schema.yaml", "w") as f:
+    with open(f"{service_dir}/test-schema.yaml", "w") as f:
         f.write("""
 openapi: 3.0.0
 info:
@@ -158,21 +158,21 @@ paths:
 """)
 
     from sqlmodel import select
-    project = session.exec(select(Project).where(Project.project_id == project_id)).first()
+    service = session.exec(select(Service).where(Service.service_id == service_id)).first()
     
-    if not project:
-        project = Project(project_id=project_id, name="Test Project")
-        session.add(project)
+    if not service:
+        service = Service(service_id=service_id, name="Test Service")
+        session.add(service)
         session.commit()
-        session.refresh(project)
+        session.refresh(service)
     
-    return project
+    return service
 
 @pytest.fixture(name="test_schema")
-def test_schema_fixture(session, test_project):
+def test_schema_fixture(session, test_service):
     """テスト用のスキーマを作成"""
     schema = Schema(
-        project_id=test_project.id,
+        service_id=test_service.id,
         filename="test.yaml",
         file_path="/tmp/test.yaml",
         content_type="application/x-yaml"

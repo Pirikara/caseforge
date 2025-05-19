@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 
 from app.config import settings
 from app.logging_config import logger
-from app.models import Project, TestSuite, TestRun, StepResult, TestStep, TestCase, TestCaseResult
+from app.models import Service, TestSuite, TestRun, StepResult, TestStep, TestCase, TestCaseResult
 from app.services.chain_generator import ChainStore
 from app.exceptions import TimeoutException, CaseforgeException, ErrorCode
 from app.utils.timeout import async_timeout
@@ -806,16 +806,16 @@ class TestRunnerFactory:
     
     @staticmethod
     async def run_test_suite(
-        project_id: str,
+        service_id: str,
         suite_id: Optional[str] = None,
         session: Optional[Session] = None,
         base_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        プロジェクトのテストスイートを実行する
+        サービスのテストスイートを実行する
         
         Args:
-            project_id: プロジェクトID
+            service_id: サービスID
             suite_id: 特定のテストスイートIDを指定する場合
             session: データベースセッション
             base_url: APIのベースURL
@@ -836,31 +836,31 @@ class TestRunnerFactory:
             
             if suite_id:
                 # 特定のテストスイートを実行
-                test_suite_data = chain_store.get_test_suite(project_id, suite_id)
+                test_suite_data = chain_store.get_test_suite(service_id, suite_id)
                 if not test_suite_data:
                     logger.warning(f"TestSuite not found: {suite_id}")
                     return {"status": "error", "message": f"TestSuite not found: {suite_id}"}
                 test_suites_data = [test_suite_data]
             else:
-                # プロジェクトの全テストスイートを実行
-                test_suites_info = chain_store.list_test_suites(project_id)
+                # サービスの全テストスイートを実行
+                test_suites_info = chain_store.list_test_suites(service_id)
                 test_suites_data = []
                 for test_suite_info in test_suites_info:
-                    test_suite_data = chain_store.get_test_suite(project_id, test_suite_info["id"])
+                    test_suite_data = chain_store.get_test_suite(service_id, test_suite_info["id"])
                     if test_suite_data:
                         test_suites_data.append(test_suite_data)
             
             if not test_suites_data:
-                logger.warning(f"No test suites found for project {project_id}")
+                logger.warning(f"No test suites found for service {service_id}")
                 return {"status": "error", "message": "No test suites found"}
             
-            # プロジェクトの取得
-            project_query = select(Project).where(Project.project_id == project_id)
-            db_project = session.exec(project_query).first()
+            # サービスの取得
+            service_query = select(Service).where(Service.service_id == service_id)
+            db_service = session.exec(service_query).first()
             
-            if not db_project:
-                logger.error(f"Project not found: {project_id}")
-                return {"status": "error", "message": f"Project not found: {project_id}"}
+            if not db_service:
+                logger.error(f"Service not found: {service_id}")
+                return {"status": "error", "message": f"Service not found: {service_id}"}
             
             # テストスイートの実行
             results = []
@@ -884,7 +884,7 @@ class TestRunnerFactory:
                 test_run = TestRun(
                     run_id=run_id,
                     suite_id=db_test_suite.id,
-                    project_id=db_project.id,
+                    service_id=db_service.id,
                     status="running",
                     start_time=datetime.now(timezone.utc)
                 )
@@ -897,7 +897,7 @@ class TestRunnerFactory:
                     runner_type="chain",
                     session=session,
                     test_suite=db_test_suite,
-                    base_url=base_url or db_project.base_url
+                    base_url=base_url or db_service.base_url
                 )
                 
                 # テストスイートを実行
@@ -961,7 +961,7 @@ class TestRunnerFactory:
             
             # ファイルシステムにも保存（デバッグ用）
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-            log_path = f"{settings.LOG_DIR}/{project_id}"
+            log_path = f"{settings.LOG_DIR}/{service_id}"
             os.makedirs(log_path, exist_ok=True)
             
             with open(f"{log_path}/{timestamp}.json", "w") as f:
@@ -974,5 +974,5 @@ class TestRunnerFactory:
             }
             
         except Exception as e:
-            logger.error(f"Error running test suites for project {project_id}: {e}", exc_info=True)
+            logger.error(f"Error running test suites for service {service_id}: {e}", exc_info=True)
             return {"status": "error", "message": f"Failed to run test suites: {str(e)}"}

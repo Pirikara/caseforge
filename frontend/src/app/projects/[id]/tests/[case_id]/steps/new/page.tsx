@@ -39,7 +39,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function NewTestStepPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const caseId = params.case_id as string;
 
   const form = useForm<FormValues>({
@@ -65,9 +65,9 @@ export default function NewTestStepPage() {
         expected_response: values.expected_response ? JSON.parse(values.expected_response) : null,
         extracted_values: values.extracted_values ? JSON.parse(values.extracted_values) : null,
       };
-      await fetcher(`/api/projects/${projectId}/tests/${caseId}/steps`, 'POST', payload);
+      await fetcher(`/api/services/${serviceId}/tests/${caseId}/steps`, 'POST', payload);
       toast.success('テストステップが作成されました。');
-      router.push(`/projects/${projectId}/tests/${caseId}`); // テストケース詳細ページに戻る
+      router.push(`/services/${serviceId}/tests/${caseId}`); // テストケース詳細ページに戻る
     } catch (error: any) {
       toast.error('テストステップの作成に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -79,7 +79,7 @@ export default function NewTestStepPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${projectId}/tests/${caseId}`}>
+          <Link href={`/services/${serviceId}/tests/${caseId}`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             テストケース詳細に戻る
           </Link>

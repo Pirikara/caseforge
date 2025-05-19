@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import jsonpath_ng
 from app.config import settings
 from app.logging_config import logger
-from app.models import Project, TestSuite, TestRun, StepResult, TestStep, TestCase, TestCaseResult, engine
+from app.models import Service, TestSuite, TestRun, StepResult, TestStep, TestCase, TestCaseResult, engine
 from sqlmodel import Session, select
 from app.services.chain_generator import ChainStore
 from app.utils.timeout import async_timeout
@@ -283,12 +283,12 @@ class ChainRunner:
         
         return extracted
 
-async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Dict:
+async def run_test_suites(service_id: str, suite_id: Optional[str] = None) -> Dict:
     """
-    プロジェクトのテストスイートを実行する
+    サービスのテストスイートを実行する
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         suite_id: 特定のテストスイートIDを指定する場合
         
     Returns:
@@ -300,41 +300,41 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
         
         if suite_id:
             # 特定のテストスイートを実行
-            test_suite = chain_store.get_test_suite(project_id, suite_id)
+            test_suite = chain_store.get_test_suite(service_id, suite_id)
             if not test_suite:
                 logger.warning(f"TestSuite not found: {suite_id}")
                 return {"status": "error", "message": f"TestSuite not found: {suite_id}"}
             test_suites = [test_suite]
         else:
-            # プロジェクトの全テストスイートを実行
-            test_suites_info = chain_store.list_test_suites(project_id)
+            # サービスの全テストスイートを実行
+            test_suites_info = chain_store.list_test_suites(service_id)
             test_suites = []
             for test_suite_info in test_suites_info:
-                test_suite = chain_store.get_test_suite(project_id, test_suite_info["id"])
+                test_suite = chain_store.get_test_suite(service_id, test_suite_info["id"])
                 if test_suite:
                     test_suites.append(test_suite)
         
         if not test_suites:
-            logger.warning(f"No test suites found for project {project_id}")
+            logger.warning(f"No test suites found for service {service_id}")
             # テスト環境では、テストスイートが見つからない場合でもテスト用のダミーデータを使用
             if os.environ.get("TESTING") == "1":
-                logger.info(f"Using test data for project {project_id}")
+                logger.info(f"Using test data for service {service_id}")
                 test_suites = [SAMPLE_TEST_SUITE]
             else:
                 return {"status": "error", "message": "No test suites found"}
         
         # データベースにTestRunを作成
         with Session(engine) as session:
-            # プロジェクトの取得
-            project_query = select(Project).where(Project.project_id == project_id)
-            db_project = session.exec(project_query).first()
+            # サービスの取得
+            service_query = select(Service).where(Service.service_id == service_id)
+            db_service = session.exec(service_query).first()
             
-            if not db_project:
-                logger.error(f"Project not found: {project_id}")
-                return {"status": "error", "message": f"Project not found: {project_id}"}
+            if not db_service:
+                logger.error(f"Service not found: {service_id}")
+                return {"status": "error", "message": f"Service not found: {service_id}"}
             
             # テストスイートの実行
-            # プロジェクトのbase_urlを取得し、ChainRunnerに渡す
+            # サービスのbase_urlを取得し、ChainRunnerに渡す
             results = []
             
             for test_suite_data in test_suites:
@@ -358,7 +358,7 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
                         logger.info(f"Creating test suite in database for {suite_id}")
                         db_test_suite = TestSuite(
                             id=suite_id,
-                            project_id=db_project.id,
+                            service_id=db_service.id,
                             name=test_suite_data.get("name", "Test TestSuite"),
                             target_method=test_suite_data.get("target_method"),
                             target_path=test_suite_data.get("target_path")
@@ -373,7 +373,7 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
                 test_run = TestRun(
                     run_id=run_id,
                     suite_id=db_test_suite.id,
-                    project_id=db_project.id,
+                    service_id=db_service.id,
                     status="running",
                     start_time=datetime.now(timezone.utc)
                 )
@@ -383,7 +383,7 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
                 
                 # テストスイートを実行
                 # ChainRunnerにsessionとdb_test_suiteを渡す
-                runner = ChainRunner(session=session, test_suite=db_test_suite, base_url=db_project.base_url)
+                runner = ChainRunner(session=session, test_suite=db_test_suite, base_url=db_service.base_url)
                 result = await runner.run_test_suite(test_suite_data)
                 results.append(result)
                 
@@ -453,7 +453,7 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
             
             # ファイルシステムにも保存（デバッグ用）
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-            log_path = f"{settings.LOG_DIR}/{project_id}"
+            log_path = f"{settings.LOG_DIR}/{service_id}"
             os.makedirs(log_path, exist_ok=True)
             
             with open(f"{log_path}/{timestamp}.json", "w") as f:
@@ -466,15 +466,15 @@ async def run_test_suites(project_id: str, suite_id: Optional[str] = None) -> Di
             }
             
     except Exception as e:
-        logger.error(f"Error running test suites for project {project_id}: {e}", exc_info=True)
+        logger.error(f"Error running test suites for service {service_id}: {e}", exc_info=True)
         return {"status": "error", "message": f"Failed to run test suites: {str(e)}"}
 
-def list_test_runs(project_id: str, limit: int = 10) -> List[Dict]:
+def list_test_runs(service_id: str, limit: int = 10) -> List[Dict]:
     """
-    プロジェクトのテスト実行履歴を取得する
+    サービスのテスト実行履歴を取得する
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         limit: 取得する実行数の上限
         
     Returns:
@@ -482,17 +482,17 @@ def list_test_runs(project_id: str, limit: int = 10) -> List[Dict]:
     """
     try:
         with Session(engine) as session:
-            # プロジェクトの取得
-            project_query = select(Project).where(Project.project_id == project_id)
-            db_project = session.exec(project_query).first()
+            # サービスの取得
+            service_query = select(Service).where(Service.service_id == service_id)
+            db_service = session.exec(service_query).first()
             
-            if not db_project:
-                logger.error(f"Project not found: {project_id}")
+            if not db_service:
+                logger.error(f"Service not found: {service_id}")
                 return []
             
             # テスト実行の取得（最新順）
             test_runs = []
-            for test_run in sorted(db_project.test_runs, key=lambda r: r.start_time or datetime.min, reverse=True)[:limit]:
+            for test_run in sorted(db_service.test_runs, key=lambda r: r.start_time or datetime.min, reverse=True)[:limit]:
                 # 成功したテストケースの数を計算
                 passed_cases = sum(1 for r in test_run.test_case_results if r.status == "passed")
                 total_cases = len(test_run.test_case_results)
@@ -514,15 +514,15 @@ def list_test_runs(project_id: str, limit: int = 10) -> List[Dict]:
             return test_runs
                 
     except Exception as e:
-        logger.error(f"Error listing test runs for project {project_id}: {e}", exc_info=True)
+        logger.error(f"Error listing test runs for service {service_id}: {e}", exc_info=True)
         return []
 
-def get_test_run(project_id: str, run_id: str) -> Optional[Dict]:
+def get_test_run(service_id: str, run_id: str) -> Optional[Dict]:
     """
-    指定されたプロジェクトと実行IDのテスト実行結果を取得する
+    指定されたサービスと実行IDのテスト実行結果を取得する
 
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         run_id: 実行ID
 
     Returns:
@@ -530,18 +530,18 @@ def get_test_run(project_id: str, run_id: str) -> Optional[Dict]:
     """
     try:
         with Session(engine) as session:
-            # プロジェクトの取得
-            project_query = select(Project).where(Project.project_id == project_id)
-            db_project = session.exec(project_query).first()
+            # サービスの取得
+            service_query = select(Service).where(Service.service_id == service_id)
+            db_service = session.exec(service_query).first()
 
-            if not db_project:
-                logger.error(f"Project not found: {project_id}")
+            if not db_service:
+                logger.error(f"Service not found: {service_id}")
                 return None
 
             # テスト実行結果の取得
             test_run_query = select(TestRun).where(
                 TestRun.run_id == run_id,
-                TestRun.project_id == db_project.id
+                TestRun.service_id == db_service.id
             )
             db_test_run = session.exec(test_run_query).first()
 
@@ -553,7 +553,7 @@ def get_test_run(project_id: str, run_id: str) -> Optional[Dict]:
             run_data = {
                 "run_id": db_test_run.run_id,
                 "suite_id": db_test_run.suite_id,
-                "project_id": db_test_run.project_id,
+                "service_id": db_test_run.service_id,
                 "status": db_test_run.status,
                 "start_time": db_test_run.start_time.isoformat() if db_test_run.start_time else None,
                 "end_time": db_test_run.end_time.isoformat() if db_test_run.end_time else None,
@@ -592,5 +592,5 @@ def get_test_run(project_id: str, run_id: str) -> Optional[Dict]:
             return run_data
 
     except Exception as e:
-        logger.error(f"Error getting test run {run_id} for project {project_id}: {e}", exc_info=True)
+        logger.error(f"Error getting test run {run_id} for service {service_id}: {e}", exc_info=True)
         return None

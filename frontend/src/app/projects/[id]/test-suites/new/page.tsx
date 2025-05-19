@@ -36,7 +36,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function NewTestSuitePage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -51,9 +51,9 @@ export default function NewTestSuitePage() {
   const onSubmit = async (values: FormValues) => {
     try {
       // APIエンドポイントは仮
-      await fetcher(`/api/projects/${projectId}/test-suites`, 'POST', values);
+      await fetcher(`/api/services/${serviceId}/test-suites`, 'POST', values);
       toast.success('テストスイートが作成されました。');
-      router.push(`/projects/${projectId}/test-suites`);
+      router.push(`/services/${serviceId}/test-suites`);
     } catch (error: any) {
       toast.error('テストスイートの作成に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -65,7 +65,7 @@ export default function NewTestSuitePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${projectId}/test-suites`}>
+          <Link href={`/services/${serviceId}/test-suites`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             テストスイート一覧に戻る
           </Link>

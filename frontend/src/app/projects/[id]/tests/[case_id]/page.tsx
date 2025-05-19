@@ -25,11 +25,11 @@ import { fetcher } from '@/utils/fetcher'; // fetcher をインポート
 export default function TestCaseDetailPage() {
   const params = useParams();
   const router = useRouter(); // useRouter を使用
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const caseId = params.case_id as string;
 
-  const { testCase, isLoading: isLoadingCase, error: errorCase } = useTestCaseDetail(projectId, caseId);
-  const { deleteChain } = useTestCases(projectId); // useTestCases から deleteChain をインポート
+  const { testCase, isLoading: isLoadingCase, error: errorCase } = useTestCaseDetail(serviceId, caseId);
+  const { deleteChain } = useTestCases(serviceId); // useTestCases から deleteChain をインポート
 
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false); // 削除確認ダイアログの表示状態
   const [isDeleting, setIsDeleting] = React.useState(false); // 削除処理中の状態
@@ -45,7 +45,7 @@ export default function TestCaseDetailPage() {
       // useTestCases フックの deleteChain 関数を呼び出す
       await deleteChain(caseId);
       toast.success('テストケースが削除されました。');
-      router.push(`/projects/${projectId}/tests`); // 削除成功後、一覧ページにリダイレクト
+      router.push(`/services/${serviceId}/tests`); // 削除成功後、一覧ページにリダイレクト
     } catch (error: any) {
       toast.error('テストケースの削除に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -70,7 +70,7 @@ export default function TestCaseDetailPage() {
       <div className="text-center py-8">
         <p>テストケースが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/projects/${projectId}/tests`}>テストケース一覧に戻る</Link>
+          <Link href={`/services/${serviceId}/tests`}>テストケース一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -81,7 +81,7 @@ export default function TestCaseDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/projects/${projectId}/tests`}>
+            <Link href={`/services/${serviceId}/tests`}>
               <ArrowLeftIcon className="h-4 w-4 mr-1" />
               テストケース一覧に戻る
             </Link>
@@ -93,7 +93,7 @@ export default function TestCaseDetailPage() {
           {/* テストケース編集・削除ボタン */}
           <div>
              <Button variant="outline" size="sm" className="mr-2" asChild> {/* asChild を追加 */}
-               <Link href={`/projects/${projectId}/tests/${caseId}/edit`}> {/* 編集ページへのリンク */}
+               <Link href={`/services/${serviceId}/tests/${caseId}/edit`}> {/* 編集ページへのリンク */}
                  <EditIcon className="h-4 w-4 mr-1" />編集
                </Link>
              </Button>
@@ -151,7 +151,7 @@ export default function TestCaseDetailPage() {
              <h2 className="text-xl font-semibold">テストステップ一覧</h2>
              {/* 新規テストステップ作成ボタン（後で実装） */}
              <Button asChild>
-               <Link href={`/projects/${projectId}/tests/${caseId}/steps/new`}>
+               <Link href={`/services/${serviceId}/tests/${caseId}/steps/new`}>
                  新規テストステップ作成
                </Link>
              </Button>
@@ -192,7 +192,7 @@ export default function TestCaseDetailPage() {
                         <TableCell>{step.expected_status}</TableCell>
                         <TableCell>
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/projects/${projectId}/tests/${caseId}/steps/${step.id}`}>
+                            <Link href={`/services/${serviceId}/tests/${caseId}/steps/${step.id}`}>
                               詳細
                             </Link>
                           </Button>
@@ -206,7 +206,7 @@ export default function TestCaseDetailPage() {
                   <p className="text-muted-foreground">このテストケースにはまだテストステップがありません。</p>
                    {/* 新規テストステップ作成ボタン（後で実装） */}
                   <Button asChild className="mt-4">
-                    <Link href={`/projects/${projectId}/tests/${caseId}/steps/new`}>
+                    <Link href={`/services/${serviceId}/tests/${caseId}/steps/new`}>
                       新規テストステップ作成
                     </Link>
                   </Button>

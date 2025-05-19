@@ -3,7 +3,7 @@ from sqlalchemy import Column
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 from .base import TimestampModel
-from .project import Project
+from .service import Service
 from app.models.json_encode_dict import JSONEncodedDict
 
 class TestCase(TimestampModel, table=True):
@@ -27,14 +27,14 @@ class TestRun(TimestampModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     run_id: str = Field(index=True, unique=True)
     suite_id: str = Field(foreign_key="testsuite.id")
-    project_id: int = Field(foreign_key="project.id")
+    service_id: int = Field(foreign_key="service.id")
     status: str  # running, completed, failed
     start_time: datetime
     end_time: Optional[datetime] = None
     
     # リレーションシップ
     test_suite: "TestSuite" = Relationship(back_populates="test_runs")
-    project: Project = Relationship(back_populates="test_runs")
+    service: Service = Relationship(back_populates="test_runs")
     test_case_results: List["TestCaseResult"] = Relationship(back_populates="test_run", sa_relationship_kwargs={"cascade": "delete, all"})
 
 class TestCaseResult(TimestampModel, table=True):

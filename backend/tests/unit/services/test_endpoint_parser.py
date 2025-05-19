@@ -1,7 +1,7 @@
 import pytest
 from app.services.endpoint_parser import EndpointParser
 
-TEST_PROJECT_ID = 1
+TEST_SERVICE_ID = 1
 
 def test_resolve_references_simple():
     """シンプルな$ref参照が正しく解決されるかテスト"""
@@ -231,7 +231,7 @@ components:
           type: string
 """
     parser = EndpointParser(schema_content)
-    endpoints = parser.parse_endpoints(TEST_PROJECT_ID)
+    endpoints = parser.parse_endpoints(TEST_SERVICE_ID)
 
     assert len(endpoints) == 1
     endpoint = endpoints[0]

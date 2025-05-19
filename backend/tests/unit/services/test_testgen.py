@@ -9,10 +9,10 @@ def test_trigger_test_generation_success():
     with patch("app.workers.tasks.generate_test_suites_task") as mock_generate:
         mock_generate.delay.return_value = mock_task
         
-        task_id = trigger_test_generation("test-project")
+        task_id = trigger_test_generation("test-service")
         
         assert task_id == "test-task-id"
-        mock_generate.delay.assert_called_once_with("test-project", None)
+        mock_generate.delay.assert_called_once_with("test-service", None)
 
 def test_trigger_test_generation_with_error_types():
     """エラータイプを指定したテスト生成タスクのテスト"""
@@ -23,20 +23,20 @@ def test_trigger_test_generation_with_error_types():
         mock_generate.delay.return_value = mock_task
         
         error_types = ["missing_field", "invalid_value"]
-        task_id = trigger_test_generation("test-project", error_types)
+        task_id = trigger_test_generation("test-service", error_types)
         
         assert task_id == "test-task-id"
-        mock_generate.delay.assert_called_once_with("test-project", error_types)
+        mock_generate.delay.assert_called_once_with("test-service", error_types)
 
 def test_trigger_test_generation_error():
     """テスト生成タスクのエラー系テスト"""
     with patch("app.workers.tasks.generate_test_suites_task") as mock_generate:
         mock_generate.delay.side_effect = Exception("Test error")
         
-        task_id = trigger_test_generation("test-project")
+        task_id = trigger_test_generation("test-service")
         
         assert task_id is None
-        mock_generate.delay.assert_called_once_with("test-project", None)
+        mock_generate.delay.assert_called_once_with("test-service", None)
 
 def test_circular_import_prevention():
     """循環インポートが発生しないことを確認するテスト"""

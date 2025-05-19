@@ -1,7 +1,7 @@
 import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
 
-export interface Project {
+export interface Service {
   id: string;
   name: string;
   description?: string;
@@ -9,25 +9,25 @@ export interface Project {
   created_at: string;
 }
 
-export function useProjects() {
-  const { data, error, isLoading, mutate } = useSWR<Project[]>('/api/projects/', fetcher);
+export function useServices() {
+  const { data, error, isLoading, mutate } = useSWR<Service[]>('/api/services/', fetcher);
   
-  const deleteProject = async (projectId: string) => {
+  const deleteService = async (serviceId: string) => {
     try {
-      await fetcher(`/api/projects/${projectId}`, 'DELETE');
+      await fetcher(`/api/services/${serviceId}`, 'DELETE');
       // 削除成功後、SWRのキャッシュを更新して再フェッチ
       mutate();
     } catch (err) {
-      console.error(`Failed to delete project ${projectId}:`, err);
+      console.error(`Failed to delete service ${serviceId}:`, err);
       throw err; // エラーを呼び出し元に伝える
     }
   };
 
   return {
-    projects: data,
+    services: data,
     isLoading,
     error,
     mutate,
-    deleteProject, // 削除関数を追加
+    deleteService, // 削除関数を追加
   };
 }

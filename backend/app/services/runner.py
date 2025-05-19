@@ -8,18 +8,18 @@ from app.logging_config import logger
 from typing import List, Dict, Any
 from app.utils.path_manager import path_manager
 
-async def run_tests(project_id: str) -> list[dict]:
+async def run_tests(service_id: str) -> list[dict]:
     base_url = settings.TEST_TARGET_URL
     results = []
     
     try:
-        tests = list_testcases(project_id)
+        tests = list_testcases(service_id)
         if not tests:
-            logger.warning(f"No tests found for project {project_id}")
+            logger.warning(f"No tests found for service {service_id}")
             return []
             
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        log_path = path_manager.get_log_dir(project_id)
+        log_path = path_manager.get_log_dir(service_id)
         path_manager.ensure_dir(log_path)
     
         async with httpx.AsyncClient(base_url=base_url, timeout=10.0) as client:
@@ -74,52 +74,52 @@ async def run_tests(project_id: str) -> list[dict]:
             logger.error(f"Failed to save test results: {e}")
             
     except Exception as e:
-        logger.error(f"Error running tests for project {project_id}: {e}")
+        logger.error(f"Error running tests for service {service_id}: {e}")
         return [{"error": f"Failed to run tests: {str(e)}"}]
         
     return results
 
-def list_test_runs(project_id: str) -> list[str]:
+def list_test_runs(service_id: str) -> list[str]:
     """
-    プロジェクトのテスト実行履歴を取得する
+    サービスのテスト実行履歴を取得する
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         
     Returns:
         テスト実行IDのリスト（日時の降順）
     """
     try:
-        path = path_manager.get_log_dir(project_id)
+        path = path_manager.get_log_dir(service_id)
         if not path_manager.exists(path):
-            logger.debug(f"No test runs found for project {project_id}")
+            logger.debug(f"No test runs found for service {service_id}")
             return []
         runs = sorted(os.listdir(str(path)), reverse=True)
-        logger.debug(f"Found {len(runs)} test runs for project {project_id}")
+        logger.debug(f"Found {len(runs)} test runs for service {service_id}")
         return runs
     except Exception as e:
-        logger.error(f"Error listing test runs for project {project_id}: {e}")
+        logger.error(f"Error listing test runs for service {service_id}: {e}")
         return []
 
-def get_run_result(project_id: str, run_id: str) -> list[dict] | None:
+def get_run_result(service_id: str, run_id: str) -> list[dict] | None:
     """
     特定のテスト実行結果を取得する
     
     Args:
-        project_id: プロジェクトID
+        service_id: サービスID
         run_id: テスト実行ID
         
     Returns:
         テスト実行結果。ファイルが存在しない場合はNone。
     """
     try:
-        path = path_manager.get_log_dir(project_id, run_id)
+        path = path_manager.get_log_dir(service_id, run_id)
         if not path_manager.exists(path):
             logger.warning(f"Test run log not found: {path}")
             return None
         with open(path, "r") as f:
             result = json.load(f)
-            logger.debug(f"Loaded test results for project {project_id}, run {run_id}")
+            logger.debug(f"Loaded test results for service {service_id}, run {run_id}")
             return result
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in test run log {path}: {e}")
@@ -130,7 +130,7 @@ def get_run_result(project_id: str, run_id: str) -> list[dict] | None:
 
 def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
     """
-    全プロジェクトの最近のテスト実行を取得する
+    全サービスの最近のテスト実行を取得する
     
     Args:
         limit: 取得する実行数の上限
@@ -159,16 +159,16 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
             "running_runs": 0,
         }
 
-    projects = [d for d in os.listdir(str(log_dir)) if path_manager.is_dir(path_manager.join_path(log_dir, d))]
-    logger.debug(f"Found {len(projects)} projects with test runs logs")
+    services = [d for d in os.listdir(str(log_dir)) if path_manager.is_dir(path_manager.join_path(log_dir, d))]
+    logger.debug(f"Found {len(services)} services with test runs logs")
 
-    for project_id in projects:
-        project_path = path_manager.get_log_dir(project_id)
-        run_files = [f for f in os.listdir(str(project_path)) if f.endswith('.json')]
+    for service_id in services:
+        service_path = path_manager.get_log_dir(service_id)
+        run_files = [f for f in os.listdir(str(service_path)) if f.endswith('.json')]
 
         for run_file in run_files:
             run_id = run_file.replace('.json', '')
-            run_path = path_manager.join_path(project_path, run_file)
+            run_path = path_manager.join_path(service_path, run_file)
 
             try:
                 # ファイル名から開始時間を推測 (YYYYMMDD-HHMMSS 形式を想定)

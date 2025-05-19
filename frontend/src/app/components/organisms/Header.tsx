@@ -50,11 +50,11 @@ export function Header() {
                       ダッシュボード
                     </Link>
                     <Link
-                      href="/projects"
+                      href="/services"
                       className="py-2 px-2 rounded-md hover:bg-accent"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      プロジェクト
+                      サービス
                     </Link>
                     <Link
                       href="/docs"
@@ -74,7 +74,7 @@ export function Header() {
           <Link href="/" className="font-bold text-xl">Caseforge</Link>
           <nav className="hidden md:flex gap-4">
             <Link href="/" className="text-sm font-medium hover:text-primary">ダッシュボード</Link>
-            <Link href="/projects" className="text-sm font-medium hover:text-primary">プロジェクト</Link>
+            <Link href="/services" className="text-sm font-medium hover:text-primary">サービス</Link>
             <Link href="/docs" className="text-sm font-medium hover:text-primary">ドキュメント</Link>
           </nav>
         </div>

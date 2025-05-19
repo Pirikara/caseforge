@@ -32,8 +32,8 @@ export const fetcher = async (url: string, method: string = 'GET', body?: any) =
 };
 
 /**
- * プロジェクトを更新する関数
+ * サービスを更新する関数
  */
-export const updateProject = async (projectId: string, data: any) => {
-  return fetcher(`/api/projects/${projectId}`, 'PUT', data);
+export const updateService = async (serviceId: string, data: any) => {
+  return fetcher(`/api/services/${serviceId}`, 'PUT', data);
 };

@@ -37,10 +37,10 @@ type FormValues = z.infer<typeof formSchema>;
 export default function EditTestSuitePage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const suiteId = params.suite_id as string;
 
-  const { testSuite, isLoading, error } = useTestSuiteDetail(projectId, suiteId);
+  const { testSuite, isLoading, error } = useTestSuiteDetail(serviceId, suiteId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -77,9 +77,9 @@ export default function EditTestSuitePage() {
   const onSubmit = async (values: FormValues) => {
     try {
       // APIエンドポイントは仮
-      await fetcher(`/api/projects/${projectId}/test-suites/${suiteId}`, 'PUT', values);
+      await fetcher(`/api/services/${serviceId}/test-suites/${suiteId}`, 'PUT', values);
       toast.success('テストスイートが更新されました。');
-      router.push(`/projects/${projectId}/test-suites/${suiteId}`);
+      router.push(`/services/${serviceId}/test-suites/${suiteId}`);
     } catch (error: any) {
       toast.error('テストスイートの更新に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -100,7 +100,7 @@ export default function EditTestSuitePage() {
       <div className="text-center py-8">
         <p>テストスイートが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/projects/${projectId}/test-suites`}>テストスイート一覧に戻る</Link>
+          <Link href={`/services/${serviceId}/test-suites`}>テストスイート一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -111,7 +111,7 @@ export default function EditTestSuitePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${projectId}/test-suites/${suiteId}`}>
+          <Link href={`/services/${serviceId}/test-suites/${suiteId}`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             テストスイート詳細に戻る
           </Link>

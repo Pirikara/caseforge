@@ -24,7 +24,7 @@ export function RecentTestRuns({ testRuns }: RecentTestRunsProps) {
             {testRuns.slice(0, 5).map((run) => (
               <Link
                 key={run.id}
-                href={`/projects/${run.project_id}/runs/${run.run_id}`}
+                href={`/services/${run.service_id}/runs/${run.run_id}`}
                 className="flex items-center justify-between p-2 rounded-md hover:bg-accent"
               >
                 <div className="flex items-center gap-2">

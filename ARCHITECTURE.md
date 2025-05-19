@@ -17,7 +17,7 @@ caseforge/
 │   │   ├── logging_config.py # ロギング設定
 │   │   ├── models/        # SQLModel データモデル定義
 │   │   │   ├── base.py    # 基本モデル
-│   │   │   ├── project.py # プロジェクト関連モデル
+│   │   │   ├── service.py # サービス関連モデル
 │   │   │   ├── endpoint.py # エンドポイント関連モデル
 │   │   │   └── test/      # テスト関連モデル
 │   │   │       ├── suite.py # テストスイートモデル
@@ -58,7 +58,7 @@ caseforge/
 │       ├── components/    # コンポーネント（UI, atoms, molecules, organisms）
 │       ├── hooks/         # カスタムフック（データフェッチング等）
 │       ├── lib/           # ユーティリティ関数
-│       └── projects/[id]/ # プロジェクト関連ページ（テスト生成・実行等）
+│       └── services/[id]/ # サービス関連ページ（テスト生成・実行等）
 │
 ├── docker-compose.yml     # backend, frontend, redis, chroma, db を含む開発用サービス定義
 └── .env.example           # 環境変数テンプレート
@@ -111,7 +111,7 @@ graph TD;
   end
 
   subgraph Database
-    D --- D1[Project]
+    D --- D1[Service]
     D --- D2[Schema]
     D --- D3[TestSuite]
     D --- D4[TestStep]
@@ -157,9 +157,9 @@ sequenceDiagram
   participant LLM as LLM API
 
   User->>UI: テストスイート生成リクエスト
-  UI->>API: POST /api/projects/{id}/generate-tests
+  UI->>API: POST /api/services/{id}/generate-tests
   API->>Worker: generate_test_suites_task
-  Worker->>DB: プロジェクト情報取得
+  Worker->>DB: サービス情報取得
   Worker->>Vector: スキーマベクトル検索
   Vector-->>Worker: 関連スキーマ情報
   Worker->>LLM: テストスイート生成リクエスト
@@ -182,7 +182,7 @@ sequenceDiagram
   participant LLM as LLM API
 
   User->>UI: スキーマアップロード
-  UI->>API: POST /api/projects/{id}/schema
+  UI->>API: POST /api/services/{id}/schema
   API->>DB: スキーマ保存
   
   Note over API,DB: エンドポイント抽出処理
@@ -190,14 +190,14 @@ sequenceDiagram
   API->>DB: エンドポイント一括登録
   
   User->>UI: エンドポイント一覧表示
-  UI->>API: GET /api/projects/{id}/endpoints
+  UI->>API: GET /api/services/{id}/endpoints
   API->>DB: エンドポイント取得
   API-->>UI: エンドポイント一覧
   UI-->>User: エンドポイント一覧表示
   
   User->>UI: エンドポイント選択
   User->>UI: テストスイート生成リクエスト
-  UI->>API: POST /api/projects/{id}/endpoints/generate-suite
+  UI->>API: POST /api/services/{id}/endpoints/generate-suite
   API->>Worker: generate_test_suites_for_endpoints_task
   
   Worker->>DB: 選択されたエンドポイント取得
@@ -221,7 +221,7 @@ sequenceDiagram
   participant Target as 対象API
 
   User->>UI: テストスイート実行リクエスト
-  UI->>API: POST /api/projects/{id}/run
+  UI->>API: POST /api/services/{id}/run
   API->>DB: テストスイート取得
   API->>Target: リクエスト実行（テストケース1）
   Target-->>API: 結果
@@ -376,9 +376,9 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
 
 ```mermaid
 erDiagram
-  Project {
+  Service {
     integer id PK
-    string project_id
+    string service_id
     string name
     string description
     string base_url
@@ -389,7 +389,7 @@ erDiagram
   Endpoint {
     integer id PK
     string endpoint_id
-    integer project_id FK
+    integer service_id FK
     string path
     string method
     string summary
@@ -404,7 +404,7 @@ erDiagram
   
   Schema {
     integer id PK
-    integer project_id FK
+    integer service_id FK
     string filename
     string file_path
     string content_type
@@ -413,7 +413,7 @@ erDiagram
 
   TestSuite {
     string id PK
-    integer project_id FK
+    integer service_id FK
     string target_method
     string target_path
     string name
@@ -449,7 +449,7 @@ erDiagram
     integer id PK
     string run_id
     string suite_id FK
-    integer project_id FK
+    integer service_id FK
     datetime start_time
     datetime end_time
     string status
@@ -477,10 +477,10 @@ erDiagram
     datetime created_at
   }
   
-  Project ||--o{ Schema : "has"
-  Project ||--o{ TestSuite : "has"
-  Project ||--o{ TestRun : "has"
-  Project ||--o{ Endpoint : "has"
+  Service ||--o{ Schema : "has"
+  Service ||--o{ TestSuite : "has"
+  Service ||--o{ TestRun : "has"
+  Service ||--o{ Endpoint : "has"
   TestSuite ||--o{ TestCase : "has"
   TestSuite ||--o{ TestRun : "has"
   TestCase ||--o{ TestStep : "has"
@@ -744,10 +744,5 @@ python -m pytest
 python -m pytest tests/unit/services/
 
 # 特定のテストファイルを実行
-python -m pytest tests/unit/api/test_projects.py
+python -m pytest tests/unit/api/test_services.py
 ```
-
----
-
-> Caseforge は、開発者・QA エンジニア・SRE 向けに「AIでQAを加速する」ためのフルスタックOSS基盤です。
-> フィードバック・Issue・PR 大歓迎です！

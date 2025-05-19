@@ -4,7 +4,7 @@ import * as React from 'react';
 import { LayoutGridIcon, PlayIcon, CheckCircleIcon, ServerIcon } from 'lucide-react';
 
 // 相対パスでのインポート
-import { ProjectCard } from './components/molecules/ProjectCard';
+import { ServiceCard } from './components/molecules/ServiceCard';
 import { StatsCard } from './components/molecules/StatsCard';
 import { RecentTestRuns } from './components/molecules/RecentTestRuns';
 import { QuickActions } from './components/molecules/QuickActions';
@@ -13,60 +13,60 @@ import { QuickActions } from './components/molecules/QuickActions';
 import { useTestRuns, TestRun } from '@/hooks/useTestRuns';
 
 // 型定義
-interface Project {
+interface Service {
   id: string;
   name: string;
   description?: string;
   created_at: string;
 }
 
-// プロジェクト一覧を取得するカスタムフック
-function useProjects() {
-  const [projects, setProjects] = React.useState<Project[]>([]);
+// サービス一覧を取得するカスタムフック
+function useServices() {
+  const [services, setServices] = React.useState<Service[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
 
   React.useEffect(() => {
-    async function fetchProjects() {
+    async function fetchServices() {
       try {
         setIsLoading(true);
         const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-        const response = await fetch(`${API}/api/projects/`);
+        const response = await fetch(`${API}/api/services/`);
         
         if (!response.ok) {
           throw new Error(`API ${response.status}`);
         }
         
         const data = await response.json();
-        setProjects(data);
+        setServices(data);
       } catch (err) {
-        console.error('プロジェクト一覧の取得に失敗しました:', err);
+        console.error('サービス一覧の取得に失敗しました:', err);
         setError(err instanceof Error ? err : new Error('不明なエラー'));
       } finally {
         setIsLoading(false);
       }
     }
     
-    fetchProjects();
+    fetchServices();
   }, []);
   
-  return { projects, isLoading, error };
+  return { services, isLoading, error };
 }
 
 // メモ化されたコンポーネント
-const MemoizedProjectCard = React.memo(ProjectCard);
+const MemoizedServiceCard = React.memo(ServiceCard);
 const MemoizedStatsCard = React.memo(StatsCard);
 const MemoizedRecentTestRuns = React.memo(RecentTestRuns);
 const MemoizedQuickActions = React.memo(QuickActions);
 
 export default function Dashboard() {
-  const { projects, isLoading: isLoadingProjects } = useProjects();
+  const { services, isLoading: isLoadingServices } = useServices();
   // useTestRuns を使用してテスト実行履歴を取得
-  const { testRuns: recentRuns, isLoading: isLoadingRuns } = useTestRuns(''); // ダッシュボードでは特定のプロジェクトに紐づかないため空文字列を渡す
+  const { testRuns: recentRuns, isLoading: isLoadingRuns } = useTestRuns(''); // ダッシュボードでは特定のサービスに紐づかないため空文字列を渡す
 
   // 統計情報を計算
   const dashboardStats = React.useMemo(() => {
-    const totalProjects = projects?.length || 0;
+    const totalServices = services?.length || 0;
     const totalRuns = recentRuns?.length || 0;
     
     let totalTests = 0;
@@ -80,12 +80,12 @@ export default function Dashboard() {
     const successRate = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
 
     return {
-      totalProjects,
+      totalServices,
       totalTests,
       totalRuns,
       successRate,
     };
-  }, [projects, recentRuns]);
+  }, [services, recentRuns]);
 
   return (
     <div className="space-y-6">
@@ -94,8 +94,8 @@ export default function Dashboard() {
       {/* 統計情報 */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-2 lg:grid-cols-4 sm:gap-4">
         <MemoizedStatsCard
-          title="プロジェクト数"
-          value={dashboardStats.totalProjects}
+          title="サービス数"
+          value={dashboardStats.totalServices}
           icon={<LayoutGridIcon />}
         />
         <MemoizedStatsCard
@@ -116,21 +116,21 @@ export default function Dashboard() {
       </div>
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* プロジェクト一覧 */}
+        {/* サービス一覧 */}
         <div className="md:col-span-2">
-          <h2 className="text-xl font-semibold mb-3 md:mb-4">プロジェクト</h2>
-          {isLoadingProjects ? (
+          <h2 className="text-xl font-semibold mb-3 md:mb-4">サービス</h2>
+          {isLoadingServices ? (
             <div className="text-center py-6 md:py-8">読み込み中...</div>
-          ) : projects && projects.length > 0 ? (
+          ) : services && services.length > 0 ? (
             <div className="grid gap-3 grid-cols-1 xs:grid-cols-2 sm:gap-4">
-              {projects.map((project: Project) => (
-                <MemoizedProjectCard key={project.id} project={project} />
+              {services.map((service: Service) => (
+                <MemoizedServiceCard key={service.id} service={service} />
               ))}
             </div>
           ) : (
             <div className="text-center py-8 border rounded-lg bg-background">
-              <p className="text-muted-foreground">プロジェクトがありません</p>
-              <p className="mt-2">新しいプロジェクトを作成してください</p>
+              <p className="text-muted-foreground">サービスがありません</p>
+              <p className="mt-2">新しいサービスを作成してください</p>
             </div>
           )}
         </div>

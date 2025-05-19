@@ -19,7 +19,7 @@ from .chain_generator import DependencyAwareRAG, ChainStore
 from .chain_runner import ChainRunner
 from .endpoint_chain_generator import EndpointChainGenerator
 from .test.test_runner import TestRunner
-from .schema import save_and_index_schema, list_projects, create_project, get_schema_content
+from .schema import save_and_index_schema, list_services, create_service, get_schema_content
 from .testgen import trigger_test_generation
 from .teststore import save_testcases, list_testcases
 
@@ -48,7 +48,7 @@ __all__ = [
     "ChainRunner",
     "EndpointChainGenerator",
     "TestRunner",
-    "save_and_index_schema", "list_projects", "create_project", "get_schema_content",
+    "save_and_index_schema", "list_services", "create_service", "get_schema_content",
     "trigger_test_generation",
     "save_testcases", "list_testcases"
 ]

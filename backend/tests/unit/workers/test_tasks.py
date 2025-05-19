@@ -29,14 +29,14 @@ def test_generate_test_suites_task_success(monkeypatch):
             ]
         }
     ]
-    monkeypatch.setattr("app.workers.tasks.DependencyAwareRAG", lambda project_id, schema, error_types=None: mock_rag)
+    monkeypatch.setattr("app.workers.tasks.DependencyAwareRAG", lambda service_id, schema, error_types=None: mock_rag)
 
     # ChainStoreをモック化
     mock_store = MagicMock()
     monkeypatch.setattr("app.workers.tasks.ChainStore", lambda: mock_store)
 
     # テスト実行
-    result = generate_test_suites_task("test_project")
+    result = generate_test_suites_task("test_service")
 
     # 検証
     assert result["status"] == "completed"
@@ -44,7 +44,7 @@ def test_generate_test_suites_task_success(monkeypatch):
     # ChainStore.save_chainsが呼ばれたことを確認
     mock_store.save_suites.assert_called_once()
     args, kwargs = mock_store.save_suites.call_args
-    assert args[0] == "test_project"
+    assert args[0] == "test_service"
     assert isinstance(args[1], list)
     assert len(args[1]) == 1
     assert "test_cases" in args[1][0]
@@ -94,7 +94,7 @@ def test_generate_test_suites_task_with_error_types(monkeypatch):
 
     # エラータイプを指定してテスト実行
     error_types = ["missing_field", "invalid_value"]
-    result = generate_test_suites_task("test_project", error_types)
+    result = generate_test_suites_task("test_service", error_types)
 
     # 検証
     assert result["status"] == "completed"
@@ -103,7 +103,7 @@ def test_generate_test_suites_task_with_error_types(monkeypatch):
     mock_dependency_aware_rag.assert_called_once()
     # error_typesが正しく渡されていることを確認
     args, kwargs = mock_dependency_aware_rag.call_args
-    assert args[0] == "test_project"
+    assert args[0] == "test_service"
     # error_typesは位置引数として渡されている可能性がある
     if len(args) > 2:
         assert args[2] == error_types
@@ -118,7 +118,7 @@ def test_generate_test_suites_task_no_schema_files(monkeypatch):
     monkeypatch.setattr("os.listdir", lambda path: [])
 
     # テスト実行
-    result = generate_test_suites_task("test_project")
+    result = generate_test_suites_task("test_service")
 
     # 検証
     assert result["status"] == "error"
@@ -135,7 +135,7 @@ def test_generate_test_suites_task_schema_parse_error(monkeypatch):
     monkeypatch.setattr("os.listdir", lambda path: ["test.json"])
 
     # テスト実行
-    result = generate_test_suites_task("test_project")
+    result = generate_test_suites_task("test_service")
 
     # 検証
     assert result["status"] == "error"
@@ -152,10 +152,10 @@ def test_generate_test_suites_task_rag_initialization_error(monkeypatch):
     monkeypatch.setattr("os.listdir", lambda path: ["test.json"])
 
     # DependencyAwareRAGをモック化して例外を発生させる
-    monkeypatch.setattr("app.workers.tasks.DependencyAwareRAG", lambda project_id, schema, error_types=None: exec('raise Exception("RAG initialization error")'))
+    monkeypatch.setattr("app.workers.tasks.DependencyAwareRAG", lambda service_id, schema, error_types=None: exec('raise Exception("RAG initialization error")'))
 
     # テスト実行
-    result = generate_test_suites_task("test_project")
+    result = generate_test_suites_task("test_service")
 
     # 検証
     assert result["status"] == "error"
@@ -175,10 +175,10 @@ def test_generate_test_suites_task_generate_chains_error(mock_faiss, mock_llm, m
     mock_rag = MagicMock()
     # generate_request_chainsメソッドが例外を発生させる
     mock_rag.generate_request_chains.side_effect = Exception("Generate chains error")
-    monkeypatch.setattr("app.workers.tasks.DependencyAwareRAG", lambda project_id, schema, error_types=None: mock_rag)
+    monkeypatch.setattr("app.workers.tasks.DependencyAwareRAG", lambda service_id, schema, error_types=None: mock_rag)
 
     # テスト実行
-    result = generate_test_suites_task("test_project")
+    result = generate_test_suites_task("test_service")
 
     # 検証
     assert result["status"] == "error"
@@ -186,10 +186,10 @@ def test_generate_test_suites_task_generate_chains_error(mock_faiss, mock_llm, m
 
 def test_generate_test_suites_for_endpoints_task_success(monkeypatch):
     """エンドポイント指定テストスイート生成タスクの正常系テスト"""
-    # Projectモデルのモック
-    mock_project = MagicMock()
-    mock_project.id = 1
-    mock_project.project_id = "test_project"
+    # Serviceモデルのモック
+    mock_service = MagicMock()
+    mock_service.id = 1
+    mock_service.service_id = "test_service"
 
     # Endpointモデルのモック
     mock_endpoint1 = MagicMock()
@@ -204,7 +204,7 @@ def test_generate_test_suites_for_endpoints_task_success(monkeypatch):
 
     # Sessionのexecメソッドをモック化
     mock_exec = MagicMock()
-    mock_exec.first.return_value = mock_project
+    mock_exec.first.return_value = mock_service
     mock_exec.all.return_value = [mock_endpoint1, mock_endpoint2]
     
     mock_session = MagicMock()
@@ -238,14 +238,14 @@ def test_generate_test_suites_for_endpoints_task_success(monkeypatch):
             ]
         }
     ]
-    monkeypatch.setattr("app.workers.tasks.EndpointChainGenerator", lambda project_id, endpoints, schema, error_types: mock_generator)
+    monkeypatch.setattr("app.workers.tasks.EndpointChainGenerator", lambda service_id, endpoints, schema, error_types: mock_generator)
 
     # ChainStoreをモック化
     mock_store = MagicMock()
     monkeypatch.setattr("app.workers.tasks.ChainStore", lambda: mock_store)
 
     # テスト実行
-    result = generate_test_suites_for_endpoints_task("test_project", ["endpoint1", "endpoint2"])
+    result = generate_test_suites_for_endpoints_task("test_service", ["endpoint1", "endpoint2"])
 
     # 検証
     assert result["status"] == "success"
@@ -253,8 +253,8 @@ def test_generate_test_suites_for_endpoints_task_success(monkeypatch):
     # ChainStore.save_chainsが呼ばれたことを確認
     mock_store.save_suites.assert_called_once()
 
-def test_generate_test_suites_for_endpoints_task_project_not_found(monkeypatch):
-    """プロジェクトが存在しない場合のテスト"""
+def test_generate_test_suites_for_endpoints_task_service_not_found(monkeypatch):
+    """サービスが存在しない場合のテスト"""
     # Sessionのexecメソッドをモック化してNoneを返す
     mock_exec = MagicMock()
     mock_exec.first.return_value = None
@@ -266,23 +266,23 @@ def test_generate_test_suites_for_endpoints_task_project_not_found(monkeypatch):
     monkeypatch.setattr("app.workers.tasks.Session", lambda engine: mock_session)
 
     # テスト実行
-    result = generate_test_suites_for_endpoints_task("non_existent_project", ["endpoint1"])
+    result = generate_test_suites_for_endpoints_task("non_existent_service", ["endpoint1"])
 
     # 検証
     assert result["status"] == "error"
     # エラーメッセージはファイルシステムのエラーを含む可能性があるため、部分一致で確認
-    assert "No such file or directory" in result["message"] or "Project not found" in result["message"]
+    assert "No such file or directory" in result["message"] or "Service not found" in result["message"]
 
 def test_generate_test_suites_for_endpoints_task_no_endpoints(monkeypatch):
     """エンドポイントが存在しない場合のテスト"""
-    # Projectモデルのモック
-    mock_project = MagicMock()
-    mock_project.id = 1
-    mock_project.project_id = "test_project"
+    # Serviceモデルのモック
+    mock_service = MagicMock()
+    mock_service.id = 1
+    mock_service.service_id = "test_service"
 
     # Sessionのexecメソッドをモック化
     mock_exec1 = MagicMock()
-    mock_exec1.first.return_value = mock_project
+    mock_exec1.first.return_value = mock_service
     
     mock_exec2 = MagicMock()
     mock_exec2.all.return_value = []
@@ -294,7 +294,7 @@ def test_generate_test_suites_for_endpoints_task_no_endpoints(monkeypatch):
     monkeypatch.setattr("app.workers.tasks.Session", lambda engine: mock_session)
 
     # テスト実行
-    result = generate_test_suites_for_endpoints_task("test_project", ["non_existent_endpoint"])
+    result = generate_test_suites_for_endpoints_task("test_service", ["non_existent_endpoint"])
 
     # 検証
     assert result["status"] == "warning"
@@ -302,10 +302,10 @@ def test_generate_test_suites_for_endpoints_task_no_endpoints(monkeypatch):
 
 def test_generate_test_suites_for_endpoints_task_no_schema_files(monkeypatch):
     """スキーマファイルが存在しない場合のテスト"""
-    # Projectモデルのモック
-    mock_project = MagicMock()
-    mock_project.id = 1
-    mock_project.project_id = "test_project"
+    # Serviceモデルのモック
+    mock_service = MagicMock()
+    mock_service.id = 1
+    mock_service.service_id = "test_service"
 
     # Endpointモデルのモック
     mock_endpoint = MagicMock()
@@ -315,7 +315,7 @@ def test_generate_test_suites_for_endpoints_task_no_schema_files(monkeypatch):
 
     # Sessionのexecメソッドをモック化
     mock_exec1 = MagicMock()
-    mock_exec1.first.return_value = mock_project
+    mock_exec1.first.return_value = mock_service
     
     mock_exec2 = MagicMock()
     mock_exec2.all.return_value = [mock_endpoint]
@@ -330,7 +330,7 @@ def test_generate_test_suites_for_endpoints_task_no_schema_files(monkeypatch):
     monkeypatch.setattr("os.listdir", lambda path: [])
 
     # テスト実行
-    result = generate_test_suites_for_endpoints_task("test_project", ["endpoint1"])
+    result = generate_test_suites_for_endpoints_task("test_service", ["endpoint1"])
 
     # 検証
     assert result["status"] == "error"
@@ -338,10 +338,10 @@ def test_generate_test_suites_for_endpoints_task_no_schema_files(monkeypatch):
 
 def test_generate_test_suites_for_endpoints_task_with_error_types(monkeypatch):
     """エラータイプを指定したエンドポイント指定テストスイート生成タスクのテスト"""
-    # Projectモデルのモック
-    mock_project = MagicMock()
-    mock_project.id = 1
-    mock_project.project_id = "test_project"
+    # Serviceモデルのモック
+    mock_service = MagicMock()
+    mock_service.id = 1
+    mock_service.service_id = "test_service"
 
     # Endpointモデルのモック
     mock_endpoint = MagicMock()
@@ -351,7 +351,7 @@ def test_generate_test_suites_for_endpoints_task_with_error_types(monkeypatch):
 
     # Sessionのexecメソッドをモック化
     mock_exec1 = MagicMock()
-    mock_exec1.first.return_value = mock_project
+    mock_exec1.first.return_value = mock_service
     
     mock_exec2 = MagicMock()
     mock_exec2.all.return_value = [mock_endpoint]
@@ -405,7 +405,7 @@ def test_generate_test_suites_for_endpoints_task_with_error_types(monkeypatch):
 
     # エラータイプを指定してテスト実行
     error_types = ["missing_field", "invalid_value"]
-    result = generate_test_suites_for_endpoints_task("test_project", ["endpoint1"], error_types)
+    result = generate_test_suites_for_endpoints_task("test_service", ["endpoint1"], error_types)
 
     # 検証
     assert result["status"] == "success"
@@ -414,7 +414,7 @@ def test_generate_test_suites_for_endpoints_task_with_error_types(monkeypatch):
     mock_endpoint_chain_generator.assert_called_once()
     # 引数を個別に確認
     args, kwargs = mock_endpoint_chain_generator.call_args
-    assert args[0] == "test_project"
+    assert args[0] == "test_service"
     assert args[3] == error_types
     # ChainStore.save_chainsが呼ばれたことを確認
     mock_store.save_suites.assert_called_once()

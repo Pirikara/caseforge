@@ -12,7 +12,7 @@ from typing import Dict, Any, List
 from sqlmodel import Session, select
 
 from app.config import settings
-from app.models import engine, Project, TestSuite
+from app.models import engine, Service, TestSuite
 from app.services.test.test_runner import (
     TestRunnerFactory, APITestRunner, ChainTestRunner,
     TestStatus, StepTestResult, CaseTestResult, SuiteTestResult
@@ -197,22 +197,22 @@ async def run_test_chain():
     
     # データベースセッションの作成
     with Session(engine) as session:
-        # テスト用のプロジェクトとテストスイートを作成
-        project = Project(
-            project_id="test-project",
-            name="Test Project",
+        # テスト用のサービスとテストスイートを作成
+        service = Service(
+            service_id="test-service",
+            name="Test Service",
             base_url="https://httpbin.org"
         )
-        session.add(project)
+        session.add(service)
         
         test_suite = TestSuite(
             id="test-suite-1",
-            project_id=project.id,
+            service_id=service.id,
             name="HTTPBin Test Suite"
         )
         session.add(test_suite)
         session.commit()
-        session.refresh(project)
+        session.refresh(service)
         session.refresh(test_suite)
         
         # テストチェーン実行クラスのインスタンスを作成
@@ -266,22 +266,22 @@ async def run_test_with_factory():
     
     # データベースセッションの作成
     with Session(engine) as session:
-        # テスト用のプロジェクトとテストスイートを作成
-        project = Project(
-            project_id="test-project-2",
-            name="Test Project 2",
+        # テスト用のサービスとテストスイートを作成
+        service = Service(
+            service_id="test-service-2",
+            name="Test Service 2",
             base_url="https://httpbin.org"
         )
-        session.add(project)
+        session.add(service)
         
         test_suite = TestSuite(
             id="test-suite-2",
-            project_id=project.id,
+            service_id=service.id,
             name="HTTPBin Test Suite 2"
         )
         session.add(test_suite)
         session.commit()
-        session.refresh(project)
+        session.refresh(service)
         session.refresh(test_suite)
         
         # APIテスト実行クラスのインスタンスを作成
@@ -301,9 +301,9 @@ async def run_test_with_factory():
         print("APIテスト実行クラスのインスタンス作成成功")
         print("テストチェーン実行クラスのインスタンス作成成功")
         
-        # プロジェクトのテストスイートを実行
+        # サービスのテストスイートを実行
         result = await TestRunnerFactory.run_test_suite(
-            project_id=project.project_id,
+            service_id=service.service_id,
             suite_id=test_suite.id,
             session=session,
             base_url="https://httpbin.org"

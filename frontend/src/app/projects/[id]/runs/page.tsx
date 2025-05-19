@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useProjects } from '@/hooks/useProjects';
+import { useServices } from '@/hooks/useServices';
 import { useTestRuns } from '@/hooks/useTestRuns';
 import { TestCaseResult } from '@/hooks/useTestRuns';
 import { Button } from '@/components/ui/button';
@@ -62,18 +62,18 @@ const TestRunChart = dynamic(
 export default function TestRunsPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   
-  const { projects } = useProjects();
-  const { testRuns, isLoading } = useTestRuns(projectId);
+  const { services } = useServices();
+  const { testRuns, isLoading } = useTestRuns(serviceId);
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('all');
   
-  const project = React.useMemo(() => {
-    if (!projects) return null;
-    return projects.find(p => p.id === projectId);
-  }, [projects, projectId]);
+  const service = React.useMemo(() => {
+    if (!services) return null;
+    return services.find(p => p.id === serviceId);
+  }, [services, serviceId]);
   
   // 検索とフィルタリング
   const filteredTestRuns = React.useMemo(() => {
@@ -114,12 +114,12 @@ export default function TestRunsPage() {
     });
   }, [testRuns]);
   
-  if (!project) {
+  if (!service) {
     return (
       <div className="text-center py-8">
-        <p>プロジェクトが見つかりません</p>
+        <p>サービスが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href="/projects">プロジェクト一覧に戻る</Link>
+          <Link href="/services">サービス一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -131,13 +131,13 @@ export default function TestRunsPage() {
         <h1 className="text-3xl font-bold">テスト実行履歴</h1>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link href={`/projects/${projectId}`}>
+            <Link href={`/services/${serviceId}`}>
               <FileTextIcon className="h-4 w-4 mr-2" />
-              プロジェクト詳細
+              サービス詳細
             </Link>
           </Button>
           <Button asChild>
-            <Link href={`/projects/${projectId}/run`}>
+            <Link href={`/services/${serviceId}/run`}>
               <PlayIcon className="h-4 w-4 mr-2" />
               テスト実行
             </Link>
@@ -276,7 +276,7 @@ export default function TestRunsPage() {
                     </TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={`/projects/${projectId}/runs/${run.run_id}`}>
+                        <Link href={`/services/${serviceId}/runs/${run.run_id}`}>
                           詳細
                         </Link>
                       </Button>

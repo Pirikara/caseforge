@@ -18,25 +18,25 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileUpload } from '@/components/molecules/FileUpload';
-import { useProjects } from '@/hooks/useProjects';
+import { useServices } from '@/hooks/useServices';
 import { toast } from 'sonner';
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
-  project_id: z.string().min(1, { message: 'プロジェクトIDは必須です' }),
+  service_id: z.string().min(1, { message: 'サービスIDは必須です' }),
   file: z.instanceof(File, { message: 'ファイルは必須です' }),
 });
 
 export default function UploadPage() {
   const router = useRouter();
-  const { projects, isLoading: isLoadingProjects } = useProjects();
+  const { services, isLoading: isLoadingServices } = useServices();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
   // フォームの初期化
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      project_id: '',
+      service_id: '',
     },
   });
   
@@ -56,7 +56,7 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append('file', values.file);
       
-      const response = await fetch(`${API}/api/projects/${values.project_id}/schema`, {
+      const response = await fetch(`${API}/api/services/${values.service_id}/schema`, {
         method: 'POST',
         body: formData,
       });
@@ -67,11 +67,11 @@ export default function UploadPage() {
       }
       
       toast.success('スキーマがアップロードされました', {
-        description: `プロジェクト「${values.project_id}」にスキーマがアップロードされました。`,
+        description: `サービス「${values.service_id}」にスキーマがアップロードされました。`,
       });
       
-      // プロジェクト詳細ページにリダイレクト
-      router.push(`/projects/${values.project_id}`);
+      // サービス詳細ページにリダイレクト
+      router.push(`/services/${values.service_id}`);
     } catch (error) {
       console.error('スキーマアップロードエラー:', error);
       toast.error('エラーが発生しました', {
@@ -98,15 +98,15 @@ export default function UploadPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="project_id"
+                name="service_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>プロジェクトID</FormLabel>
+                    <FormLabel>サービスID</FormLabel>
                     <FormControl>
-                      <Input placeholder="my-project" {...field} />
+                      <Input placeholder="my-service" {...field} />
                     </FormControl>
                     <FormDescription>
-                      スキーマをアップロードするプロジェクトのIDを入力してください。
+                      スキーマをアップロードするサービスのIDを入力してください。
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -138,7 +138,7 @@ export default function UploadPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push('/projects')}
+                  onClick={() => router.push('/services')}
                   disabled={isSubmitting}
                 >
                   キャンセル

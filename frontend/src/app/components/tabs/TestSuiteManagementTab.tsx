@@ -50,10 +50,10 @@ import { ja } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils'; // cn 関数をインポート
 
-export const TestChainManagementTab = ({ projectId, project }: { projectId: string, project: any }) => {
+export const TestChainManagementTab = ({ serviceId, service }: { serviceId: string, service: any }) => {
   const router = useRouter();
-  const { testSuites, isLoading: isLoadingTestSuites, deleteTestSuite } = useTestSuites(projectId);
-  const { testRuns, isLoading: isLoadingTestRuns } = useTestRuns(projectId);
+  const { testSuites, isLoading: isLoadingTestSuites, deleteTestSuite } = useTestSuites(serviceId);
+  const { testRuns, isLoading: isLoadingTestRuns } = useTestRuns(serviceId);
 
   // テスト生成関連のstateは削除
   // const [isGenerating, setIsGenerating] = React.useState(false);
@@ -64,7 +64,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
   // テストスイート詳細関連のstate
   const [selectedSuiteId, setSelectedSuiteId] = React.useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
-  const { testSuite, isLoading: isLoadingSuiteDetail } = useTestSuiteDetail(projectId, selectedSuiteId);
+  const { testSuite, isLoading: isLoadingSuiteDetail } = useTestSuiteDetail(serviceId, selectedSuiteId);
 
   // 削除確認ダイアログ関連のstate
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -126,7 +126,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
       setIsRunning(true);
 
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-      const response = await fetch(`${API}/api/projects/${projectId}/run`, {
+      const response = await fetch(`${API}/api/services/${serviceId}/run`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
       });
 
       // テスト実行詳細ページにリダイレクト
-      router.push(`/projects/${projectId}/runs/${data.run_id}`);
+      router.push(`/services/${serviceId}/runs/${data.run_id}`);
     } catch (error) {
       console.error('テスト実行エラー:', error);
 
@@ -174,7 +174,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
           <div className="flex flex-col md:flex-row gap-4 items-end">
             {/* テストスイート一覧へのリンクを追加 */}
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/projects/${projectId}/test-suites`}>
+              <Link href={`/services/${serviceId}/test-suites`}>
                 テストスイート一覧
               </Link>
             </Button>
@@ -353,7 +353,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
         <CardHeader>
           <CardTitle>最近のテスト実行</CardTitle>
           <CardDescription>
-            <Link href={`/projects/${projectId}/runs`} className="text-sm hover:underline">
+            <Link href={`/services/${serviceId}/runs`} className="text-sm hover:underline">
               すべて表示
             </Link>
           </CardDescription>
@@ -366,7 +366,7 @@ export const TestChainManagementTab = ({ projectId, project }: { projectId: stri
               {testRuns.slice(0, 5).map((run: TestRun) => (
                 <Link
                   key={run.id}
-                  href={`/projects/${projectId}/runs/${run.run_id}`}
+                  href={`/services/${serviceId}/runs/${run.run_id}`}
                   className="flex items-center justify-between p-2 rounded-md hover:bg-accent"
                 >
                   <div className="flex items-center gap-2">

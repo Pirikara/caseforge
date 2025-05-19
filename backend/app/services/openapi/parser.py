@@ -38,19 +38,19 @@ class EndpointParser:
             logger.warning("Schema does not contain 'paths' field")
             self.schema["paths"] = {}
     
-    def parse_endpoints(self, project_id: int) -> List[Dict[str, Any]]:
+    def parse_endpoints(self, service_id: int) -> List[Dict[str, Any]]:
         """
         スキーマからエンドポイント情報を抽出する
         
         Args:
-            project_id: プロジェクトID
+            service_id: サービスID
             
         Returns:
             エンドポイント情報のリスト
         """
         endpoints = []
         
-        logger.info(f"Parsing endpoints for project_id: {project_id}")
+        logger.info(f"Parsing endpoints for service_id: {service_id}")
         
         paths = self.schema.get("paths", {})
         logger.info(f"Found {len(paths)} paths in schema")
@@ -100,7 +100,7 @@ class EndpointParser:
                     logger.info(f"  - responses: {resolved_responses is not None}")
                     
                     endpoint_data = {
-                        "project_id": project_id,
+                        "service_id": service_id,
                         "path": path,
                         "method": method_name.upper(),
                         "summary": operation.get("summary"),

@@ -13,19 +13,19 @@ export interface TestCase {
   purpose: string;
 }
 
-export function useTestCases(projectId: string) {
+export function useTestCases(serviceId: string) {
   const { data, error, isLoading, mutate } = useSWR<TestCase[]>(
-    projectId ? `/api/projects/${projectId}/tests` : null,
+    serviceId ? `/api/services/${serviceId}/tests` : null,
     fetcher
   );
   
   const deleteChain = async (chainId: string) => {
     try {
-      await fetcher(`/api/projects/${projectId}/chains/${chainId}`, 'DELETE');
+      await fetcher(`/api/services/${serviceId}/chains/${chainId}`, 'DELETE');
       // 削除成功後、SWRのキャッシュを更新して再フェッチ
       mutate();
     } catch (err) {
-      console.error(`Failed to delete chain ${chainId} for project ${projectId}:`, err);
+      console.error(`Failed to delete chain ${chainId} for service ${serviceId}:`, err);
       throw err; // エラーを呼び出し元に伝える
     }
   };
@@ -54,9 +54,9 @@ export interface TestCaseDetail extends TestCase {
   steps?: TestStep[]; // テストステップの配列を追加
 }
 
-export function useTestCaseDetail(projectId: string, caseId: string) {
+export function useTestCaseDetail(serviceId: string, caseId: string) {
   const { data, error, isLoading } = useSWR<TestCaseDetail>(
-    projectId && caseId ? `/api/projects/${projectId}/tests/${caseId}` : null,
+    serviceId && caseId ? `/api/services/${serviceId}/tests/${caseId}` : null,
     fetcher
   );
   return { testCase: data, isLoading, error };

@@ -26,9 +26,9 @@ import {
   SheetClose,
 } from '@/components/ui/sheet';
 
-export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
+export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
   const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-  const { endpoints, isLoading, mutate } = useEndpoints(projectId);
+  const { endpoints, isLoading, mutate } = useEndpoints(serviceId);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedEndpoints, setSelectedEndpoints] = React.useState<string[]>([]);
   const [isGenerating, setIsGenerating] = React.useState(false);
@@ -138,7 +138,7 @@ export const EndpointManagementTab = ({ projectId }: { projectId: string }) => {
       setIsGenerating(true);
       
       // URLの構築方法を修正
-      const response = await fetch(`${API}/api/projects/${projectId}/generate-tests`, {
+      const response = await fetch(`${API}/api/services/${serviceId}/generate-tests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

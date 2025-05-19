@@ -6,12 +6,12 @@ import { useParams, useRouter } from 'next/navigation';
 export default function SchemaPageRedirect() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   
   useEffect(() => {
-    // プロジェクト詳細ページのスキーマタブにリダイレクト
-    router.replace(`/projects/${projectId}?tab=schema`);
-  }, [projectId, router]);
+    // サービス詳細ページのスキーマタブにリダイレクト
+    router.replace(`/services/${serviceId}?tab=schema`);
+  }, [serviceId, router]);
   
   return (
     <div className="flex items-center justify-center h-screen">

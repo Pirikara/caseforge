@@ -226,7 +226,7 @@ async def test_run_test_suite_with_base_url():
 
 
 @pytest.mark.asyncio
-async def test_run_test_suites_function(session, test_project, monkeypatch):
+async def test_run_test_suites_function(session, test_service, monkeypatch):
     mock_chain_store = MagicMock()
     mock_chain_store.list_test_suites.return_value = [{"id": "test-suite-1"}]
     mock_chain_store.get_test_suite.return_value = SAMPLE_TEST_SUITE
@@ -258,7 +258,7 @@ async def test_run_test_suites_function(session, test_project, monkeypatch):
 
             test_suite = TestSuite(
                 id="test-suite-1",
-                project_id=test_project.project_id,
+                service_id=test_service.service_id,
                 name="Test TestSuite",
                 target_method="POST",
                 target_path="/users"
@@ -267,24 +267,24 @@ async def test_run_test_suites_function(session, test_project, monkeypatch):
             session.commit()
             session.refresh(test_suite)
         
-            result = await run_test_suites(test_project.project_id)
+            result = await run_test_suites(test_service.service_id)
 
-            session.refresh(test_project)
+            session.refresh(test_service)
 
             assert result["status"] == "completed"
             assert "results" in result
 
             session.commit()
 
-            runs = session.exec(select(TestRun).where(TestRun.project_id == test_project.id)).all()
+            runs = session.exec(select(TestRun).where(TestRun.service_id == test_service.id)).all()
             assert len(runs) > 0
 
-def test_list_test_runs(session, test_project):
+def test_list_test_runs(session, test_service):
     from app.models import TestSuite, TestRun
     
     test_suite = TestSuite(
         id="test-suite-1",
-        project_id=test_project.id,
+        service_id=test_service.id,
         name="Test TestSuite",
         target_method="GET",
         target_path="/items"
@@ -295,7 +295,7 @@ def test_list_test_runs(session, test_project):
     test_run = TestRun(
         run_id=str(uuid.uuid4()),
         suite_id=test_suite.id,
-        project_id=test_project.id,
+        service_id=test_service.id,
         status="completed",
         start_time=datetime.now(timezone.utc)
     )
@@ -304,19 +304,19 @@ def test_list_test_runs(session, test_project):
     session.refresh(test_run)
 
     with patch("app.services.chain_runner.Session", return_value=session) as mock_session:
-        test_runs = list_test_runs(test_project.project_id)
+        test_runs = list_test_runs(test_service.service_id)
     
     assert len(test_runs) == 1
     assert test_runs[0]["run_id"] == test_run.run_id
     assert test_runs[0]["suite_id"] == "test-suite-1"
     assert test_runs[0]["status"] == "completed"
 
-def test_get_test_run(session, test_project):
+def test_get_test_run(session, test_service):
     from app.models.test import TestSuite, TestCase, TestStep, TestRun, TestCaseResult, StepResult
     
     test_suite = TestSuite(
         id="test-suite-1",
-        project_id=test_project.id,
+        service_id=test_service.id,
         name="Test TestSuite",
         target_method="POST",
         target_path="/users"
@@ -347,7 +347,7 @@ def test_get_test_run(session, test_project):
     test_run = TestRun(
         run_id=str(uuid.uuid4()),
         suite_id=test_suite.id,
-        project_id=test_project.id,
+        service_id=test_service.id,
         status="completed",
         start_time=datetime.now(timezone.utc)
     )
@@ -374,7 +374,7 @@ def test_get_test_run(session, test_project):
     session.add(step_result)
     session.commit()
     with patch("app.services.chain_runner.Session", return_value=session):
-        test_run_data = get_test_run(test_project.project_id, test_run.run_id)
+        test_run_data = get_test_run(test_service.service_id, test_run.run_id)
     
     assert test_run_data is not None
     assert test_run_data["run_id"] == test_run.run_id

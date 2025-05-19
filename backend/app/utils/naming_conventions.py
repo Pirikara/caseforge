@@ -1,17 +1,17 @@
 """
-Caseforge プロジェクトの命名規則ガイドライン
+Caseforge サービスの命名規則ガイドライン
 
-このモジュールは、プロジェクト全体で一貫した命名規則を定義し、
+このモジュールは、サービス全体で一貫した命名規則を定義し、
 コードの可読性と保守性を向上させるためのガイドラインを提供します。
 """
 
 # 命名規則の種類
 NAMING_STYLES = {
-    "pascal_case": "単語の先頭を大文字にし、スペースや区切り文字を使用しない (例: ProjectManager)",
-    "snake_case": "すべて小文字で、単語をアンダースコアで区切る (例: project_manager)",
+    "pascal_case": "単語の先頭を大文字にし、スペースや区切り文字を使用しない (例: ServiceManager)",
+    "snake_case": "すべて小文字で、単語をアンダースコアで区切る (例: service_manager)",
     "upper_snake_case": "すべて大文字で、単語をアンダースコアで区切る (例: PROJECT_MANAGER)",
-    "camel_case": "最初の単語は小文字で始め、以降の単語の先頭を大文字にする (例: projectManager)",
-    "kebab_case": "すべて小文字で、単語をハイフンで区切る (例: project-manager)",
+    "camel_case": "最初の単語は小文字で始め、以降の単語の先頭を大文字にする (例: serviceManager)",
+    "kebab_case": "すべて小文字で、単語をハイフンで区切る (例: service-manager)",
 }
 
 # バックエンド (Python) の命名規則
@@ -19,7 +19,7 @@ PYTHON_NAMING_CONVENTIONS = {
     # クラス
     "class_names": {
         "style": "pascal_case",
-        "examples": ["Project", "LLMClient", "TimeoutException"],
+        "examples": ["Service", "LLMClient", "TimeoutException"],
         "description": "クラス名はパスカルケースを使用し、名詞または名詞句を使用します。"
     },
     
@@ -83,7 +83,7 @@ PYTHON_NAMING_CONVENTIONS = {
     # データベースモデル関連
     "table_names": {
         "style": "snake_case",
-        "examples": ["project", "test_suite", "endpoint"],
+        "examples": ["service", "test_suite", "endpoint"],
         "description": "テーブル名はスネークケースを使用し、単数形の名詞を使用します。"
     },
     
@@ -99,14 +99,14 @@ TYPESCRIPT_NAMING_CONVENTIONS = {
     # コンポーネント
     "component_names": {
         "style": "pascal_case",
-        "examples": ["ProjectCard", "Header", "TestRunChart"],
+        "examples": ["ServiceCard", "Header", "TestRunChart"],
         "description": "Reactコンポーネント名はパスカルケースを使用します。"
     },
     
     # インターフェース・型
     "interface_type_names": {
         "style": "pascal_case",
-        "examples": ["Project", "ProjectCardProps", "TestRun"],
+        "examples": ["Service", "ServiceCardProps", "TestRun"],
         "description": "インターフェースと型名はパスカルケースを使用します。"
     },
     
@@ -114,21 +114,21 @@ TYPESCRIPT_NAMING_CONVENTIONS = {
     "hook_names": {
         "style": "camel_case",
         "prefix": "use",
-        "examples": ["useProjects", "useTestRuns", "useEndpoints"],
+        "examples": ["useServices", "useTestRuns", "useEndpoints"],
         "description": "カスタムフック名は 'use' で始まるキャメルケースを使用します。"
     },
     
     # 関数
     "function_names": {
         "style": "camel_case",
-        "examples": ["deleteProject", "formatDate", "handleSubmit"],
+        "examples": ["deleteService", "formatDate", "handleSubmit"],
         "description": "関数名はキャメルケースを使用し、動詞または動詞句を使用します。"
     },
     
     # 変数・プロパティ
     "variable_property_names": {
         "style": "camel_case",
-        "examples": ["data", "error", "isLoading", "projectId"],
+        "examples": ["data", "error", "isLoading", "serviceId"],
         "description": "変数とプロパティ名はキャメルケースを使用します。ただし、バックエンドとの整合性が必要な場合は例外とします。"
     },
     
@@ -144,12 +144,12 @@ TYPESCRIPT_NAMING_CONVENTIONS = {
         "component_files": {
             "style": "pascal_case",
             "extension": ".tsx",
-            "examples": ["ProjectCard.tsx", "Header.tsx"]
+            "examples": ["ServiceCard.tsx", "Header.tsx"]
         },
         "hook_files": {
             "style": "camel_case",
             "extension": ".ts",
-            "examples": ["useProjects.ts", "useTestRuns.ts"]
+            "examples": ["useServices.ts", "useTestRuns.ts"]
         },
         "utility_files": {
             "style": "camel_case",
@@ -162,7 +162,7 @@ TYPESCRIPT_NAMING_CONVENTIONS = {
 # 命名規則の適用ガイドライン
 def apply_naming_conventions():
     """
-    プロジェクト全体に命名規則を適用するためのガイドライン
+    サービス全体に命名規則を適用するためのガイドライン
     
     このセクションでは、新しいコードを書く際や既存のコードをリファクタリングする際に
     命名規則を適用するためのガイドラインを提供します。
@@ -209,14 +209,14 @@ def naming_examples():
     # TypeScript/React (フロントエンド) の例
     typescript_examples = {
         "良い例": [
-            "function ProjectCard({ project }) {...}",
+            "function ServiceCard({ service }) {...}",
             "interface UserProfileProps {...}",
             "function useAuthentication() {...}",
             "const handleSubmit = () => {...}",
             "const userData = await fetchUserData();"
         ],
         "悪い例": [
-            "function project_card({ project }) {...}",  # パスカルケースではない
+            "function service_card({ service }) {...}",  # パスカルケースではない
             "interface user_profile_props {...}",  # パスカルケースではない
             "function UseAuthentication() {...}",  # キャメルケースではない
             "const HandleSubmit = () => {...}",  # キャメルケースではない

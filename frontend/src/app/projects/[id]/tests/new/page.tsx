@@ -40,7 +40,7 @@ export default function NewTestCasePage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams(); // クエリパラメータを取得
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const suiteId = searchParams.get('suiteId'); // suiteId をクエリパラメータから取得
 
   const form = useForm<FormValues>({
@@ -66,13 +66,13 @@ export default function NewTestCasePage() {
         request_body: values.request_body ? JSON.parse(values.request_body) : null,
         expected_response: values.expected_response ? JSON.parse(values.expected_response) : null,
       };
-      await fetcher(`/api/projects/${projectId}/tests`, 'POST', payload);
+      await fetcher(`/api/services/${serviceId}/tests`, 'POST', payload);
       toast.success('テストケースが作成されました。');
       // テストスイート詳細ページに戻るか、テストケース一覧に戻るか検討
       if (suiteId) {
-        router.push(`/projects/${projectId}/test-suites/${suiteId}`);
+        router.push(`/services/${serviceId}/test-suites/${suiteId}`);
       } else {
-        router.push(`/projects/${projectId}/tests`);
+        router.push(`/services/${serviceId}/tests`);
       }
     } catch (error: any) {
       toast.error('テストケースの作成に失敗しました。', {
@@ -86,7 +86,7 @@ export default function NewTestCasePage() {
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
            {/* suiteId があればテストスイート詳細に戻る、なければテストケース一覧に戻る */}
-          <Link href={suiteId ? `/projects/${projectId}/test-suites/${suiteId}` : `/projects/${projectId}/tests`}>
+          <Link href={suiteId ? `/services/${serviceId}/test-suites/${suiteId}` : `/services/${serviceId}/tests`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             {suiteId ? 'テストスイート詳細に戻る' : 'テストケース一覧に戻る'}
           </Link>

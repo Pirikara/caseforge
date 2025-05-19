@@ -8,7 +8,7 @@ from app.services.rag import EmbeddingFunctionForCaseforge
 from app.services.schema_analyzer import OpenAPIAnalyzer
 from app.config import settings
 from app.logging_config import logger
-from app.models import TestSuite, TestStep, Project, TestCase, engine
+from app.models import TestSuite, TestStep, Service, TestCase, engine
 from sqlmodel import select, Session
 from app.exceptions import TimeoutException
 from app.utils.timeout import run_with_timeout
@@ -19,13 +19,13 @@ from sqlalchemy.orm import selectinload
 class DependencyAwareRAG:
     """依存関係を考慮したRAGクラス"""
     
-    def __init__(self, project_id: str, schema: dict, error_types: Optional[List[str]] = None):
+    def __init__(self, service_id: str, schema: dict, error_types: Optional[List[str]] = None):
         """
         Args:
-            project_id: プロジェクトID
+            service_id: サービスID
             schema: パース済みのOpenAPIスキーマ（dict形式）
         """
-        self.project_id = project_id
+        self.service_id = service_id
         self.schema = schema
         self.error_types = error_types
         self.analyzer = OpenAPIAnalyzer(schema)
@@ -56,7 +56,7 @@ class DependencyAwareRAG:
                     logger.info("DependencyAwareRAG: FAISSの初期化完了")
                     
                     # 既存のベクトルDBがあれば読み込む
-                    faiss_path = path_manager.get_faiss_dir(project_id, temp=True)
+                    faiss_path = path_manager.get_faiss_dir(service_id, temp=True)
                     if path_manager.exists(faiss_path):
                         try:
                             logger.info(f"DependencyAwareRAG: 既存のベクトルDBを読み込み: {faiss_path}")
@@ -447,19 +447,19 @@ class ChainStore:
         """初期化"""
         pass
     
-    def save_suites(self, session: Session, project_id: str, test_suites: List[Dict], overwrite: bool = True) -> None:
+    def save_suites(self, session: Session, service_id: str, test_suites: List[Dict], overwrite: bool = True) -> None:
         """
         生成されたテストスイートをデータベースに保存する
         
         Args:
             session: データベースセッション
-            project_id: プロジェクトID
+            service_id: サービスID
             test_suites: 保存するテストスイiteのリスト (LLM生成JSON構造)
             overwrite: 既存のテストスイートを上書きするかどうか (デフォルト: True)
         """
         try:
             # ファイルシステムにも保存（デバッグ用）
-            tests_dir = path_manager.get_tests_dir(project_id)
+            tests_dir = path_manager.get_tests_dir(service_id)
             path_manager.ensure_dir(tests_dir)
             
             # overwriteがFalseの場合は、既存のファイルを読み込んで追加する
@@ -484,19 +484,19 @@ class ChainStore:
                     json.dump(test_suites, f, indent=2)
             
             # データベースに保存
-            # プロジェクトの取得
-            logger.info(f"Exec save_suites Project ID: {project_id}")
-            project_query = select(Project).where(Project.project_id == project_id)
-            db_project = session.exec(project_query).first()
-            logger.info(f"Found project with project_id (str): {project_id} and database id (int): {db_project.id}")
+            # サービスの取得
+            logger.info(f"Exec save_suites Service ID: {service_id}")
+            service_query = select(Service).where(Service.service_id == service_id)
+            db_service = session.exec(service_query).first()
+            logger.info(f"Found service with service_id (str): {service_id} and database id (int): {db_service.id}")
             
-            if not db_project:
-                logger.error(f"Project not found: {project_id}")
+            if not db_service:
+                logger.error(f"Service not found: {service_id}")
                 return
             
             # 既存のテストスイートを削除（overwriteがTrueの場合のみ）
             if overwrite:
-                existing_suites_query = select(TestSuite).where(TestSuite.project_id == db_project.id)
+                existing_suites_query = select(TestSuite).where(TestSuite.service_id == db_service.id)
                 existing_suites = session.exec(existing_suites_query).all()
                 
                 for suite in existing_suites:
@@ -507,7 +507,7 @@ class ChainStore:
                         session.delete(case)
                     session.delete(suite)
                 
-                logger.info(f"Deleted {len(existing_suites)} existing test suites for project {project_id}")
+                logger.info(f"Deleted {len(existing_suites)} existing test suites for service {service_id}")
 
             # 新しいテストスイートを保存
             for suite_data in test_suites:
@@ -515,7 +515,7 @@ class ChainStore:
                 suite_id = suite_data.get("id", str(uuid.uuid4()))
                 test_suite = TestSuite(
                     id=suite_id,
-                    project_id=db_project.id,
+                    service_id=db_service.id,
                     target_method=suite_data.get("target_method"),
                     target_path=suite_data.get("target_path"),
                     name=suite_data.get("name", "Unnamed TestSuite"),
@@ -564,33 +564,33 @@ class ChainStore:
             logger.info(f"Saved {len(test_suites)} test suites with cases and steps to database")
                 
         except Exception as e:
-            logger.error(f"Error saving test suites for project {project_id}: {e}", exc_info=True)
+            logger.error(f"Error saving test suites for service {service_id}: {e}", exc_info=True)
             session.rollback()
             raise
     
-    def list_test_suites(self, session: Session, project_id: str) -> List[Dict]:
+    def list_test_suites(self, session: Session, service_id: str) -> List[Dict]:
         """
-        プロジェクトのテストスイート一覧を取得する
+        サービスのテストスイート一覧を取得する
         
         Args:
             session: データベースセッション
-            project_id: プロジェクトID
+            service_id: サービスID
             
         Returns:
             テストスイートのリスト
         """
         try:
-            # プロジェクトの取得 (test_suites リレーションシップを Eager Load)
-            project_query = select(Project).where(Project.project_id == project_id).options(selectinload(Project.test_suites))
-            db_project = session.exec(project_query).first()
+            # サービスの取得 (test_suites リレーションシップを Eager Load)
+            service_query = select(Service).where(Service.service_id == service_id).options(selectinload(Service.test_suites))
+            db_service = session.exec(service_query).first()
 
-            if not db_project:
-                logger.error(f"Project not found: {project_id}")
+            if not db_service:
+                logger.error(f"Service not found: {service_id}")
                 return []
             
             # テストスイートの取得
             test_suites = []
-            for suite in db_project.test_suites:
+            for suite in db_service.test_suites:
                 suite_data = {
                     "id": suite.id,
                     "name": suite.name,
@@ -599,49 +599,49 @@ class ChainStore:
                     "target_path": suite.target_path,
                     "created_at": suite.created_at.isoformat() if suite.created_at else None,
                     "test_cases_count": len(suite.test_cases) if suite.test_cases else 0,
-                    "project_id": db_project.id,
+                    "service_id": db_service.id,
                 }
                 test_suites.append(suite_data)
             
             return test_suites
 
         except Exception as e:
-            logger.error(f"Error listing test suites for project {project_id}: {e}", exc_info=True)
+            logger.error(f"Error listing test suites for service {service_id}: {e}", exc_info=True)
             
             # ファイルシステムからの読み込みを試みる（フォールバック）
             try:
-                path = path_manager.join_path(path_manager.get_tests_dir(project_id), "test_suites.json")
+                path = path_manager.join_path(path_manager.get_tests_dir(service_id), "test_suites.json")
                 if path_manager.exists(path):
                     with open(path, "r") as f:
                         test_suites = json.load(f)
                     return test_suites
             except Exception as fallback_error:
-                logger.error(f"Fallback error reading test suites from file system for project {project_id}: {fallback_error}", exc_info=True)
+                logger.error(f"Fallback error reading test suites from file system for service {service_id}: {fallback_error}", exc_info=True)
             
             return []
 
-    def merge_and_save_test_suites(self, project_id: str, new_test_suites: List[Dict]) -> None:
+    def merge_and_save_test_suites(self, service_id: str, new_test_suites: List[Dict]) -> None:
         """
         新しいテストスイートリストを既存のテストスイートとマージしてデータベースに保存する。
         新しいリストに含まれるtarget_methodとtarget_pathの組み合わせが同じテストスイートは既存のもので置き換え、
         新しいリストにない組み合わせの既存テストスイートはそのまま残す。
         
         Args:
-            project_id: プロジェクトID
+            service_id: サービスID
             new_test_suites: 新しく生成されたテストスイートのリスト
         """
         try:
             with Session(engine) as session:
-                # プロジェクトの取得
-                project_query = select(Project).where(Project.project_id == project_id)
-                db_project = session.exec(project_query).first()
+                # サービスの取得
+                service_query = select(Service).where(Service.service_id == service_id)
+                db_service = session.exec(service_query).first()
                 
-                if not db_project:
-                    logger.error(f"Project not found: {project_id}")
+                if not db_service:
+                    logger.error(f"Service not found: {service_id}")
                     return
                 
                 # 既存のテストスイートを (target_method, target_path) をキーとした辞書に変換
-                existing_suites_dict = {(suite.target_method, suite.target_path): suite for suite in db_project.test_suites}
+                existing_suites_dict = {(suite.target_method, suite.target_path): suite for suite in db_service.test_suites}
                 
                 suites_to_save = []
                 
@@ -670,7 +670,7 @@ class ChainStore:
                     suite_id = str(uuid.uuid4())
                     test_suite = TestSuite(
                         id=suite_id,
-                        project_id=db_project.id,
+                        service_id=db_service.id,
                         target_method=target_method,
                         target_path=target_path,
                         name=suite_data.get("name", f"{target_method} {target_path} TestSuite"),
@@ -720,36 +720,36 @@ class ChainStore:
                     suites_to_save.append(test_suite) # マージ後のリストには追加しないが、ログのために保持
 
                 session.commit()
-                logger.info(f"Merged and saved {len(new_test_suites)} new/updated test suites for project {project_id}")
+                logger.info(f"Merged and saved {len(new_test_suites)} new/updated test suites for service {service_id}")
                 
         except Exception as e:
-            logger.error(f"Error merging and saving test suites for project {project_id}: {e}", exc_info=True)
+            logger.error(f"Error merging and saving test suites for service {service_id}: {e}", exc_info=True)
             session.rollback()
             raise
     
-    def get_test_suite(self, session: Session, project_id: str, suite_id: str) -> Optional[Dict]:
+    def get_test_suite(self, session: Session, service_id: str, suite_id: str) -> Optional[Dict]:
         """
         特定のテストスイートの詳細を取得する
         
         Args:
             session: データベースセッション
-            project_id: プロジェクトID
+            service_id: サービスID
             suite_id: テストスイートID
             
         Returns:
             テストスイートの詳細。見つからない場合はNone。
         """
         try:
-            # プロジェクトの取得 (test_suites リレーションシップを Eager Load)
-            project_query = select(Project).where(Project.project_id == project_id).options(selectinload(Project.test_suites))
-            db_project = session.exec(project_query).first()
+            # サービスの取得 (test_suites リレーションシップを Eager Load)
+            service_query = select(Service).where(Service.service_id == service_id).options(selectinload(Service.test_suites))
+            db_service = session.exec(service_query).first()
 
-            if not db_project:
-                logger.error(f"Project not found: {project_id}")
+            if not db_service:
+                logger.error(f"Service not found: {service_id}")
                 return None
             
             # テストスイートの取得
-            for suite in db_project.test_suites:
+            for suite in db_service.test_suites:
                 if suite.id == suite_id:
                     test_cases_data = []
                     # テストケースを名前でソート（任意）
@@ -803,9 +803,9 @@ class ChainStore:
             return None
 
         except Exception as e:
-            logger.error(f"Error getting test suite {suite_id} for project {project_id}: {e}")
+            logger.error(f"Error getting test suite {suite_id} for service {service_id}: {e}")
             return None
 
         except Exception as e:
-            logger.error(f"Error getting chain {suite_id} for project {project_id}: {e}")
+            logger.error(f"Error getting chain {suite_id} for service {service_id}: {e}")
             return None

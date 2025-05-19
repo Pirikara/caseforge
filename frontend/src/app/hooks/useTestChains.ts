@@ -5,7 +5,7 @@ import { TestCase, TestStep } from './useTestRuns'; // TestCase, TestStep 型を
 
 export interface TestSuite {
   id: string;
-  project_id?: string;
+  service_id?: string;
   target_method: string;
   target_path: string;
   name: string;
@@ -16,15 +16,15 @@ export interface TestSuite {
   updated_at?: string;
 }
 
-export function useTestSuites(projectId: string) { // useTestChains を useTestSuites に変更
+export function useTestSuites(serviceId: string) { // useTestChains を useTestSuites に変更
   const { data, error, isLoading, mutate } = useSWR<TestSuite[]>( // TestChain[] を TestSuite[] に変更
-    projectId ? `/api/projects/${projectId}/test-suites` : null, // /chains を /test-suites に変更
+    serviceId ? `/api/services/${serviceId}/test-suites` : null, // /chains を /test-suites に変更
     fetcher
   );
   
   const deleteTestSuite = async (suiteId: string) => { // deleteChain を deleteTestSuite に変更, chainId を suiteId に変更
     try {
-      await fetcher(`/api/projects/${projectId}/test-suites/${suiteId}`, 'DELETE'); // /chains/${chainId} を /test-suites/${suiteId} に変更
+      await fetcher(`/api/services/${serviceId}/test-suites/${suiteId}`, 'DELETE'); // /chains/${chainId} を /test-suites/${suiteId} に変更
       // 削除成功後、SWRのキャッシュを更新して再フェッチ
       mutate();
     } catch (err) {
@@ -42,9 +42,9 @@ export function useTestSuites(projectId: string) { // useTestChains を useTestS
   };
 }
 
-export function useTestSuiteDetail(projectId: string, suiteId: string | null) { // useTestChainDetail を useTestSuiteDetail に変更, chainId を suiteId に変更
+export function useTestSuiteDetail(serviceId: string, suiteId: string | null) { // useTestChainDetail を useTestSuiteDetail に変更, chainId を suiteId に変更
   const { data, error, isLoading, mutate } = useSWR<TestSuite>( // TestChain を TestSuite に変更
-    projectId && suiteId ? `/api/projects/${projectId}/test-suites/${suiteId}` : null, // chainId を suiteId に変更, /chains/${chainId} を /test-suites/${suiteId} に変更
+    serviceId && suiteId ? `/api/services/${serviceId}/test-suites/${suiteId}` : null, // chainId を suiteId に変更, /chains/${chainId} を /test-suites/${suiteId} に変更
     fetcher
   );
   

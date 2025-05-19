@@ -22,17 +22,17 @@ import { toast } from 'sonner';
 
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
-  project_id: z.string()
-    .min(3, { message: 'プロジェクトIDは3文字以上である必要があります' })
-    .max(50, { message: 'プロジェクトIDは50文字以下である必要があります' })
-    .regex(/^[a-z0-9_-]+$/, { message: 'プロジェクトIDは小文字、数字、ハイフン、アンダースコアのみ使用できます' }),
+  service_id: z.string()
+    .min(3, { message: 'サービスIDは3文字以上である必要があります' })
+    .max(50, { message: 'サービスIDは50文字以下である必要があります' })
+    .regex(/^[a-z0-9_-]+$/, { message: 'サービスIDは小文字、数字、ハイフン、アンダースコアのみ使用できます' }),
   name: z.string()
-    .min(1, { message: 'プロジェクト名は必須です' })
-    .max(100, { message: 'プロジェクト名は100文字以下である必要があります' }),
+    .min(1, { message: 'サービス名は必須です' })
+    .max(100, { message: 'サービス名は100文字以下である必要があります' }),
   description: z.string().max(500, { message: '説明は500文字以下である必要があります' }).optional(),
 });
 
-export default function NewProjectPage() {
+export default function NewServicePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
@@ -40,7 +40,7 @@ export default function NewProjectPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      project_id: '',
+      service_id: '',
       name: '',
       description: '',
     },
@@ -52,13 +52,13 @@ export default function NewProjectPage() {
       setIsSubmitting(true);
       
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-      const response = await fetch(`${API}/api/projects/`, {
+      const response = await fetch(`${API}/api/services/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          project_id: values.project_id,
+          service_id: values.service_id,
           name: values.name,
           description: values.description || '',
         }),
@@ -66,19 +66,19 @@ export default function NewProjectPage() {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'プロジェクトの作成に失敗しました');
+        throw new Error(errorData.detail || 'サービスの作成に失敗しました');
       }
       
       const data = await response.json();
       
-      toast.success('プロジェクトが作成されました', {
-        description: `プロジェクト「${values.name}」が正常に作成されました。`,
+      toast.success('サービスが作成されました', {
+        description: `サービス「${values.name}」が正常に作成されました。`,
       });
       
-      // プロジェクト詳細ページにリダイレクト
-      router.push(`/projects/${values.project_id}`);
+      // サービス詳細ページにリダイレクト
+      router.push(`/services/${values.service_id}`);
     } catch (error) {
-      console.error('プロジェクト作成エラー:', error);
+      console.error('サービス作成エラー:', error);
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });
@@ -89,13 +89,13 @@ export default function NewProjectPage() {
   
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">新規プロジェクト作成</h1>
+      <h1 className="text-3xl font-bold mb-6">新規サービス作成</h1>
       
       <Card>
         <CardHeader>
-          <CardTitle>プロジェクト情報</CardTitle>
+          <CardTitle>サービス情報</CardTitle>
           <CardDescription>
-            新しいプロジェクトの基本情報を入力してください。
+            新しいサービスの基本情報を入力してください。
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -103,15 +103,15 @@ export default function NewProjectPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="project_id"
+                name="service_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>プロジェクトID</FormLabel>
+                    <FormLabel>サービスID</FormLabel>
                     <FormControl>
-                      <Input placeholder="my-project" {...field} />
+                      <Input placeholder="my-service" {...field} />
                     </FormControl>
                     <FormDescription>
-                      プロジェクトを識別するための一意のIDです。小文字、数字、ハイフン、アンダースコアのみ使用できます。
+                      サービスを識別するための一意のIDです。小文字、数字、ハイフン、アンダースコアのみ使用できます。
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -123,12 +123,12 @@ export default function NewProjectPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>プロジェクト名</FormLabel>
+                    <FormLabel>サービス名</FormLabel>
                     <FormControl>
-                      <Input placeholder="マイプロジェクト" {...field} />
+                      <Input placeholder="マイサービス" {...field} />
                     </FormControl>
                     <FormDescription>
-                      プロジェクトの表示名です。
+                      サービスの表示名です。
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -143,13 +143,13 @@ export default function NewProjectPage() {
                     <FormLabel>説明（オプション）</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="プロジェクトの説明を入力してください"
+                        placeholder="サービスの説明を入力してください"
                         className="resize-none"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription>
-                      プロジェクトの詳細な説明です。
+                      サービスの詳細な説明です。
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -160,13 +160,13 @@ export default function NewProjectPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push('/projects')}
+                  onClick={() => router.push('/services')}
                   disabled={isSubmitting}
                 >
                   キャンセル
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? '作成中...' : 'プロジェクトを作成'}
+                  {isSubmitting ? '作成中...' : 'サービスを作成'}
                 </Button>
               </div>
             </form>

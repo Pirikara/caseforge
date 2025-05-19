@@ -26,11 +26,11 @@ import { fetcher } from '@/utils/fetcher'; // fetcher をインポート
 export default function TestSuiteDetailPage() {
   const params = useParams();
   const router = useRouter(); // useRouter を使用
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   const suiteId = params.suite_id as string;
 
-  const { testSuite, isLoading: isLoadingSuite, error: errorSuite } = useTestSuiteDetail(projectId, suiteId);
-  const { testCases, isLoading: isLoadingTestCases, error: errorTestCases } = useTestCases(projectId); // プロジェクト全体のテストケースを取得
+  const { testSuite, isLoading: isLoadingSuite, error: errorSuite } = useTestSuiteDetail(serviceId, suiteId);
+  const { testCases, isLoading: isLoadingTestCases, error: errorTestCases } = useTestCases(serviceId); // サービス全体のテストケースを取得
 
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false); // 削除確認ダイアログの表示状態
   const [isDeleting, setIsDeleting] = React.useState(false); // 削除処理中の状態
@@ -46,9 +46,9 @@ export default function TestSuiteDetailPage() {
   const handleDeleteSuite = async () => {
     setIsDeleting(true);
     try {
-      await fetcher(`/api/projects/${projectId}/test-suites/${suiteId}`, 'DELETE');
+      await fetcher(`/api/services/${serviceId}/test-suites/${suiteId}`, 'DELETE');
       toast.success('テストスイートが削除されました。');
-      router.push(`/projects/${projectId}/test-suites`); // 削除成功後、一覧ページにリダイレクト
+      router.push(`/services/${serviceId}/test-suites`); // 削除成功後、一覧ページにリダイレクト
     } catch (error: any) {
       toast.error('テストスイートの削除に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -73,7 +73,7 @@ export default function TestSuiteDetailPage() {
       <div className="text-center py-8">
         <p>テストスイートが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/projects/${projectId}/test-suites`}>テストスイート一覧に戻る</Link>
+          <Link href={`/services/${serviceId}/test-suites`}>テストスイート一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -84,7 +84,7 @@ export default function TestSuiteDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/projects/${projectId}/test-suites`}>
+            <Link href={`/services/${serviceId}/test-suites`}>
               <ArrowLeftIcon className="h-4 w-4 mr-1" />
               テストスイート一覧に戻る
             </Link>
@@ -96,7 +96,7 @@ export default function TestSuiteDetailPage() {
           {/* テストスイート編集・削除ボタン */}
           <div>
              <Button variant="outline" size="sm" className="mr-2" asChild> {/* asChild を追加 */}
-               <Link href={`/projects/${projectId}/test-suites/${suiteId}/edit`}> {/* 編集ページへのリンク */}
+               <Link href={`/services/${serviceId}/test-suites/${suiteId}/edit`}> {/* 編集ページへのリンク */}
                  <EditIcon className="h-4 w-4 mr-1" />編集
                </Link>
              </Button>
@@ -146,7 +146,7 @@ export default function TestSuiteDetailPage() {
              <h2 className="text-xl font-semibold">テストケース一覧</h2>
              {/* 新規テストケース作成ボタン（後で実装） */}
              <Button asChild>
-               <Link href={`/projects/${projectId}/tests/new?suiteId=${suiteId}`}>
+               <Link href={`/services/${serviceId}/tests/new?suiteId=${suiteId}`}>
                  新規テストケース作成
                </Link>
              </Button>
@@ -175,7 +175,7 @@ export default function TestSuiteDetailPage() {
                         <TableCell>{testCase.path}</TableCell>
                         <TableCell>
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/projects/${projectId}/tests/${testCase.id}`}>
+                            <Link href={`/services/${serviceId}/tests/${testCase.id}`}>
                               詳細
                             </Link>
                           </Button>
@@ -189,7 +189,7 @@ export default function TestSuiteDetailPage() {
                   <p className="text-muted-foreground">このテストスイートにはまだテストケースがありません。</p>
                    {/* 新規テストケース作成ボタン（後で実装） */}
                   <Button asChild className="mt-4">
-                    <Link href={`/projects/${projectId}/tests/new?suiteId=${suiteId}`}>
+                    <Link href={`/services/${serviceId}/tests/new?suiteId=${suiteId}`}>
                       新規テストケース作成
                     </Link>
                   </Button>

@@ -120,7 +120,7 @@ def test_build_dependency_graph(monkeypatch):
     ]
     monkeypatch.setattr("app.services.schema_analyzer.OpenAPIAnalyzer", lambda schema: mock_analyzer)
     
-    rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
+    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
     graph = rag._build_dependency_graph()
     
     assert "POST /users" in graph
@@ -145,7 +145,7 @@ def test_identify_chain_candidates():
         }
     }
     
-    rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
+    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
     rag._build_dependency_graph = lambda: mock_graph
     
     candidates = rag._identify_chain_candidates(mock_graph)
@@ -162,7 +162,7 @@ def test_generate_test_suite_for_candidate(monkeypatch):
     mock_llm_instance.invoke.return_value = MockResponse()
     monkeypatch.setattr("langchain_openai.ChatOpenAI", lambda **kwargs: mock_llm_instance)
     
-    rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
+    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
     test_suite = rag._generate_chain_for_candidate(["POST /users", "GET /users/{id}"])
     
     assert test_suite is not None
@@ -199,7 +199,7 @@ def test_generate_test_suites(mock_faiss, mock_llm, monkeypatch):
     monkeypatch.setattr("app.services.chain_generator.DependencyAwareRAG._identify_chain_candidates", lambda self, graph: mock_candidates)
     monkeypatch.setattr("app.services.chain_generator.DependencyAwareRAG._generate_chain_for_candidate", lambda self, candidate: mock_test_suite)
     
-    rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
+    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
     test_suites = rag.generate_request_chains()
     
     assert len(test_suites) == 1
@@ -207,7 +207,7 @@ def test_generate_test_suites(mock_faiss, mock_llm, monkeypatch):
     assert len(test_suites[0]["test_cases"]) == len(SAMPLE_TEST_SUITE["test_cases"])
     assert len(test_suites[0]["test_cases"][0]["test_steps"]) == len(SAMPLE_TEST_SUITE["test_cases"][0]["test_steps"])
 
-def test_chain_store_save_test_suites(session, test_project, monkeypatch):
+def test_chain_store_save_test_suites(session, test_service, monkeypatch):
     """テストスイート保存のテスト"""
     monkeypatch.setattr("os.makedirs", lambda path, exist_ok: None)
     
@@ -215,12 +215,12 @@ def test_chain_store_save_test_suites(session, test_project, monkeypatch):
     monkeypatch.setattr("builtins.open", mock_open)
     
     chain_store = ChainStore()
-    chain_store.save_suites(session, test_project.project_id, [SAMPLE_TEST_SUITE])
+    chain_store.save_suites(session, test_service.service_id, [SAMPLE_TEST_SUITE])
     
     from app.models import TestSuite, TestStep
     from sqlmodel import select
     
-    test_suites = session.exec(select(TestSuite).where(TestSuite.project_id == test_project.id)).all()
+    test_suites = session.exec(select(TestSuite).where(TestSuite.service_id == test_service.id)).all()
     assert len(test_suites) == 1
     assert test_suites[0].name == SAMPLE_TEST_SUITE["name"]
     assert test_suites[0].target_method == SAMPLE_TEST_SUITE["target_method"]
@@ -245,18 +245,18 @@ def test_chain_store_save_test_suites(session, test_project, monkeypatch):
     from app.models import TestSuite
     from sqlmodel import select
     
-    saved_test_suites = session.exec(select(TestSuite).where(TestSuite.project_id == test_project.id)).all()
+    saved_test_suites = session.exec(select(TestSuite).where(TestSuite.service_id == test_service.id)).all()
     for suite in saved_test_suites:
         session.delete(suite)
     session.commit()
 
-def test_chain_store_list_test_suites(session, test_project):
+def test_chain_store_list_test_suites(session, test_service):
     """テストスイート一覧取得のテスト"""
     from app.models import TestSuite
     
     test_suite = TestSuite(
         id="test-suite-1",
-        project_id=test_project.id,
+        service_id=test_service.id,
         name="Test TestSuite",
         target_method="GET",
         target_path="/items"
@@ -273,10 +273,10 @@ def test_chain_store_list_test_suites(session, test_project):
     session.commit()
     
     chain_store = ChainStore()
-    test_suites = chain_store.list_test_suites(session, test_project.project_id)
+    test_suites = chain_store.list_test_suites(session, test_service.service_id)
     print("test_suites : ", test_suites)
     
-    filtered_suites = [suite for suite in test_suites if suite["project_id"] == test_project.id]
+    filtered_suites = [suite for suite in test_suites if suite["service_id"] == test_service.id]
     print(filtered_suites)
 
     assert len(filtered_suites) == 1
@@ -286,13 +286,13 @@ def test_chain_store_list_test_suites(session, test_project):
     assert filtered_suites[0]["target_path"] == "/items"
     assert filtered_suites[0]["test_cases_count"] == 1
 
-def test_chain_store_get_test_suite(session, test_project):
+def test_chain_store_get_test_suite(session, test_service):
     """特定のテストスイート取得のテスト"""
     from app.models import TestSuite, TestStep
 
     test_suite = TestSuite(
         id="test-suite-1",
-        project_id=test_project.id,
+        service_id=test_service.id,
         name="POST /users TestSuite",
         target_method="POST",
         target_path="/users"
@@ -333,7 +333,7 @@ def test_chain_store_get_test_suite(session, test_project):
     session.commit()
     
     chain_store = ChainStore()
-    test_suite_data = chain_store.get_test_suite(session, test_project.project_id, "test-suite-1")
+    test_suite_data = chain_store.get_test_suite(session, test_service.service_id, "test-suite-1")
 
     assert test_suite_data is not None
     assert test_suite_data["id"] == "test-suite-1"
@@ -353,7 +353,7 @@ def test_dependency_aware_rag_error_handling(monkeypatch):
     mock_analyzer.extract_dependencies.side_effect = Exception("Dependency extraction error")
     monkeypatch.setattr("app.services.schema_analyzer.OpenAPIAnalyzer", lambda schema: mock_analyzer)
     
-    rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
+    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
     
     assert hasattr(rag, "analyzer")
 
@@ -366,7 +366,7 @@ def test_dependency_aware_rag_faiss_timeout(monkeypatch):
     
     monkeypatch.setattr("app.services.chain_generator.run_with_timeout", mock_run_with_timeout)
     
-    rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
+    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
     
     assert rag.vectordb is None
 
@@ -377,7 +377,7 @@ def test_dependency_aware_rag_generate_chain_for_candidate_error(monkeypatch):
     
     monkeypatch.setattr("app.services.chain_generator.DependencyAwareRAG._build_context_for_candidate", mock_build_context_error)
     
-    rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA)
+    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
     result = rag._generate_chain_for_candidate(["POST /users"])
     
     import os
@@ -386,7 +386,7 @@ def test_dependency_aware_rag_generate_chain_for_candidate_error(monkeypatch):
     assert result is not None
     assert "name" in result
 
-def test_chain_store_list_test_suites_error(session, test_project, monkeypatch):
+def test_chain_store_list_test_suites_error(session, test_service, monkeypatch):
     """ChainStore.list_test_suitesのエラーハンドリングテスト"""
     def mock_select_error(*args, **kwargs):
         raise Exception("Database query error")
@@ -394,11 +394,11 @@ def test_chain_store_list_test_suites_error(session, test_project, monkeypatch):
     monkeypatch.setattr("app.services.chain_generator.select", mock_select_error)
     
     chain_store = ChainStore()
-    result = chain_store.list_test_suites(session, test_project.project_id)
+    result = chain_store.list_test_suites(session, test_service.service_id)
     
     assert result == []
 
-def test_chain_store_get_test_suite_error(session, test_project, monkeypatch):
+def test_chain_store_get_test_suite_error(session, test_service, monkeypatch):
     """ChainStore.get_test_suiteのエラーハンドリングテスト"""
     def mock_select_error(*args, **kwargs):
         raise Exception("Database query error")
@@ -406,7 +406,7 @@ def test_chain_store_get_test_suite_error(session, test_project, monkeypatch):
     monkeypatch.setattr("app.services.chain_generator.select", mock_select_error)
     
     chain_store = ChainStore()
-    result = chain_store.get_test_suite(session, test_project.project_id, "test-suite-1")
+    result = chain_store.get_test_suite(session, test_service.service_id, "test-suite-1")
     
     assert result is None
 
@@ -417,7 +417,7 @@ def test_dependency_aware_rag_with_error_types(monkeypatch):
     monkeypatch.setattr("app.services.schema_analyzer.OpenAPIAnalyzer", lambda schema: mock_analyzer)
     
     error_types = ["missing_field", "invalid_value"]
-    rag = DependencyAwareRAG("test_project", SAMPLE_SCHEMA, error_types)
+    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA, error_types)
     
     assert rag.error_types == error_types
     

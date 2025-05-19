@@ -11,9 +11,9 @@ import { useTestSuites } from '@/hooks/useTestChains'; // useTestChains フッ�
 
 export default function TestSuitesPage() {
   const params = useParams();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
 
-  const { testSuites, isLoading, error } = useTestSuites(projectId); // useTestSuites を使用
+  const { testSuites, isLoading, error } = useTestSuites(serviceId); // useTestSuites を使用
 
   if (isLoading) {
     return <div className="text-center py-8">読み込み中...</div>;
@@ -27,9 +27,9 @@ export default function TestSuitesPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${projectId}`}>
+          <Link href={`/services/${serviceId}`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
-            プロジェクト詳細に戻る
+            サービス詳細に戻る
           </Link>
         </Button>
       </div>
@@ -38,7 +38,7 @@ export default function TestSuitesPage() {
         <h1 className="text-3xl font-bold">テストスイート一覧</h1>
         {/* 新規テストスイート作成ボタン（後で実装） */}
         <Button asChild>
-          <Link href={`/projects/${projectId}/test-suites/new`}>
+          <Link href={`/services/${serviceId}/test-suites/new`}>
             新規テストスイート作成
           </Link>
         </Button>
@@ -69,7 +69,7 @@ export default function TestSuitesPage() {
                     <TableCell>{suite.test_cases?.length || 0}</TableCell>
                     <TableCell>
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={`/projects/${projectId}/test-suites/${suite.id}`}>
+                        <Link href={`/services/${serviceId}/test-suites/${suite.id}`}>
                           詳細
                         </Link>
                       </Button>
@@ -83,7 +83,7 @@ export default function TestSuitesPage() {
               <p className="text-muted-foreground">テストスイートはまだありません。</p>
               {/* 新規テストスイート作成ボタン（後で実装） */}
               <Button asChild className="mt-4">
-                <Link href={`/projects/${projectId}/test-suites/new`}>
+                <Link href={`/services/${serviceId}/test-suites/new`}>
                   新規テストスイート作成
                 </Link>
               </Button>

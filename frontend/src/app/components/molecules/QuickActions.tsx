@@ -14,9 +14,9 @@ export function QuickActions() {
       </CardHeader>
       <CardContent className="grid gap-4">
         <Button asChild className="w-full">
-          <Link href="/projects/new">
+          <Link href="/services/new">
             <PlusIcon className="h-4 w-4 mr-2" />
-            新規プロジェクト作成
+            新規サービス作成
           </Link>
         </Button>
         <Button asChild variant="outline" className="w-full">
@@ -26,9 +26,9 @@ export function QuickActions() {
           </Link>
         </Button>
         <Button asChild variant="secondary" className="w-full">
-          <Link href="/projects">
+          <Link href="/services">
             <FileTextIcon className="h-4 w-4 mr-2" />
-            プロジェクト一覧
+            サービス一覧
           </Link>
         </Button>
       </CardContent>

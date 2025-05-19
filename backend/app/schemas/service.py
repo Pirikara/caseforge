@@ -3,20 +3,20 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from datetime import datetime
 import json
 
-class ProjectBase(BaseModel):
+class ServiceBase(BaseModel):
     name: str
     description: Optional[str] = None
     base_url: Optional[str] = None
 
-class ProjectCreate(ProjectBase):
-    project_id: str
+class ServiceCreate(ServiceBase):
+    service_id: str
 
-class ProjectUpdate(ProjectBase):
+class ServiceUpdate(ServiceBase):
     pass
 
-class Project(ProjectBase):
+class Service(ServiceBase):
     id: int
-    project_id: str
+    service_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -56,7 +56,7 @@ class EndpointBase(BaseModel):
 
 class Endpoint(EndpointBase):
     id: str = Field(alias="endpoint_id")
-    project_id: int
+    service_id: int
     created_at: datetime
     updated_at: datetime
 

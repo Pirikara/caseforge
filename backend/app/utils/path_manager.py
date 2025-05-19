@@ -13,26 +13,26 @@ class PathManager:
     パス管理クラス
     
     ファイルパスの取得と管理を一元化するためのクラス。
-    プロジェクト内のパス関連の操作を統一的に扱うためのインターフェースを提供します。
+    サービス内のパス関連の操作を統一的に扱うためのインターフェースを提供します。
     """
     
     def __init__(self):
         """
         PathManagerの初期化
         """
-        # プロジェクトルートディレクトリの検出
-        self._root_path = self._detect_project_root()
+        # サービスルートディレクトリの検出
+        self._root_path = self._detect_service_root()
         
     @staticmethod
     @lru_cache(maxsize=1)
-    def _detect_project_root() -> Path:
+    def _detect_service_root() -> Path:
         """
-        プロジェクトルートディレクトリを検出する
+        サービスルートディレクトリを検出する
         
         Returns:
-            Path: プロジェクトルートディレクトリのパス
+            Path: サービスルートディレクトリのパス
         """
-        # 環境変数からプロジェクトルートを取得
+        # 環境変数からサービスルートを取得
         if "PROJECT_ROOT" in os.environ:
             return Path(os.environ["PROJECT_ROOT"])
         
@@ -43,10 +43,10 @@ class PathManager:
     
     def get_root_path(self) -> Path:
         """
-        プロジェクトルートパスを取得する
+        サービスルートパスを取得する
         
         Returns:
-            Path: プロジェクトルートディレクトリのパス
+            Path: サービスルートディレクトリのパス
         """
         return self._root_path
     
@@ -64,53 +64,53 @@ class PathManager:
             return self._root_path / filename
         return self._root_path
     
-    def get_schema_dir(self, project_id: Optional[str] = None) -> Path:
+    def get_schema_dir(self, service_id: Optional[str] = None) -> Path:
         """
         スキーマディレクトリのパスを取得する
         
         Args:
-            project_id (Optional[str]): プロジェクトID。指定した場合はプロジェクト固有のディレクトリを返す
+            service_id (Optional[str]): サービスID。指定した場合はサービス固有のディレクトリを返す
             
         Returns:
             Path: スキーマディレクトリのパス
         """
         schema_dir = Path(settings.SCHEMA_DIR)
-        if project_id:
-            return schema_dir / project_id
+        if service_id:
+            return schema_dir / service_id
         return schema_dir
     
-    def get_tests_dir(self, project_id: Optional[str] = None) -> Path:
+    def get_tests_dir(self, service_id: Optional[str] = None) -> Path:
         """
         テストディレクトリのパスを取得する
         
         Args:
-            project_id (Optional[str]): プロジェクトID。指定した場合はプロジェクト固有のディレクトリを返す
+            service_id (Optional[str]): サービスID。指定した場合はサービス固有のディレクトリを返す
             
         Returns:
             Path: テストディレクトリのパス
         """
         tests_dir = Path(settings.TESTS_DIR)
-        if project_id:
-            return tests_dir / project_id
+        if service_id:
+            return tests_dir / service_id
         return tests_dir
     
-    def get_log_dir(self, project_id: Optional[str] = None, run_id: Optional[str] = None) -> Path:
+    def get_log_dir(self, service_id: Optional[str] = None, run_id: Optional[str] = None) -> Path:
         """
         ログディレクトリのパスを取得する
         
         Args:
-            project_id (Optional[str]): プロジェクトID。指定した場合はプロジェクト固有のディレクトリを返す
+            service_id (Optional[str]): サービスID。指定した場合はサービス固有のディレクトリを返す
             run_id (Optional[str]): 実行ID。指定した場合は実行固有のログファイルパスを返す
             
         Returns:
             Path: ログディレクトリまたはログファイルのパス
         """
         log_dir = Path(settings.LOG_DIR)
-        if project_id:
-            project_log_dir = log_dir / project_id
+        if service_id:
+            service_log_dir = log_dir / service_id
             if run_id:
-                return project_log_dir / f"{run_id}.json"
-            return project_log_dir
+                return service_log_dir / f"{run_id}.json"
+            return service_log_dir
         return log_dir
     
     def get_temp_dir(self, subdir: Optional[str] = None) -> Path:
@@ -128,23 +128,23 @@ class PathManager:
             return temp_dir / subdir
         return temp_dir
     
-    def get_faiss_dir(self, project_id: str, temp: bool = False) -> Path:
+    def get_faiss_dir(self, service_id: str, temp: bool = False) -> Path:
         """
         FAISSベクトルDBディレクトリのパスを取得する
         
         Args:
-            project_id (str): プロジェクトID
+            service_id (str): サービスID
             temp (bool): 一時ディレクトリを使用するかどうか
             
         Returns:
             Path: FAISSベクトルDBディレクトリのパス
         """
         if temp:
-            return self.get_temp_dir("faiss") / project_id
+            return self.get_temp_dir("faiss") / service_id
         
         # 永続化ディレクトリのパス
         data_dir = os.environ.get("DATA_DIR", "/app/data")
-        return Path(data_dir) / "faiss" / project_id
+        return Path(data_dir) / "faiss" / service_id
     
     def ensure_dir(self, path: Union[str, Path]) -> Path:
         """
@@ -266,7 +266,7 @@ class PathManager:
         
         Args:
             path (Union[str, Path]): 対象パス
-            base (Optional[Union[str, Path]]): ベースパス。指定しない場合はプロジェクトルートを使用
+            base (Optional[Union[str, Path]]): ベースパス。指定しない場合はサービスルートを使用
             
         Returns:
             Path: 相対パス

@@ -2,7 +2,7 @@ from typing import List, Dict, Optional
 import json
 import os
 from app.models import Endpoint
-from app.schemas.project import Endpoint as EndpointSchema 
+from app.schemas.service import Endpoint as EndpointSchema 
 from app.services.rag import EmbeddingFunctionForCaseforge
 from app.config import settings
 from app.logging_config import logger
@@ -12,14 +12,14 @@ from app.utils.path_manager import path_manager
 class EndpointChainGenerator:
     """選択されたエンドポイントからテストチェーンを生成するクラス"""
     
-    def __init__(self, project_id: str, endpoints: List[Endpoint], schema: Dict = None, error_types: Optional[List[str]] = None): # error_types 引数を追加
+    def __init__(self, service_id: str, endpoints: List[Endpoint], schema: Dict = None, error_types: Optional[List[str]] = None): # error_types 引数を追加
         """
         Args:
-            project_id: プロジェクトID
+            service_id: サービスID
             endpoints: 選択されたエンドポイントのリスト
             schema: OpenAPIスキーマ（オプション）
         """
-        self.project_id = project_id
+        self.service_id = service_id
         self.endpoints = endpoints
         self.schema = schema
         self.error_types = error_types
@@ -112,8 +112,7 @@ Return only a single valid JSON object matching the following format. **Do not i
 ````
 
 **Instructions (MUST FOLLOW STRICTLY):**
-0\. Each test step must include **all** of the following keys: `method`, `path`, `request_headers`, `request_body`, `request_params`, `extract_rules`, `expected_status`. Even if values are empty, all keys must be present.
-
+0. Each test step must include **all** of the following keys: `method`, `path`, `request_headers`, `request_body`, `request_params`, `extract_rules`, `expected_status`. Even if values are empty, all keys must be present.
 1. Use appropriate JSONPath expressions in `extract_rules` to capture IDs or other values from previous responses.
 2. Use the extracted values in subsequent steps (e.g., in path parameters or request body).
 3. The **final step of each test case must always be the target endpoint call**.
@@ -372,16 +371,16 @@ Return only a single valid JSON object matching the following format. **Do not i
         try:
             # 永続化されるディレクトリからベクトルDBをロード
             # 永続化ディレクトリのパス
-            faiss_path = path_manager.get_faiss_dir(self.project_id, temp=False)
+            faiss_path = path_manager.get_faiss_dir(self.service_id, temp=False)
             
             # 永続化ディレクトリにベクトルDBがない場合は、/tmpも確認
             if not path_manager.exists(faiss_path):
-                tmp_faiss_path = path_manager.get_faiss_dir(self.project_id, temp=True)
+                tmp_faiss_path = path_manager.get_faiss_dir(self.service_id, temp=True)
                 if path_manager.exists(tmp_faiss_path):
                     logger.info(f"FAISS vector DB found in temporary directory: {tmp_faiss_path}")
                     faiss_path = tmp_faiss_path
                 else:
-                    logger.warning(f"FAISS vector DB not found for project {self.project_id} at {faiss_path} or {tmp_faiss_path}. Cannot perform RAG search.")
+                    logger.warning(f"FAISS vector DB not found for service {self.service_id} at {faiss_path} or {tmp_faiss_path}. Cannot perform RAG search.")
                     
                     # ベクトルDBがない場合は、スキーマ全体から関連情報を抽出する
                     if self.schema:

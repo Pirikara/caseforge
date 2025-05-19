@@ -1,12 +1,12 @@
-from app.services.schema import save_and_index_schema, list_projects, create_project
-from app.models import Project, Schema
+from app.services.schema import save_and_index_schema, list_services, create_service
+from app.models import Service, Schema
 from sqlmodel import select
 import os
 
 # save_and_index_schemaのテスト
 async def test_save_and_index_schema(session, monkeypatch, mock_faiss):
     # index_schemaをモック化
-    def mock_index_schema(project_id, path):
+    def mock_index_schema(service_id, path):
         return True
     
     monkeypatch.setattr("app.services.schema.index_schema", mock_index_schema)
@@ -16,42 +16,42 @@ async def test_save_and_index_schema(session, monkeypatch, mock_faiss):
     
     # テスト実行
     content = b'{"openapi": "3.0.0"}'
-    result = await save_and_index_schema("test_project", content, "test.json", session)
+    result = await save_and_index_schema("test_service", content, "test.json", session)
     
     # 検証
     assert result["message"] == "Schema uploaded, endpoints saved, and indexed successfully."
     
     # ファイルが作成されたか確認
-    assert os.path.exists("/tmp/test_project/test.json")
+    assert os.path.exists("/tmp/test_service/test.json")
     
-    # データベースにプロジェクトとスキーマが作成されたか確認
-    project = session.exec(select(Project).where(Project.project_id == "test_project")).first()
-    assert project is not None
+    # データベースにサービスとスキーマが作成されたか確認
+    service = session.exec(select(Service).where(Service.service_id == "test_service")).first()
+    assert service is not None
     
-    schema = session.exec(select(Schema).where(Schema.project_id == project.id)).first()
+    schema = session.exec(select(Schema).where(Schema.service_id == service.id)).first()
     assert schema is not None
     assert schema.filename == "test.json"
     
     # クリーンアップ
-    if os.path.exists("/tmp/test_project/test.json"):
-        os.remove("/tmp/test_project/test.json")
-    if os.path.exists("/tmp/test_project"):
-        os.rmdir("/tmp/test_project")
+    if os.path.exists("/tmp/test_service/test.json"):
+        os.remove("/tmp/test_service/test.json")
+    if os.path.exists("/tmp/test_service"):
+        os.rmdir("/tmp/test_service")
 
-# list_projectsのテスト
-async def test_list_projects(session, test_project):
+# list_servicesのテスト
+async def test_list_services(session, test_service):
     # テスト実行
-    result = await list_projects(session)
+    result = await list_services(session)
     
     # 検証
     assert len(result) == 1
-    assert result[0]["id"] == "test_project"
-    assert result[0]["name"] == "Test Project"
+    assert result[0]["id"] == "test_service"
+    assert result[0]["name"] == "Test Service"
 
-# create_projectのテスト
-async def test_create_project(session, monkeypatch):
+# create_serviceのテスト
+async def test_create_service(session, monkeypatch):
     # 一時ディレクトリを使用
-    test_dir = "/tmp/test_caseforge_projects"
+    test_dir = "/tmp/test_caseforge_services"
     
     # os.makedirsとos.path.existsをモック化
     monkeypatch.setattr("os.makedirs", lambda path, exist_ok=True: None)
@@ -59,16 +59,16 @@ async def test_create_project(session, monkeypatch):
     monkeypatch.setattr("app.config.settings.SCHEMA_DIR", test_dir)
     
     # テスト実行
-    result = await create_project("new_project", "New Project", "A test project", session)
+    result = await create_service("new_service", "New Service", "A test service", session)
     
     # 検証
     assert result["status"] == "created"
-    assert result["project_id"] == "new_project"
+    assert result["service_id"] == "new_service"
     
-    # データベースにプロジェクトが作成されたか確認
-    project = session.exec(select(Project).where(Project.project_id == "new_project")).first()
-    assert project is not None
-    assert project.name == "New Project"
-    assert project.description == "A test project"
+    # データベースにサービスが作成されたか確認
+    service = session.exec(select(Service).where(Service.service_id == "new_service")).first()
+    assert service is not None
+    assert service.name == "New Service"
+    assert service.description == "A test service"
     
     # ディレクトリの存在チェックはスキップ（モック化済み）

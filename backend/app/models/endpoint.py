@@ -3,7 +3,7 @@ from sqlalchemy import Column
 from typing import Optional, Dict, Any
 from uuid import uuid4
 from .base import TimestampModel
-from .project import Project
+from .service import Service
 from app.models.json_encode_dict import JSONEncodedDict
 
 class Endpoint(TimestampModel, table=True):
@@ -11,7 +11,7 @@ class Endpoint(TimestampModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     endpoint_id: str = Field(default_factory=lambda: str(uuid4()), index=True)
-    project_id: int = Field(foreign_key="project.id")
+    service_id: int = Field(foreign_key="service.id")
     
     path: str  # e.g., "/users/{id}"
     method: str  # e.g., "GET", "POST", "PUT", "DELETE"
@@ -25,4 +25,4 @@ class Endpoint(TimestampModel, table=True):
     responses: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
     
     # リレーションシップ
-    project: Project = Relationship(back_populates="endpoints")
+    service: Service = Relationship(back_populates="endpoints")

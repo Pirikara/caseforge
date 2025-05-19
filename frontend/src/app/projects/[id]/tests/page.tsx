@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useProjects } from '@/hooks/useProjects';
+import { useServices } from '@/hooks/useServices';
 import { useTestCases } from '@/hooks/useTestCases';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,20 +38,20 @@ import { SearchIcon, PlayIcon, FileTextIcon, Trash2Icon } from 'lucide-react';
 export default function TestCasesPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const serviceId = params.id as string;
   
-  const { projects } = useProjects();
-  const { testCases, isLoading, deleteChain } = useTestCases(projectId);
+  const { services } = useServices();
+  const { testCases, isLoading, deleteChain } = useTestCases(serviceId);
   
   const [searchQuery, setSearchQuery] = React.useState('');
   const [methodFilter, setMethodFilter] = React.useState('all');
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [chainToDelete, setChainToDelete] = React.useState<string | null>(null);
   
-  const project = React.useMemo(() => {
-    if (!projects) return null;
-    return projects.find(p => p.id === projectId);
-  }, [projects, projectId]);
+  const service = React.useMemo(() => {
+    if (!services) return null;
+    return services.find(p => p.id === serviceId);
+  }, [services, serviceId]);
   
   // 検索とフィルタリング
   const filteredTestCases = React.useMemo(() => {
@@ -71,12 +71,12 @@ export default function TestCasesPage() {
     });
   }, [testCases, searchQuery, methodFilter]);
   
-  if (!project) {
+  if (!service) {
     return (
       <div className="text-center py-8">
-        <p>プロジェクトが見つかりません</p>
+        <p>サービスが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href="/projects">プロジェクト一覧に戻る</Link>
+          <Link href="/services">サービス一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -89,13 +89,13 @@ export default function TestCasesPage() {
           <h1 className="text-3xl font-bold">テストケース一覧</h1>
           <div className="flex gap-2">
             <Button variant="outline" asChild>
-              <Link href={`/projects/${projectId}`}>
+              <Link href={`/services/${serviceId}`}>
                 <FileTextIcon className="h-4 w-4 mr-2" />
-                プロジェクト詳細
+                サービス詳細
               </Link>
             </Button>
             <Button asChild>
-              <Link href={`/projects/${projectId}/run`}>
+              <Link href={`/services/${serviceId}/run`}>
                 <PlayIcon className="h-4 w-4 mr-2" />
                 テスト実行
               </Link>
@@ -152,7 +152,7 @@ export default function TestCasesPage() {
                 {filteredTestCases.map((testCase) => (
                   <TableRow key={testCase.id}>
                     <TableCell className="font-medium">
-                      <Link href={`/projects/${projectId}/tests/${testCase.case_id}`} className="hover:underline">
+                      <Link href={`/services/${serviceId}/tests/${testCase.case_id}`} className="hover:underline">
                         {testCase.title}
                       </Link>
                     </TableCell>
@@ -171,7 +171,7 @@ export default function TestCasesPage() {
                     <TableCell>{testCase.expected_status}</TableCell>
                     <TableCell className="flex space-x-2">
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={`/projects/${projectId}/tests/${testCase.case_id}`}>
+                        <Link href={`/services/${serviceId}/tests/${testCase.case_id}`}>
                           詳細
                         </Link>
                       </Button>
