@@ -7,7 +7,7 @@ celery[redis]>=5.4.0
 
 # --- LangChain / RAG ---
 langchain==0.3.25
-langchain-community==0.3.23
+langchain-community==0.3.24
 langchain-huggingface>=0.0.6
 chromadb==1.0.9
 sentence-transformers>=2.2.2
