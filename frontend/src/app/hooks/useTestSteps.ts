@@ -11,8 +11,7 @@ export interface TestStepDetail extends TestStep {
   query_params?: Record<string, string>;
 }
 
-:start_line:15
--------
+
 // テストステップ詳細を取得するフック
 export function useTestStepDetail(serviceId: string, caseId: string, stepId: string) {
   const { data, error, isLoading, mutate } = useSWR<TestStepDetail>(
@@ -23,8 +22,6 @@ export function useTestStepDetail(serviceId: string, caseId: string, stepId: str
   return { testStep: data, isLoading, error, mutate };
 }
 
-:start_line:25
--------
 // テストステップを更新するための関数
 export async function updateTestStep(serviceId: string, caseId: string, stepId: string, data: any) {
   return await fetcher(`/api/services/${serviceId}/test-cases/${caseId}/steps/${stepId}`, 'PUT', data);
@@ -45,8 +42,6 @@ export async function createTestStep(serviceId: string, caseId: string, data: an
   return await fetcher(`/api/services/${serviceId}/test-cases/${caseId}/test-steps`, 'POST', data);
 }
 
-:start_line:44
--------
 // テストステップを削除するための関数
 export async function deleteTestStep(serviceId: string, caseId: string, stepId: string) {
   return await fetcher(`/api/services/${serviceId}/test-cases/${caseId}/steps/${stepId}`, 'DELETE');

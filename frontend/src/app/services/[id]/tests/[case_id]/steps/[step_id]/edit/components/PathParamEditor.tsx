@@ -15,8 +15,6 @@ interface PathParamEditorProps {
 
 export function PathParamEditor({ control, name }: PathParamEditorProps) {
   // useFieldArrayを使用してパスパラメータの配列を管理
-:start_line:18
--------
   const { fields, append, remove, update } = useFieldArray({
     control,
     name: name, // 親から渡されるフィールド名を使用
@@ -43,8 +41,6 @@ export function PathParamEditor({ control, name }: PathParamEditorProps) {
           control={control}
           name={name}
           render={({ field }) => {
-:start_line:45
--------
             // オブジェクトを配列に変換してuseFieldArrayのfieldsを初期化
             React.useEffect(() => {
               if (field.value && Object.keys(field.value).length > 0 && fields.length === 0) {

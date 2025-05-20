@@ -15,8 +15,6 @@ interface ExtractorEditorProps {
 
 export function ExtractorEditor({ control, name }: ExtractorEditorProps) {
   // useFieldArrayを使用して抽出ルールの配列を管理
-:start_line:18
--------
   const { fields, append, remove, update } = useFieldArray({
     control,
     name: name, // 親から渡されるフィールド名を使用
@@ -43,8 +41,6 @@ export function ExtractorEditor({ control, name }: ExtractorEditorProps) {
           control={control}
           name={name}
           render={({ field }) => {
-:start_line:45
--------
             // オブジェクトを配列に変換してuseFieldArrayのfieldsを初期化
             React.useEffect(() => {
               if (field.value && Object.keys(field.value).length > 0 && fields.length === 0) {

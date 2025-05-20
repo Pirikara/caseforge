@@ -283,7 +283,7 @@ Return only a single valid JSON object matching the following format. **Do not i
 ```
 
 **Instructions (MUST FOLLOW STRICTLY):**
-0\. Each test step must include **all** of the following keys: `method`, `path`, `request_headers`, `request_body`, `request_params`, `extract_rules`, `expected_status`. Even if values are empty, all keys must be present.
+0. Each test step must include **all** of the following keys: `method`, `path`, `request_headers`, `request_body`, `request_params`, `extract_rules`, `expected_status`. Even if values are empty, all keys must be present.
 
 1. Use appropriate JSONPath expressions in `extract_rules` to capture IDs or other values from previous responses.
 2. Use the extracted values in subsequent steps (e.g., in path parameters or request body).

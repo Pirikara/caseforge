@@ -152,8 +152,6 @@ export default function TestCasesPage() {
                 {filteredTestCases.map((testCase) => (
                   <TableRow key={testCase.id}>
                     <TableCell className="font-medium">
-:start_line:155
--------
                       <Link href={`/projects/${serviceId}/tests/${testCase.case_id}`} className="hover:underline">
                         {testCase.title}
                       </Link>
@@ -173,8 +171,6 @@ export default function TestCasesPage() {
                     <TableCell>{testCase.expected_status}</TableCell>
                     <TableCell className="flex space-x-2">
                       <Button variant="outline" size="sm" asChild>
-:start_line:174
--------
                         <Link href={`/projects/${serviceId}/tests/${testCase.case_id}`}>
                           詳細
                         </Link>

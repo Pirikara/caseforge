@@ -17,15 +17,11 @@ export default function EditTestStepPage() {
   const caseId = params.case_id as string;
   const stepId = params.step_id as string;
 
-:start_line:20
--------
   const { testStep, isLoading, error, mutate } = useTestStepDetail(serviceId, caseId, stepId);
 
   const handleSave = async (formData: any) => {
     try {
       // APIエンドポイントにデータを送信
-:start_line:25
--------
       await updateTestStep(serviceId, caseId, stepId, formData);
       toast.success('テストステップが更新されました。');
       mutate(); // データを再取得
