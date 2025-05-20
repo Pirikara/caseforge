@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'; // useRouter をイン�
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeftIcon, Trash2Icon, EditIcon } from 'lucide-react'; // Trash2Icon, EditIcon をインポート
 import { useTestCaseDetail, TestStep } from '@/hooks/useTestCases'; // TestStep 型と useTestCaseDetail フックをインポート
 import {
@@ -44,9 +45,9 @@ export default function TestStepDetailPage() {
   const handleDeleteStep = async () => {
     setIsDeleting(true);
     try {
-      await fetcher(`/api/services/${serviceId}/tests/${caseId}/steps/${stepId}`, 'DELETE');
+      await fetcher(`/api/services/${serviceId}/test-cases/${caseId}/steps/${stepId}`, 'DELETE');
       toast.success('テストステップが削除されました。');
-      router.push(`/services/${serviceId}/tests/${caseId}`); // 削除成功後、テストケース詳細ページにリダイレクト
+      router.push(`/projects/${serviceId}/tests/${caseId}`); // 削除成功後、テストケース詳細ページにリダイレクト
     } catch (error: any) {
       toast.error('テストステップの削除に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -71,7 +72,7 @@ export default function TestStepDetailPage() {
       <div className="text-center py-8">
         <p>テストステップが見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/services/${serviceId}/tests/${caseId}`}>テストケース詳細に戻る</Link>
+          <Link href={`/projects/${serviceId}/tests/${caseId}`}>テストケース詳細に戻る</Link>
         </Button>
       </div>
     );
@@ -91,7 +92,7 @@ export default function TestStepDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/services/${serviceId}/tests/${caseId}`}>
+            <Link href={`/projects/${serviceId}/tests/${caseId}`}>
               <ArrowLeftIcon className="h-4 w-4 mr-1" />
               テストケース詳細に戻る
             </Link>
@@ -103,7 +104,7 @@ export default function TestStepDetailPage() {
           {/* テストステップ編集・削除ボタン */}
           <div>
              <Button variant="outline" size="sm" className="mr-2" asChild> {/* asChild を追加 */}
-               <Link href={`/services/${serviceId}/tests/${caseId}/steps/${stepId}/edit`}> {/* 編集ページへのリンク */}
+               <Link href={`/projects/${serviceId}/tests/${caseId}/steps/${stepId}/edit`}> {/* 編集ページへのリンク */}
                  <EditIcon className="h-4 w-4 mr-1" />編集
                </Link>
              </Button>

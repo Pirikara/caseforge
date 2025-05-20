@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import dynamic from "next/dynamic";
 import { Toaster } from "./components/ui/sonner";
+import { UIModeProviderClient } from "./components/UIModeProviderClient";
 
 // 動的インポート
 const ThemeProvider = dynamic(() => import("./components/ThemeProvider").then(mod => mod.ThemeProvider), { ssr: true });
@@ -31,14 +32,16 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <div className="flex flex-1">
-              <Sidebar className="hidden md:block" />
-              <main className="flex-1 p-4 md:p-6">{children}</main>
+          <UIModeProviderClient>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <div className="flex flex-1">
+                <Sidebar className="hidden md:block" />
+                <main className="flex-1 p-4 md:p-6">{children}</main>
+              </div>
+              <Footer />
             </div>
-            <Footer />
-          </div>
+          </UIModeProviderClient>
           <Toaster />
         </ThemeProvider>
       </body>

@@ -1,20 +1,27 @@
 "use client"
 
-import * as React from 'react';
-import Link from 'next/link';
+import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useServices } from '@/hooks/useServices';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import SchemaManagementTab from '@/components/tabs/SchemaManagementTab';
-import EndpointManagementTab from '@/components/tabs/EndpointManagementTab';
-import TestSuiteManagementTab from '@/components/tabs/TestSuiteManagementTab';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { updateService } from '@/utils/fetcher';
-// import TestExecutionTab from '@/components/tabs/TestExecutionTab'; // TestExecutionTabは削除
+import { toast } from 'sonner';
 
-export default function ServiceDetailPage() {
+interface ServiceDetailLayoutProps {
+  children?: React.ReactNode;
+  activeTab: string;
+  onTabChange: (value: string) => void;
+}
+
+export function ServiceDetailLayout({ 
+  children, 
+  activeTab, 
+  onTabChange 
+}: ServiceDetailLayoutProps) {
   const params = useParams();
   const router = useRouter();
   const serviceId = params.id as string;
@@ -26,48 +33,22 @@ export default function ServiceDetailPage() {
     return services.find(p => p.id === serviceId);
   }, [services, serviceId]);
 
-  // URLからタブを取得（例：?tab=test-chains）
-  const [activeTab, setActiveTab] = React.useState<string>('schema');
   const [baseUrl, setBaseUrl] = React.useState<string>('');
 
   React.useEffect(() => {
-    // URLからタブパラメータを取得
-    const url = new URL(window.location.href);
-    const tabParam = url.searchParams.get('tab');
-    // test-executionタブを削除したので、有効なタブリストから除外
-    if (tabParam && ['schema', 'endpoints', 'test-suites'].includes(tabParam)) {
-      setActiveTab(tabParam);
-    } else {
-      // 無効なタブパラメータの場合はデフォルトに戻す
-      setActiveTab('schema');
-    }
-  }, []);
-
-  React.useEffect(() => {
     if (service) {
-      console.log('Service data updated:', service); // 追加
-      console.log('Base URL from service:', service.base_url); // 追加
       setBaseUrl(service.base_url || '');
     }
   }, [service]);
-
-  // タブ変更時にURLを更新
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-
-    // URLのクエリパラメータを更新（履歴に残さない）
-    const url = new URL(window.location.href);
-    url.searchParams.set('tab', value);
-    window.history.replaceState({}, '', url.toString());
-  };
 
   const handleSaveBaseUrl = async () => {
     try {
       await updateService(serviceId, { base_url: baseUrl });
       mutate(); // サービスデータを再取得
-      console.log('Base URL saved successfully!'); // 仮の成功メッセージ
+      toast.success("Base URLを保存しました");
     } catch (error) {
-      console.error('Failed to save Base URL:', error); // 仮のエラーメッセージ
+      console.error('Failed to save Base URL:', error);
+      toast.error("Base URLの保存に失敗しました");
     }
   };
 
@@ -128,30 +109,14 @@ export default function ServiceDetailPage() {
         <Button onClick={handleSaveBaseUrl}>保存</Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-        {/* grid-cols-4 を grid-cols-3 に変更し、test-execution タブを削除 */}
+      <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="schema">スキーマ管理</TabsTrigger>
           <TabsTrigger value="endpoints">エンドポイント管理</TabsTrigger>
           <TabsTrigger value="test-suites">テストスイート管理・実行</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="schema" className="space-y-4">
-          <SchemaManagementTab serviceId={serviceId} />
-        </TabsContent>
-
-        <TabsContent value="endpoints" className="space-y-4">
-          <EndpointManagementTab serviceId={serviceId} />
-        </TabsContent>
-
-        <TabsContent value="test-suites" className="space-y-4">
-          <TestSuiteManagementTab serviceId={serviceId} service={service} />
-        </TabsContent>
-
-        {/* test-execution タブのコンテンツを削除 */}
-        {/* <TabsContent value="test-execution" className="space-y-4">
-          <TestExecutionTab serviceId={serviceId} service={service} />
-        </TabsContent> */}
+        {children}
       </Tabs>
     </div>
   );

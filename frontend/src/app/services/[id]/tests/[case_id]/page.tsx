@@ -44,9 +44,11 @@ export default function TestCaseDetailPage() {
     try {
       // useTestCases フックの deleteChain 関数を呼び出す
       await deleteChain(caseId);
-      toast.success('テストケースが削除されました。');
-      router.push(`/services/${serviceId}/tests`); // 削除成功後、一覧ページにリダイレクト
-    } catch (error: any) {
+:start_line:47
+-------
+       toast.success('テストケースが削除されました。');
+       router.push(`/projects/${serviceId}/tests`); // 削除成功後、一覧ページにリダイレクト
+     } catch (error: any) {
       toast.error('テストケースの削除に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
       });
@@ -69,9 +71,11 @@ export default function TestCaseDetailPage() {
     return (
       <div className="text-center py-8">
         <p>テストケースが見つかりません</p>
-        <Button asChild className="mt-4">
-          <Link href={`/services/${serviceId}/tests`}>テストケース一覧に戻る</Link>
-        </Button>
+:start_line:74
+-------
+         <Button asChild className="mt-4">
+           <Link href={`/projects/${serviceId}/tests`}>テストケース一覧に戻る</Link>
+         </Button>
       </div>
     );
   }
@@ -80,9 +84,11 @@ export default function TestCaseDetailPage() {
     <> {/* Fragment で囲む */}
       <div className="space-y-6">
         <div className="flex items-center gap-2 mb-4">
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/services/${serviceId}/tests`}>
-              <ArrowLeftIcon className="h-4 w-4 mr-1" />
+:start_line:87
+-------
+           <Button variant="outline" size="sm" asChild>
+             <Link href={`/projects/${serviceId}/tests`}>
+               <ArrowLeftIcon className="h-4 w-4 mr-1" />
               テストケース一覧に戻る
             </Link>
           </Button>
@@ -93,7 +99,9 @@ export default function TestCaseDetailPage() {
           {/* テストケース編集・削除ボタン */}
           <div>
              <Button variant="outline" size="sm" className="mr-2" asChild> {/* asChild を追加 */}
-               <Link href={`/services/${serviceId}/tests/${caseId}/edit`}> {/* 編集ページへのリンク */}
+:start_line:102
+-------
+               <Link href={`/projects/${serviceId}/tests/${caseId}/edit`}> {/* 編集ページへのリンク */}
                  <EditIcon className="h-4 w-4 mr-1" />編集
                </Link>
              </Button>
@@ -150,10 +158,12 @@ export default function TestCaseDetailPage() {
           <div className="flex justify-between items-center">
              <h2 className="text-xl font-semibold">テストステップ一覧</h2>
              {/* 新規テストステップ作成ボタン（後で実装） */}
-             <Button asChild>
-               <Link href={`/services/${serviceId}/tests/${caseId}/steps/new`}>
-                 新規テストステップ作成
-               </Link>
+:start_line:161
+-------
+               <Button asChild>
+                 <Link href={`/projects/${serviceId}/tests/${caseId}/steps/new`}>
+                   新規テストステップ作成
+                 </Link>
              </Button>
           </div>
 
@@ -191,11 +201,13 @@ export default function TestCaseDetailPage() {
                         <TableCell className="font-mono text-sm">{step.path}</TableCell>
                         <TableCell>{step.expected_status}</TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/services/${serviceId}/tests/${caseId}/steps/${step.id}`}>
-                              詳細
-                            </Link>
-                          </Button>
+:start_line:204
+-------
+                           <Button variant="outline" size="sm" asChild>
+                             <Link href={`/projects/${serviceId}/tests/${caseId}/steps/${step.id}`}>
+                               詳細
+                             </Link>
+                           </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -205,11 +217,13 @@ export default function TestCaseDetailPage() {
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">このテストケースにはまだテストステップがありません。</p>
                    {/* 新規テストステップ作成ボタン（後で実装） */}
-                  <Button asChild className="mt-4">
-                    <Link href={`/services/${serviceId}/tests/${caseId}/steps/new`}>
-                      新規テストステップ作成
-                    </Link>
-                  </Button>
+:start_line:220
+-------
+                   <Button asChild className="mt-4">
+                     <Link href={`/projects/${serviceId}/tests/${caseId}/steps/new`}>
+                       新規テストステップ作成
+                     </Link>
+                   </Button>
                 </div>
               )}
             </CardContent>

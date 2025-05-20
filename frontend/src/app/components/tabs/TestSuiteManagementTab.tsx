@@ -86,7 +86,7 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
       suite.name.toLowerCase().includes(query) ||
       suite.description?.toLowerCase().includes(query) ||
       suite.test_cases?.some((testCase: TestCase) =>
-        testCase.steps?.some((testStep: TestStep) =>
+        testCase.test_steps?.some((testStep: TestStep) =>
           testStep.method.toLowerCase().includes(query) ||
           testStep.path.toLowerCase().includes(query)
         )
@@ -488,7 +488,7 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                       {/* テストステップ一覧 */}
                       <div className="mt-3 space-y-3">
                         <h4 className="text-sm font-semibold mb-2">テストステップ:</h4>
-                        {testCase.steps && testCase.steps.map((testStep: TestStep, stepIndex: number) => (
+                        {testCase.test_steps && testCase.test_steps.map((testStep: TestStep, stepIndex: number) => (
                           <div key={testStep.id} className="border rounded-md p-4 hover:bg-muted/20 transition-colors ml-4">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">

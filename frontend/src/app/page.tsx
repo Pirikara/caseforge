@@ -11,47 +11,8 @@ import { QuickActions } from './components/molecules/QuickActions';
 
 // useTestRuns フックと TestRun 型をインポート
 import { useTestRuns, TestRun } from '@/hooks/useTestRuns';
-
-// 型定義
-interface Service {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
-}
-
-// サービス一覧を取得するカスタムフック
-function useServices() {
-  const [services, setServices] = React.useState<Service[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
-
-  React.useEffect(() => {
-    async function fetchServices() {
-      try {
-        setIsLoading(true);
-        const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-        const response = await fetch(`${API}/api/services/`);
-        
-        if (!response.ok) {
-          throw new Error(`API ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setServices(data);
-      } catch (err) {
-        console.error('サービス一覧の取得に失敗しました:', err);
-        setError(err instanceof Error ? err : new Error('不明なエラー'));
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    
-    fetchServices();
-  }, []);
-  
-  return { services, isLoading, error };
-}
+// useServices フックと Service 型をインポート
+import { useServices, Service } from '@/hooks/useServices';
 
 // メモ化されたコンポーネント
 const MemoizedServiceCard = React.memo(ServiceCard);
