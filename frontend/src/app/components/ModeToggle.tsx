@@ -45,7 +45,6 @@ export function ModeToggle({ className }: ModeToggleProps) {
   );
 }
 
-// モバイル向けのコンパクトなトグルボタン
 export function ModeToggleCompact({ className }: ModeToggleProps) {
   const { mode, setMode } = useUIMode();
   

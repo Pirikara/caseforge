@@ -23,17 +23,13 @@ from app.utils.timeout import (
     get_timeout_config
 )
 
-# ロガーの設定
 import logging
 logging.basicConfig(level=logging.INFO)
 
-# タイムアウト値の設定例（実際のアプリケーションでは、config.pyに定義するか環境変数で設定）
 os.environ["TIMEOUT_API_CALL"] = "5.0"
 os.environ["TIMEOUT_DB_QUERY"] = "10.0"
 os.environ["TIMEOUT_LLM_CALL"] = "60.0"
 
-
-# 同期関数でのタイムアウト処理の例
 @timeout(2.0)
 def slow_function() -> str:
     """タイムアウトするテスト関数（同期）"""
@@ -52,7 +48,6 @@ def api_call(url: str) -> Dict[str, Any]:
     return response.json()
 
 
-# 非同期関数でのタイムアウト処理の例
 @async_timeout(2.0)
 async def slow_async_function() -> str:
     """タイムアウトするテスト関数（非同期）"""
@@ -72,7 +67,6 @@ async def async_api_call(url: str) -> Dict[str, Any]:
         return response.json()
 
 
-# 例外処理と組み合わせた例
 @handle_exceptions(fallback_value={"status": "error", "message": "API呼び出しに失敗しました"})
 @timeout(timeout_key="API_CALL")
 def safe_api_call(url: str) -> Dict[str, Any]:
@@ -83,7 +77,6 @@ def safe_api_call(url: str) -> Dict[str, Any]:
     return response.json()
 
 
-# run_with_timeoutを使用した例
 def run_with_timeout_example() -> None:
     """run_with_timeoutを使用した例"""
     print("\n=== run_with_timeout の使用例 ===")
@@ -105,7 +98,6 @@ def run_with_timeout_example() -> None:
         print(f"タイムアウト例外が発生しました: {e}")
 
 
-# run_async_with_timeoutを使用した例
 async def run_async_with_timeout_example() -> None:
     """run_async_with_timeoutを使用した例"""
     print("\n=== run_async_with_timeout の使用例 ===")
@@ -127,7 +119,6 @@ async def run_async_with_timeout_example() -> None:
         print(f"タイムアウト例外が発生しました: {e}")
 
 
-# LLM呼び出しのモック例
 @timeout(timeout_key="LLM_CALL")
 def mock_llm_call(prompt: str) -> str:
     """LLM呼び出しのモック関数"""
@@ -137,7 +128,6 @@ def mock_llm_call(prompt: str) -> str:
     return f"「{prompt}」に対する応答です。"
 
 
-# データベースクエリのモック例
 @async_timeout(timeout_key="DB_QUERY")
 async def mock_db_query(query: str) -> List[Dict[str, Any]]:
     """データベースクエリのモック関数"""
@@ -147,7 +137,6 @@ async def mock_db_query(query: str) -> List[Dict[str, Any]]:
     return [{"id": 1, "name": "テストデータ1"}, {"id": 2, "name": "テストデータ2"}]
 
 
-# メイン関数
 async def main() -> None:
     """メイン関数"""
     print("=== タイムアウト処理ユーティリティの使用例 ===")

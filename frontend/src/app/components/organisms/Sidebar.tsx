@@ -7,7 +7,6 @@ import { Button } from '../ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
-// サービスの型定義
 interface Service {
   id: string;
   name: string;
@@ -15,7 +14,6 @@ interface Service {
   created_at: string;
 }
 
-// テスト実行の型定義
 interface TestRun {
   run_id: string;
   service_id: string;
@@ -27,7 +25,6 @@ interface TestRun {
 
 import { useServices } from '@/hooks/useServices';
 
-// 最近のテスト実行を取得するためのカスタムフック
 function useRecentTestRuns() {
   const [recentRuns, setRecentRuns] = React.useState<TestRun[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

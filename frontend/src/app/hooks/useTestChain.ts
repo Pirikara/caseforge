@@ -1,7 +1,7 @@
 import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
 
-import { TestSuite } from '@/hooks/useTestRuns'; // TestSuite 型をインポート
+import { TestSuite } from '@/hooks/useTestRuns';
 
 export function useTestSuiteDetail(serviceId: string | undefined, suiteId: string | undefined) {
   const { data, error, isLoading, mutate } = useSWR<TestSuite>(

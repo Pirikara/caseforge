@@ -9,7 +9,6 @@ export default function SchemaPageRedirect() {
   const serviceId = params.id as string;
   
   useEffect(() => {
-    // サービス詳細ページのスキーマタブにリダイレクト
     router.replace(`/services/${serviceId}?tab=schema`);
   }, [serviceId, router]);
   

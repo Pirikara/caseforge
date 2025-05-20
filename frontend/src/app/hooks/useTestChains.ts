@@ -1,7 +1,7 @@
 import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
 
-import { TestCase, TestStep } from './useTestRuns'; // TestCase, TestStep 型をインポート
+import { TestCase, TestStep } from './useTestRuns';
 
 export interface TestSuite {
   id: string;
@@ -10,46 +10,45 @@ export interface TestSuite {
   target_path: string;
   name: string;
   description?: string;
-  test_cases?: TestCase[]; // TestCase のリスト
-  test_cases_count?: number; // test_cases_count に変更
+  test_cases?: TestCase[];
+  test_cases_count?: number;
   created_at: string;
   updated_at?: string;
 }
 
-export function useTestSuites(serviceId: string) { // useTestChains を useTestSuites に変更
-  const { data, error, isLoading, mutate } = useSWR<TestSuite[]>( // TestChain[] を TestSuite[] に変更
-    serviceId ? `/api/services/${serviceId}/test-suites` : null, // /chains を /test-suites に変更
+export function useTestSuites(serviceId: string) {
+  const { data, error, isLoading, mutate } = useSWR<TestSuite[]>(
+    serviceId ? `/api/services/${serviceId}/test-suites` : null,
     fetcher
   );
   
-  const deleteTestSuite = async (suiteId: string) => { // deleteChain を deleteTestSuite に変更, chainId を suiteId に変更
+  const deleteTestSuite = async (suiteId: string) => {
     try {
-      await fetcher(`/api/services/${serviceId}/test-suites/${suiteId}`, 'DELETE'); // /chains/${chainId} を /test-suites/${suiteId} に変更
-      // 削除成功後、SWRのキャッシュを更新して再フェッチ
+      await fetcher(`/api/services/${serviceId}/test-suites/${suiteId}`, 'DELETE');
       mutate();
     } catch (err) {
-      console.error(`Failed to delete test suite ${suiteId}:`, err); // test chain ${chainId} を test suite ${suiteId} に変更
-      throw err; // エラーを呼び出し元に伝える
+      console.error(`Failed to delete test suite ${suiteId}:`, err);
+      throw err;
     }
   };
 
   return {
-    testSuites: data, // testChains を testSuites に変更
+    testSuites: data,
     isLoading,
     error,
     mutate,
-    deleteTestSuite, // deleteChain を deleteTestSuite に変更
+    deleteTestSuite,
   };
 }
 
-export function useTestSuiteDetail(serviceId: string, suiteId: string | null) { // useTestChainDetail を useTestSuiteDetail に変更, chainId を suiteId に変更
-  const { data, error, isLoading, mutate } = useSWR<TestSuite>( // TestChain を TestSuite に変更
-    serviceId && suiteId ? `/api/services/${serviceId}/test-suites/${suiteId}` : null, // chainId を suiteId に変更, /chains/${chainId} を /test-suites/${suiteId} に変更
+export function useTestSuiteDetail(serviceId: string, suiteId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<TestSuite>(
+    serviceId && suiteId ? `/api/services/${serviceId}/test-suites/${suiteId}` : null,
     fetcher
   );
   
   return {
-    testSuite: data, // testChain を testSuite に変更
+    testSuite: data,
     isLoading,
     error,
     mutate,

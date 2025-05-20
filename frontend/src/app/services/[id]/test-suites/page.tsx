@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeftIcon } from 'lucide-react';
-import { useTestSuites } from '@/hooks/useTestChains'; // useTestChains フックを使用
+import { useTestSuites } from '@/hooks/useTestChains'
 
 export default function TestSuitesPage() {
   const params = useParams();
   const serviceId = params.id as string;
 
-  const { testSuites, isLoading, error } = useTestSuites(serviceId); // useTestSuites を使用
+  const { testSuites, isLoading, error } = useTestSuites(serviceId);
 
   if (isLoading) {
     return <div className="text-center py-8">読み込み中...</div>;

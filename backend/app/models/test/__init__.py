@@ -1,4 +1,3 @@
-# テスト関連モデルのパッケージ
 from .suite import TestSuite
 from .case import TestCase
 from .step import TestStep

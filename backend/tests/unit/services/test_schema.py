@@ -3,9 +3,7 @@ from app.models import Service, Schema
 from sqlmodel import select
 import os
 
-# save_and_index_schemaのテスト
 async def test_save_and_index_schema(session, monkeypatch, mock_faiss):
-    # index_schemaをモック化
     def mock_index_schema(service_id, path):
         return True
     
@@ -38,7 +36,6 @@ async def test_save_and_index_schema(session, monkeypatch, mock_faiss):
     if os.path.exists("/tmp/test_service"):
         os.rmdir("/tmp/test_service")
 
-# list_servicesのテスト
 async def test_list_services(session, test_service):
     # テスト実行
     result = await list_services(session)
@@ -48,9 +45,7 @@ async def test_list_services(session, test_service):
     assert result[0]["id"] == "test_service"
     assert result[0]["name"] == "Test Service"
 
-# create_serviceのテスト
 async def test_create_service(session, monkeypatch):
-    # 一時ディレクトリを使用
     test_dir = "/tmp/test_caseforge_services"
     
     # os.makedirsとos.path.existsをモック化
@@ -70,5 +65,3 @@ async def test_create_service(session, monkeypatch):
     assert service is not None
     assert service.name == "New Service"
     assert service.description == "A test service"
-    
-    # ディレクトリの存在チェックはスキップ（モック化済み）

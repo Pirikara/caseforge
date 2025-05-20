@@ -276,7 +276,6 @@ class PathManager:
         return path_obj.relative_to(base_obj)
 
 
-# シングルトンインスタンスの作成
 @lru_cache(maxsize=1)
 def get_path_manager() -> PathManager:
     """
@@ -287,6 +286,4 @@ def get_path_manager() -> PathManager:
     """
     return PathManager()
 
-
-# 使いやすいようにインスタンスをエクスポート
 path_manager = get_path_manager()

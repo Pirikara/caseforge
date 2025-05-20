@@ -8,7 +8,6 @@ import { PlayIcon, FileTextIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
-// 型定義
 interface Service {
   id: string;
   name: string;

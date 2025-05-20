@@ -1,4 +1,3 @@
-# OpenAPI関連のモジュール
 from .parser import EndpointParser
 from .analyzer import OpenAPIAnalyzer
 

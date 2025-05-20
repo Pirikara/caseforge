@@ -1,7 +1,6 @@
 """
 サービス層のモジュール
 """
-# サブパッケージからのインポート
 from .openapi import EndpointParser, OpenAPIAnalyzer
 from .rag import EmbeddingFunctionForCaseforge, OpenAPISchemaChunker, index_schema
 from .vector_db import VectorDBManagerFactory, VectorDBManager, FAISSManager, ChromaDBManager
@@ -14,7 +13,6 @@ from .test import (
     VariableManager
 )
 
-# 直接インポート
 from .chain_generator import DependencyAwareRAG, ChainStore
 from .chain_runner import ChainRunner
 from .endpoint_chain_generator import EndpointChainGenerator

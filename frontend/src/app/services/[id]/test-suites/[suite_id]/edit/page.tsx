@@ -22,9 +22,8 @@ import {
 } from '@/components/ui/form';
 import { toast } from 'sonner';
 import { fetcher } from '@/utils/fetcher';
-import { useTestSuiteDetail } from '@/hooks/useTestChains'; // テストスイート詳細取得用フック
+import { useTestSuiteDetail } from '@/hooks/useTestChains';
 
-// フォームのスキーマ定義
 const formSchema = z.object({
   name: z.string().min(1, { message: 'テストスイート名は必須です。' }),
   target_method: z.string().min(1, { message: '対象メソッドは必須です。' }),
@@ -50,7 +49,7 @@ export default function EditTestSuitePage() {
       target_path: testSuite?.target_path || '',
       description: testSuite?.description || '',
     },
-    values: { // testSuite の値が取得できたらフォームにセット
+    values: {
       name: testSuite?.name || '',
       target_method: testSuite?.target_method || '',
       target_path: testSuite?.target_path || '',
@@ -61,7 +60,6 @@ export default function EditTestSuitePage() {
     // },
   });
 
-  // testSuite がロードされた後にフォームの値をリセット
   React.useEffect(() => {
     if (testSuite) {
       form.reset({
@@ -76,7 +74,6 @@ export default function EditTestSuitePage() {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      // APIエンドポイントは仮
       await fetcher(`/api/services/${serviceId}/test-suites/${suiteId}`, 'PUT', values);
       toast.success('テストスイートが更新されました。');
       router.push(`/services/${serviceId}/test-suites/${suiteId}`);

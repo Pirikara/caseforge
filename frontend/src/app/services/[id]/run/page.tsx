@@ -11,8 +11,6 @@ export default function RunPageRedirect() {
   const chainId = searchParams.get('chain_id');
   
   useEffect(() => {
-    // サービス詳細ページのテスト実行タブにリダイレクト
-    // chain_idパラメータがある場合は、それも引き継ぐ
     const url = chainId 
       ? `/services/${serviceId}?tab=test-execution&chain_id=${chainId}`
       : `/services/${serviceId}?tab=test-execution`;

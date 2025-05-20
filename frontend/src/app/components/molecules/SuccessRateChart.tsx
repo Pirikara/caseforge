@@ -17,7 +17,6 @@ interface SuccessRateChartProps {
 }
 
 export default function SuccessRateChart({ testCaseResults }: SuccessRateChartProps) {
-  // 円グラフデータの作成
   const chartData = React.useMemo(() => {
     if (!testCaseResults || testCaseResults.length === 0) return [];
     
@@ -32,14 +31,12 @@ export default function SuccessRateChart({ testCaseResults }: SuccessRateChartPr
     ].filter(item => item.value > 0);
   }, [testCaseResults]);
 
-  // 成功率の計算
   const successRate = React.useMemo(() => {
     if (!testCaseResults || testCaseResults.length === 0) return 0;
     const passedCount = testCaseResults.filter(r => r.status === 'passed').length;
     return Math.round((passedCount / testCaseResults.length) * 100);
   }, [testCaseResults]);
 
-  // カスタムツールチップ
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -52,7 +49,6 @@ export default function SuccessRateChart({ testCaseResults }: SuccessRateChartPr
     return null;
   };
 
-  // カスタムラベル
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;

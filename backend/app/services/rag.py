@@ -14,8 +14,6 @@ from app.utils.timeout import timeout, async_timeout, run_with_timeout
 from app.utils.retry import run_with_retry, RetryStrategy
 from app.utils.path_manager import path_manager
 
-# 既存のEmbeddingFunctionForCaseforgeクラスは削除し、代わりに新しい埋め込みモデルを使用します。
-# 互換性のために、EmbeddingFunctionForCaseforgeクラスを残しますが、内部では新しい実装を使用します。
 class EmbeddingFunctionForCaseforge(Embeddings):
     """
     DBで使用するための埋め込み関数（互換性のために残す）

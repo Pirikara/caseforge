@@ -5,7 +5,6 @@ Caseforge サービスの命名規則ガイドライン
 コードの可読性と保守性を向上させるためのガイドラインを提供します。
 """
 
-# 命名規則の種類
 NAMING_STYLES = {
     "pascal_case": "単語の先頭を大文字にし、スペースや区切り文字を使用しない (例: ServiceManager)",
     "snake_case": "すべて小文字で、単語をアンダースコアで区切る (例: service_manager)",
@@ -14,7 +13,6 @@ NAMING_STYLES = {
     "kebab_case": "すべて小文字で、単語をハイフンで区切る (例: service-manager)",
 }
 
-# バックエンド (Python) の命名規則
 PYTHON_NAMING_CONVENTIONS = {
     # クラス
     "class_names": {
@@ -94,7 +92,6 @@ PYTHON_NAMING_CONVENTIONS = {
     }
 }
 
-# フロントエンド (TypeScript/React) の命名規則
 TYPESCRIPT_NAMING_CONVENTIONS = {
     # コンポーネント
     "component_names": {
@@ -159,7 +156,6 @@ TYPESCRIPT_NAMING_CONVENTIONS = {
     }
 }
 
-# 命名規則の適用ガイドライン
 def apply_naming_conventions():
     """
     サービス全体に命名規則を適用するためのガイドライン
@@ -177,14 +173,12 @@ def apply_naming_conventions():
     
     return "\n".join(guidelines)
 
-# 命名規則の例外
 NAMING_EXCEPTIONS = [
     "1. サードパーティライブラリとの連携部分では、そのライブラリの命名規則に従うことがあります。",
     "2. フロントエンドからバックエンドAPIを呼び出す際のパラメータ名は、APIの命名規則に合わせます。",
     "3. データベースとの連携部分では、既存のデータベーススキーマの命名規則に従うことがあります。"
 ]
 
-# 命名規則の適用例
 def naming_examples():
     """命名規則の適用例を示します"""
     

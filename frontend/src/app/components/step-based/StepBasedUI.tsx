@@ -16,7 +16,6 @@ interface StepBasedUIProps {
 export function StepBasedUI({ className, children, onComplete }: StepBasedUIProps) {
   const { currentStep, setCurrentStep, totalSteps } = useUIMode();
   
-  // 子要素を配列として扱い、現在のステップに対応する子要素のみを表示
   const childrenArray = React.Children.toArray(children);
   
   const handleNext = () => {

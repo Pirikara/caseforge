@@ -22,7 +22,6 @@ export function useEndpoints(serviceId: string) {
       console.log('Fetching endpoints from:', `${API}${url}`);
       const response = await fetch(`${API}${url}`);
       
-      // レスポンスのステータスとヘッダーをログ出力
       console.log('Endpoints API response:', {
         status: response.status,
         statusText: response.statusText,

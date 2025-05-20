@@ -13,13 +13,11 @@ import { fetcher } from '@/utils/fetcher';
 export function ServiceCreateStep() {
   const { updateSharedData, sharedData } = useUIMode();
   
-  // フォーム状態
   const [name, setName] = useState(sharedData.serviceName || '');
   const [description, setDescription] = useState(sharedData.serviceDescription || '');
   const [baseUrl, setBaseUrl] = useState(sharedData.serviceBaseUrl || '');
   const [isLoading, setIsLoading] = useState(false);
   
-  // サービス作成処理
   const handleCreateService = async () => {
     if (!name) {
       toast.error("エラー", {
@@ -37,7 +35,6 @@ export function ServiceCreateStep() {
         base_url: baseUrl,
       });
       
-      // 作成したサービスIDを共有データに保存
       updateSharedData('serviceId', response.id);
       updateSharedData('serviceName', name);
       updateSharedData('serviceDescription', description);

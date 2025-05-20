@@ -22,11 +22,10 @@ export function useTestCases(serviceId: string) {
   const deleteChain = async (chainId: string) => {
     try {
       await fetcher(`/api/services/${serviceId}/test-cases/${chainId}`, 'DELETE');
-      // 削除成功後、SWRのキャッシュを更新して再フェッチ
       mutate();
     } catch (err) {
       console.error(`Failed to delete chain ${chainId} for service ${serviceId}:`, err);
-      throw err; // エラーを呼び出し元に伝える
+      throw err;
     }
   };
 
@@ -35,7 +34,7 @@ export function useTestCases(serviceId: string) {
     isLoading,
     error,
     mutate,
-    deleteChain, // 削除関数を追加
+    deleteChain,
   };
 }
 
@@ -51,7 +50,7 @@ export interface TestStep {
 }
 
 export interface TestCaseDetail extends TestCase {
-  steps?: TestStep[]; // テストステップの配列を追加
+  steps?: TestStep[];
 }
 
 export function useTestCaseDetail(serviceId: string, caseId: string) {

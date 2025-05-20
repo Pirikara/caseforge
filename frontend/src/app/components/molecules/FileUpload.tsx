@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 
 interface FileUploadProps {
   accept?: string;
-  maxSize?: number; // in MB
+  maxSize?: number;
   onFileSelect: (file: File) => void;
 }
 
@@ -27,7 +27,6 @@ export function FileUpload({ accept = '*', maxSize = 5, onFileSelect }: FileUplo
     
     if (!selectedFile) return;
     
-    // ファイルサイズのチェック
     if (selectedFile.size > maxSize * 1024 * 1024) {
       setError(`ファイルサイズは${maxSize}MB以下である必要があります`);
       return;

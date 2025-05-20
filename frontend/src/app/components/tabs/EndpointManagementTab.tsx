@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { SearchIcon, FileTextIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useEndpoints, Endpoint } from '@/hooks/useEndpoints';
-import { Label } from '@/components/ui/label'; // Label コンポーネントをインポート
+import { Label } from '@/components/ui/label';
 import {
   Sheet,
   SheetContent,
@@ -35,7 +35,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
   const [selectedEndpoint, setSelectedEndpoint] = React.useState<Endpoint | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
 
-  // 異常系の種類リスト
   const errorTypes = [
     { label: '必須フィールド欠落', value: 'missing_field' },
     { label: '無効な入力値', value: 'invalid_input' },
@@ -45,17 +44,14 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
     { label: 'メソッド不一致', value: 'method_not_allowed' },
   ];
 
-  // 選択された異常系の種類
   const [selectedErrorTypes, setSelectedErrorTypes] = React.useState<string[]>([]);
 
-  // 異常系の種類チェックボックスの変更ハンドラ
   const handleErrorTypeChange = (value: string, checked: boolean) => {
     setSelectedErrorTypes(prevSelected =>
       checked ? [...prevSelected, value] : prevSelected.filter(type => type !== value)
     );
   };
   
-  // 検索フィルタリング（メモ化）
   const filteredEndpoints = React.useMemo(() => {
     if (!endpoints) return [];
     
@@ -70,7 +66,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
     );
   }, [endpoints, searchQuery]);
   
-  // すべて選択/解除
   const toggleSelectAll = () => {
     if (selectedEndpoints.length === filteredEndpoints.length) {
       setSelectedEndpoints([]);
@@ -79,7 +74,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
     }
   };
   
-  // 個別のエンドポイント選択/解除
   const toggleEndpoint = (id: string) => {
     if (selectedEndpoints.includes(id)) {
       setSelectedEndpoints(selectedEndpoints.filter(eId => eId !== id));
@@ -88,18 +82,14 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
     }
   };
 
-  // エンドポイントリストが更新された際に、選択状態を検証しクリーンアップ
   React.useEffect(() => {
     if (endpoints) {
-      // 現在選択されているエンドポイントIDのうち、
-      // 新しいエンドポイントリストに存在するものだけを残す
       setSelectedEndpoints(prevSelected =>
         prevSelected.filter(id => endpoints.some(endpoint => endpoint.id === id))
       );
     }
-  }, [endpoints]); // endpoints が変更されたときに実行
+  }, [endpoints]);
 
-  // エンドポイント詳細表示時のデバッグログ
   React.useEffect(() => {
     if (selectedEndpoint) {
       console.log('選択されたエンドポイント詳細:', {
@@ -127,7 +117,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
     }
   }, [selectedEndpoint]);
   
-  // テストチェーン生成
   const handleGenerateChain = async () => {
     if (selectedEndpoints.length === 0) {
       toast.error('エンドポイントが選択されていません');
@@ -137,7 +126,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
     try {
       setIsGenerating(true);
       
-      // URLの構築方法を修正
       const response = await fetch(`${API}/api/services/${serviceId}/generate-tests`, {
         method: 'POST',
         headers: {
@@ -145,11 +133,10 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
         },
         body: JSON.stringify({
           endpoint_ids: selectedEndpoints,
-          error_types: selectedErrorTypes, // 選択された異常系の種類を追加
+          error_types: selectedErrorTypes,
         }),
       });
       
-      // デバッグ情報を追加
       console.log('テストチェーン生成APIレスポンス:', {
         status: response.status,
         statusText: response.statusText,
@@ -168,7 +155,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
         description: 'バックグラウンドでテストチェーン生成が実行されています。しばらくしてからテストチェーン一覧を確認してください。',
       });
       
-      // テストチェーン管理タブに自動遷移
       document.querySelector('[data-value="test-chains"]')?.dispatchEvent(
         new MouseEvent('click', { bubbles: true })
       );

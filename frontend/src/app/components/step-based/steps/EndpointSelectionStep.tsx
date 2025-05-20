@@ -28,7 +28,6 @@ export function EndpointSelectionStep() {
   const [searchQuery, setSearchQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
   
-  // エンドポイント一覧を取得
   useEffect(() => {
     if (serviceId) {
       fetchEndpoints();
@@ -41,7 +40,6 @@ export function EndpointSelectionStep() {
       const data = await fetcher(`/api/services/${serviceId}/endpoints`);
       setEndpoints(data);
       
-      // 以前に選択されたエンドポイントがあれば復元
       if (sharedData.selectedEndpoints) {
         setSelectedEndpoints(sharedData.selectedEndpoints);
       }
@@ -55,7 +53,6 @@ export function EndpointSelectionStep() {
     }
   };
   
-  // 検索とフィルタリングを適用したエンドポイント一覧
   const filteredEndpoints = endpoints.filter(endpoint => {
     const matchesSearch = 
       searchQuery === '' || 
@@ -69,10 +66,8 @@ export function EndpointSelectionStep() {
     return matchesSearch && matchesMethod;
   });
   
-  // HTTPメソッド一覧（重複なし）
   const availableMethods = Array.from(new Set(endpoints.map(e => e.method.toUpperCase())));
   
-  // エンドポイント選択の切り替え
   const toggleEndpoint = (endpointId: string) => {
     setSelectedEndpoints(prev => {
       if (prev.includes(endpointId)) {
@@ -83,7 +78,6 @@ export function EndpointSelectionStep() {
     });
   };
   
-  // 全選択/解除
   const toggleAll = () => {
     if (selectedEndpoints.length === filteredEndpoints.length) {
       setSelectedEndpoints([]);
@@ -92,7 +86,6 @@ export function EndpointSelectionStep() {
     }
   };
   
-  // メソッドフィルターの切り替え
   const toggleMethodFilter = (method: string) => {
     setMethodFilter(prev => {
       if (prev.includes(method)) {
@@ -103,7 +96,6 @@ export function EndpointSelectionStep() {
     });
   };
   
-  // 選択を保存
   const saveSelection = () => {
     updateSharedData('selectedEndpoints', selectedEndpoints);
     
@@ -112,7 +104,6 @@ export function EndpointSelectionStep() {
     });
   };
   
-  // メソッドに応じた色を返す
   const getMethodColor = (method: string) => {
     switch (method.toUpperCase()) {
       case 'GET': return 'bg-blue-100 text-blue-800';

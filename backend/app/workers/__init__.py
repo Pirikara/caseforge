@@ -8,8 +8,7 @@ load_dotenv()
 celery_app = Celery(
     "caseforge",
     broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,  # 結果バックエンドを追加
+    backend=settings.REDIS_URL,
 )
 
-# タスク検出パスを追加
 celery_app.autodiscover_tasks(["app.workers"])

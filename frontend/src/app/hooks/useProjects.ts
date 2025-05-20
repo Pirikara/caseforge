@@ -5,7 +5,7 @@ export interface Service {
   id: string;
   name: string;
   description?: string;
-  base_url?: string; // base_url プロパティを追加
+  base_url?: string;
   created_at: string;
 }
 
@@ -15,11 +15,10 @@ export function useServices() {
   const deleteService = async (serviceId: string) => {
     try {
       await fetcher(`/api/services/${serviceId}`, 'DELETE');
-      // 削除成功後、SWRのキャッシュを更新して再フェッチ
       mutate();
     } catch (err) {
       console.error(`Failed to delete service ${serviceId}:`, err);
-      throw err; // エラーを呼び出し元に伝える
+      throw err;
     }
   };
 
@@ -28,6 +27,6 @@ export function useServices() {
     isLoading,
     error,
     mutate,
-    deleteService, // 削除関数を追加
+    deleteService,
   };
 }

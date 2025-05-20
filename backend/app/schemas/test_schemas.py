@@ -2,7 +2,6 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
-# TestStep スキーマ
 class TestStepBase(BaseModel):
     sequence: int
     name: Optional[str] = None
@@ -27,7 +26,6 @@ class TestStep(TestStepBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-# TestCase スキーマ
 class TestCaseBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -47,7 +45,6 @@ class TestCase(TestCaseBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-# TestSuite スキーマ
 class TestSuiteBase(BaseModel):
     target_method: str
     target_path: str
@@ -68,7 +65,6 @@ class TestSuite(TestSuiteBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-# StepResult スキーマ
 class StepResultBase(BaseModel):
     status_code: Optional[int] = None
     passed: bool
@@ -90,7 +86,6 @@ class StepResult(StepResultBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-# TestCaseResult スキーマ
 class TestCaseResultBase(BaseModel):
     status: str
     error_message: Optional[str] = None
@@ -108,7 +103,6 @@ class TestCaseResult(TestCaseResultBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-# TestRun スキーマ
 class TestRunBase(BaseModel):
     status: str
     start_time: datetime
@@ -124,7 +118,6 @@ class TestRun(TestRunBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-# API レスポンス用スキーマ (ネストされた構造)
 class TestSuiteWithCasesAndSteps(TestSuite):
     test_cases: List[TestCase] = []
 
@@ -137,7 +130,6 @@ class TestRunWithResults(TestRun):
 class TestCaseResultWithSteps(TestCaseResult):
     step_results: List[StepResult] = []
 
-# テスト実行履歴サマリー用スキーマ
 class TestRunSummary(BaseModel):
     id: str # TestRun の id (str)
     run_id: str

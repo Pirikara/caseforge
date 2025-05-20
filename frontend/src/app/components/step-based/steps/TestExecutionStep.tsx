@@ -47,7 +47,6 @@ export function TestExecutionStep() {
   const [isRunning, setIsRunning] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   
-  // テストケース一覧を取得
   useEffect(() => {
     if (serviceId && testSuiteId) {
       fetchTestCases();
@@ -59,7 +58,6 @@ export function TestExecutionStep() {
       const data = await fetcher(`/api/services/${serviceId}/test-suites/${testSuiteId}/test-cases`);
       setTestCases(data);
       
-      // 初期状態ではすべてpending
       const initialResults: Record<string, TestResult> = {};
       data.forEach((testCase: TestCase) => {
         initialResults[testCase.id] = {
@@ -78,7 +76,6 @@ export function TestExecutionStep() {
     }
   };
   
-  // テスト実行処理
   const handleRunTests = async () => {
     if (!serviceId || !testSuiteId) {
       toast.error("テスト実行エラー", {
@@ -90,19 +87,16 @@ export function TestExecutionStep() {
     setIsRunning(true);
     
     try {
-      // テスト実行開始
       const response = await fetcher(`/api/services/${serviceId}/run-test-suites`, 'POST', {
         test_suite_ids: [testSuiteId]
       });
       
       setRunId(response.run_id);
       
-      // 実行開始を通知
       toast.info("テスト実行を開始しました", {
         description: "テストケースの実行を開始しました。完了までしばらくお待ちください。",
       });
       
-      // テスト結果をポーリング（実際はWebSocketなどでリアルタイム更新するべき）
       await pollTestResults(response.run_id);
       
     } catch (error) {
@@ -114,24 +108,17 @@ export function TestExecutionStep() {
     }
   };
   
-  // テスト結果をポーリングで取得
   const pollTestResults = async (runId: string) => {
     try {
-      // 実際のAPIでは、テスト結果が完了するまでポーリングする
-      // ここではシミュレーションとして、テストケースごとに順番に結果を更新
-      
       for (let i = 0; i < testCases.length; i++) {
         const testCase = testCases[i];
         
-        // 少し待機してテスト実行中をシミュレート
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // ランダムな結果を生成（実際はAPIから取得）
         const status = Math.random() > 0.3 ? 'success' : (Math.random() > 0.5 ? 'failure' : 'error');
         const responseTime = Math.floor(Math.random() * 500) + 50;
         const statusCode = status === 'success' ? 200 : (status === 'failure' ? 400 : 500);
         
-        // 結果を更新
         setTestResults(prev => ({
           ...prev,
           [testCase.id]: {
@@ -145,7 +132,6 @@ export function TestExecutionStep() {
         }));
       }
       
-      // サマリーを計算
       const results = Object.values(testResults);
       const summary: TestRunSummary = {
         id: runId,
@@ -163,7 +149,6 @@ export function TestExecutionStep() {
       updateSharedData('testRunId', runId);
       updateSharedData('testRunSummary', summary);
       
-      // 完了通知
       toast.success("テスト実行が完了しました", {
         description: `成功: ${summary.success}, 失敗: ${summary.failure + summary.error}`,
       });
@@ -178,7 +163,6 @@ export function TestExecutionStep() {
     }
   };
   
-  // ステータスに応じたアイコンを返す
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'success': return <CheckCircle className="h-5 w-5 text-green-500" />;

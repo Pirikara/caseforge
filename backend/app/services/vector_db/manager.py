@@ -21,22 +21,18 @@ from app.logging_config import logger
 from app.utils.retry import retry, async_retry, RetryStrategy
 from app.utils.timeout import timeout, async_timeout
 
-# サードパーティライブラリのインポート
 from langchain_core.documents import Document
 from langchain_community.vectorstores import FAISS, Chroma
 from faiss import IndexFlatL2
 from langchain_community.docstore.in_memory import InMemoryDocstore
 
-
-# 自作モジュールのインポート
 from app.services.vector_db.embeddings import (
-    EmbeddingModel, 
-    EmbeddingModelFactory, 
+    EmbeddingModel,
+    EmbeddingModelFactory,
     EmbeddingModelWrapper,
     EmbeddingException
 )
 
-# 型変数の定義
 T = TypeVar('T')
 VectorDBManagerType = TypeVar('VectorDBManagerType', bound='VectorDBManager')
 

@@ -6,7 +6,6 @@ from functools import lru_cache
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
-# 型変数の定義
 T = TypeVar('T')
 
 class ConfigValue(Generic[T]):
@@ -320,7 +319,6 @@ class Config:
         return result
 
 
-# 互換性のために従来のSettingsクラスも維持
 class Settings(BaseSettings):
     # アプリケーション設定
     APP_NAME: str = "Caseforge"
@@ -371,15 +369,11 @@ class Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env")
 
 
-# シングルトンインスタンスの作成
 @lru_cache()
 def get_config() -> Config:
     """設定のシングルトンインスタンスを取得する"""
     return Config()
 
-
-# 従来のsettingsオブジェクトの作成（互換性のため）
 settings = Settings()
 
-# 新しい設定オブジェクト
 config = get_config()

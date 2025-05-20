@@ -16,11 +16,9 @@ export function SchemaUploadStep() {
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
   
-  // ファイル選択ハンドラー
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // JSONファイルかYAMLファイルのみ許可
       if (
         selectedFile.type === 'application/json' || 
         selectedFile.name.endsWith('.json') ||

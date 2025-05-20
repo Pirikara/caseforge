@@ -27,7 +27,6 @@ export default function TestRunSummary({ testRun, serviceName }: TestRunSummaryP
     return end - start;
   }, [testRun.start_time, testRun.end_time]);
 
-  // ミリ秒を読みやすい形式に変換
   const formatExecutionTime = (ms: number | null) => {
     if (ms === null) return '計測中...';
     if (ms < 1000) return `${ms}ms`;

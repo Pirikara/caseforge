@@ -44,7 +44,7 @@ export function ServiceDetailLayout({
   const handleSaveBaseUrl = async () => {
     try {
       await updateService(serviceId, { base_url: baseUrl });
-      mutate(); // サービスデータを再取得
+      mutate();
       toast.success("Base URLを保存しました");
     } catch (error) {
       console.error('Failed to save Base URL:', error);

@@ -2,7 +2,6 @@ from sqlmodel import Field, Relationship
 from typing import Optional, List, ForwardRef
 from .base import TimestampModel
 
-# 循環インポートを避けるために ForwardRef を使用
 TestSuite = ForwardRef("TestSuite")
 TestRun = ForwardRef("TestRun")
 Endpoint = ForwardRef("Endpoint")

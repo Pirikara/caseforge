@@ -39,7 +39,6 @@ export default function StatusCodeDistributionChart({ stepResults }: StatusCodeD
     }));
   }, [stepResults]);
 
-  // ステータスコードをグループ化する関数
   function getStatusCodeGroup(statusCode: number): string {
     if (statusCode >= 200 && statusCode < 300) return '2xx 成功';
     if (statusCode >= 300 && statusCode < 400) return '3xx リダイレクト';
@@ -48,7 +47,6 @@ export default function StatusCodeDistributionChart({ stepResults }: StatusCodeD
     return 'その他';
   }
 
-  // ステータスコードグループに応じた色を返す関数
   function getStatusCodeColor(group: string): string {
     if (group.startsWith('2xx')) return '#10b981'; // 緑
     if (group.startsWith('3xx')) return '#3b82f6'; // 青
@@ -57,7 +55,6 @@ export default function StatusCodeDistributionChart({ stepResults }: StatusCodeD
     return '#9ca3af'; // グレー
   }
 
-  // カスタムツールチップ
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const totalCount = stepResults.filter(s => s.status_code).length;
@@ -73,7 +70,6 @@ export default function StatusCodeDistributionChart({ stepResults }: StatusCodeD
     return null;
   };
 
-  // カスタムラベル
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: any) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
@@ -94,7 +90,6 @@ export default function StatusCodeDistributionChart({ stepResults }: StatusCodeD
     );
   };
 
-  // 有効なステータスコードを持つステップの数
   const validStatusCodeCount = React.useMemo(() => {
     return stepResults.filter(s => s.status_code).length;
   }, [stepResults]);

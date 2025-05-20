@@ -23,5 +23,4 @@ def setup_logging():
     logger = logging.getLogger("app")
     return logger
 
-# アプリケーションロガーをエクスポート
 logger = setup_logging()

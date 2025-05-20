@@ -1,14 +1,14 @@
 "use client"
 
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation'; // useRouter をインポート
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeftIcon, Trash2Icon, EditIcon } from 'lucide-react'; // Trash2Icon, EditIcon をインポート
-import { useTestSuiteDetail } from '@/hooks/useTestChains'; // useTestChains から useTestSuiteDetail をインポート
-import { useTestCases } from '@/hooks/useTestCases'; // テストケース取得用フック
+import { ArrowLeftIcon, Trash2Icon, EditIcon } from 'lucide-react';
+import { useTestSuiteDetail } from '@/hooks/useTestChains';
+import { useTestCases } from '@/hooks/useTestCases';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,36 +19,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // AlertDialog コンポーネントをインポート
-import { toast } from 'sonner'; // toast をインポート
-import { fetcher } from '@/utils/fetcher'; // fetcher をインポート
+} from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
+import { fetcher } from '@/utils/fetcher';
 
 export default function TestSuiteDetailPage() {
   const params = useParams();
-  const router = useRouter(); // useRouter を使用
+  const router = useRouter();
   const serviceId = params.id as string;
   const suiteId = params.suite_id as string;
 
   const { testSuite, isLoading: isLoadingSuite, error: errorSuite } = useTestSuiteDetail(serviceId, suiteId);
-  const { testCases, isLoading: isLoadingTestCases, error: errorTestCases } = useTestCases(serviceId); // サービス全体のテストケースを取得
+  const { testCases, isLoading: isLoadingTestCases, error: errorTestCases } = useTestCases(serviceId);
 
-  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false); // 削除確認ダイアログの表示状態
-  const [isDeleting, setIsDeleting] = React.useState(false); // 削除処理中の状態
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
-  // このテストスイートに紐づくテストケースのみをフィルタリング
   const suiteTestCases = React.useMemo(() => {
     if (!testSuite || !testCases) return [];
     const testCaseIdsInSuite = new Set(testSuite.test_cases?.map(tc => tc.id));
     return testCases.filter(tc => testCaseIdsInSuite.has(tc.id));
   }, [testSuite, testCases]);
 
-  // テストスイート削除処理
   const handleDeleteSuite = async () => {
     setIsDeleting(true);
     try {
       await fetcher(`/api/services/${serviceId}/test-suites/${suiteId}`, 'DELETE');
       toast.success('テストスイートが削除されました。');
-      router.push(`/services/${serviceId}/test-suites`); // 削除成功後、一覧ページにリダイレクト
+      router.push(`/services/${serviceId}/test-suites`);
     } catch (error: any) {
       toast.error('テストスイートの削除に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -103,8 +101,8 @@ export default function TestSuiteDetailPage() {
              <Button
                variant="destructive"
                size="sm"
-               onClick={() => setShowDeleteDialog(true)} // 削除ボタンクリックでダイアログ表示
-               disabled={isDeleting} // 削除中は無効化
+               onClick={() => setShowDeleteDialog(true)}
+               disabled={isDeleting}
              >
                {isDeleting ? '削除中...' : <><Trash2Icon className="h-4 w-4 mr-1" />削除</>} {/* 削除中の表示 */}
              </Button>

@@ -48,34 +48,24 @@ import { useTestRuns, TestRun, TestCase, TestStep } from '@/hooks/useTestRuns'; 
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils'; // cn 関数をインポート
+import { cn } from '@/lib/utils';
 
 export const TestChainManagementTab = ({ serviceId, service }: { serviceId: string, service: any }) => {
   const router = useRouter();
   const { testSuites, isLoading: isLoadingTestSuites, deleteTestSuite } = useTestSuites(serviceId);
   const { testRuns, isLoading: isLoadingTestRuns } = useTestRuns(serviceId);
 
-  // テスト生成関連のstateは削除
-  // const [isGenerating, setIsGenerating] = React.useState(false);
-  // const [generationStatus, setGenerationStatus] = React.useState<'idle' | 'generating' | 'completed' | 'failed'>('idle');
-  // const [generatedCount, setGeneratedCount] = React.useState(0);
-  // const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-
-  // テストスイート詳細関連のstate
   const [selectedSuiteId, setSelectedSuiteId] = React.useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = React.useState(false);
   const { testSuite, isLoading: isLoadingSuiteDetail } = useTestSuiteDetail(serviceId, selectedSuiteId);
 
-  // 削除確認ダイアログ関連のstate
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   const [suiteToDelete, setSuiteToDelete] = React.useState<string | null>(null);
 
-  // テスト実行関連のstate
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedSuites, setSelectedSuites] = React.useState<string[]>([]);
   const [isRunning, setIsRunning] = React.useState(false);
 
-  // 検索フィルタリング（メモ化）
   const filteredSuites = React.useMemo(() => {
     if (!testSuites) return [];
 
@@ -94,7 +84,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
     );
   }, [testSuites, searchQuery]);
 
-  // すべて選択/解除
   const toggleSelectAll = () => {
     if (selectedSuites.length === filteredSuites.length) {
       setSelectedSuites([]);
@@ -103,7 +92,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
     }
   };
 
-  // 個別のテストスイート選択/解除
   const toggleTestSuite = (id: string) => {
     setSelectedSuites(prevSelected =>
       prevSelected.includes(id)
@@ -112,10 +100,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
     );
   };
 
-  // テスト生成を開始 (削除)
-  // const handleGenerateTests = async () => { ... };
-
-  // テスト実行
   const handleRunTests = async () => {
     if (selectedSuites.length === 0) {
       toast.error('テストスイートが選択されていません');
@@ -147,7 +131,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
         description: `実行ID: ${data.run_id}`,
       });
 
-      // テスト実行詳細ページにリダイレクト
       router.push(`/services/${serviceId}/runs/${data.run_id}`);
     } catch (error) {
       console.error('テスト実行エラー:', error);

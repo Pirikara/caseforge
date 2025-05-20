@@ -27,16 +27,13 @@ export default function TestCaseResultList({
 }: TestCaseResultListProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
   
-  // 検索フィルタリング
   const filteredResults = React.useMemo(() => {
     if (!testCaseResults || !testCases) return [];
     
     return testCaseResults.filter(caseResult => {
-      // TestCaseResult の case_id に対応する TestCase を取得
       const testCase = testCases.find(testCase => testCase.id === caseResult.case_id);
-      if (!testCase) return false; // テストケース情報が見つからない場合はスキップ
+      if (!testCase) return false;
       
-      // 検索フィルター
       const lowerCaseQuery = searchQuery.toLowerCase();
       return (
         (testCase.name?.toLowerCase().includes(lowerCaseQuery)) ||
@@ -78,9 +75,8 @@ export default function TestCaseResultList({
             </TableHeader>
             <TableBody>
               {filteredResults.map((caseResult) => {
-                // TestCaseResult の case_id に対応する TestCase を取得
                 const testCase = testCases.find(testCase => testCase.id === caseResult.case_id);
-                if (!testCase) return null; // テストケース情報が見つからない場合はスキップ
+                if (!testCase) return null;
                 
                 return (
                   <TableRow key={caseResult.id}>

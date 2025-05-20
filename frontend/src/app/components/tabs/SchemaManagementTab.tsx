@@ -16,7 +16,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
   const [error, setError] = React.useState<string | null>(null);
   const router = useRouter();
 
-  // スキーマを取得する関数
   const fetchSchema = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -25,7 +24,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
       const response = await fetch(`${API}/api/services/${serviceId}/schema`);
       
-      // デバッグ情報を追加
       console.log('Schema API Response:', {
         status: response.status,
         statusText: response.statusText,
@@ -35,10 +33,9 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
       
       if (!response.ok) {
         if (response.status === 404) {
-          // スキーマが見つからない場合は、nullをセットして正常に表示
           console.log('404エラーを検出: スキーマが存在しません');
           setSchema(null);
-          setError(null); // エラーを明示的にnullに設定
+          setError(null);
           setIsLoading(false);
           return;
         }
@@ -50,7 +47,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
       setSchema(data);
     } catch (error) {
       console.error('スキーマ取得エラー:', error);
-      // エラーの詳細情報をログに出力
       if (error instanceof Error) {
         console.log('エラー詳細:', {
           name: error.name,
@@ -59,7 +55,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
         });
       }
       
-      // 404エラーの場合は特別な処理
       if (error instanceof Error && error.message.includes('404')) {
         console.log('catchブロックで404エラーを検出');
         setSchema(null);
@@ -72,7 +67,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
     }
   }, [serviceId]);
 
-  // コンポーネントのマウント時にスキーマを取得
   React.useEffect(() => {
     fetchSchema();
   }, [fetchSchema]);
@@ -80,7 +74,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
   const handleUpload = async (file: File) => {
     if (!file) return;
 
-    // YAMLまたはJSONファイルのみ許可
     const validTypes = ['application/json', 'application/x-yaml', 'text/yaml', 'text/x-yaml'];
     if (!validTypes.includes(file.type) && !file.name.endsWith('.yaml') && !file.name.endsWith('.yml') && !file.name.endsWith('.json')) {
       toast.error('無効なファイル形式です', {
@@ -110,10 +103,8 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
         description: 'スキーマが正常にアップロードされました。',
       });
       
-      // スキーマを再取得
       fetchSchema();
       
-      // スキーマアップロード後にエンドポイントをインポート
       try {
         console.log('スキーマアップロード後のエンドポイントインポート開始:', serviceId);
         const importResponse = await fetch(`${API}/api/services/${serviceId}/endpoints/import`, {
@@ -139,7 +130,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
         });
       }
       
-      // テストチェーン管理タブに自動遷移
       document.querySelector('[data-value="test-chains"]')?.dispatchEvent(
         new MouseEvent('click', { bubbles: true })
       );
@@ -209,7 +199,7 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
                 <FileUpload
                   onFileSelect={handleUpload}
                   accept=".yaml,.yml,.json"
-                  maxSize={5} // 5MB
+                  maxSize={5}
                 />
               </div>
               

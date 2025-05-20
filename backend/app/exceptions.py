@@ -70,7 +70,6 @@ class CaseforgeException(Exception):
         }
 
 
-# システム関連の例外クラス
 class SystemException(CaseforgeException):
     """システム関連の基底例外クラス"""
     def __init__(
@@ -112,7 +111,6 @@ class ResourceException(SystemException):
         super().__init__(message, ErrorCode.RESOURCE_ERROR, details)
 
 
-# LLM関連の例外クラス
 class LLMException(CaseforgeException):
     """LLM関連の基底例外クラス"""
     def __init__(
@@ -154,7 +152,6 @@ class RAGException(LLMException):
         super().__init__(message, ErrorCode.RAG_ERROR, details)
 
 
-# テスト関連の例外クラス
 class TestException(CaseforgeException):
     """テスト関連の基底例外クラス"""
     def __init__(
@@ -196,7 +193,6 @@ class TestValidationException(TestException):
         super().__init__(message, ErrorCode.TEST_VALIDATION_ERROR, details)
 
 
-# API関連の例外クラス
 class APIException(CaseforgeException):
     """API関連の基底例外クラス"""
     def __init__(
@@ -248,7 +244,6 @@ class ResponseException(APIException):
         super().__init__(message, ErrorCode.RESPONSE_ERROR, details)
 
 
-# データ処理関連の例外クラス
 class DataException(CaseforgeException):
     """データ関連の基底例外クラス"""
     def __init__(
@@ -290,15 +285,12 @@ class SerializationException(DataException):
         super().__init__(message, ErrorCode.SERIALIZATION_ERROR, details)
 
 
-# 例外処理ヘルパー関数
 import functools
 import logging
 from typing import Type, Callable, TypeVar, cast, Union, List
 
-# ロガーの設定
 logger = logging.getLogger(__name__)
 
-# 型変数の定義
 F = TypeVar('F', bound=Callable[..., Any])
 T = TypeVar('T')
 

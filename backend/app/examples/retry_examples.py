@@ -24,11 +24,9 @@ from app.utils.retry import (
     RetryStrategy
 )
 
-# ロガーの設定
 import logging
 logging.basicConfig(level=logging.INFO)
 
-# リトライ設定の例（実際のアプリケーションでは、config.pyに定義するか環境変数で設定）
 os.environ["RETRY_API_CALL_MAX_RETRIES"] = "3"
 os.environ["RETRY_API_CALL_RETRY_DELAY"] = "1.0"
 os.environ["RETRY_API_CALL_STRATEGY"] = "exponential"
@@ -41,8 +39,6 @@ os.environ["RETRY_LLM_CALL_MAX_RETRIES"] = "2"
 os.environ["RETRY_LLM_CALL_RETRY_DELAY"] = "2.0"
 os.environ["RETRY_LLM_CALL_STRATEGY"] = "constant"
 
-
-# 同期関数でのリトライ処理の例
 @retry(max_retries=3, retry_delay=1.0)
 def unstable_function() -> str:
     """ランダムに失敗するテスト関数（同期）"""
@@ -63,7 +59,6 @@ def api_call(url: str) -> Dict[str, Any]:
     return response.json()
 
 
-# 非同期関数でのリトライ処理の例
 @async_retry(max_retries=3, retry_delay=1.0)
 async def unstable_async_function() -> str:
     """ランダムに失敗するテスト関数（非同期）"""
@@ -85,7 +80,6 @@ async def async_api_call(url: str) -> Dict[str, Any]:
         return response.json()
 
 
-# 特定の例外のみをリトライする例
 @retry(
     max_retries=3,
     retry_delay=1.0,
@@ -105,7 +99,6 @@ def selective_retry_function() -> str:
     return "完了"
 
 
-# 結果に基づいてリトライする例
 def is_retry_needed(result: Dict[str, Any]) -> bool:
     """結果に基づいてリトライが必要かどうかを判断する関数"""
     # ステータスコードが429（レート制限）または500番台の場合はリトライ
@@ -134,7 +127,6 @@ def result_based_retry_function() -> Dict[str, Any]:
     return {"status": 200, "message": "OK"}
 
 
-# 異なるバックオフ戦略の例
 @retry(
     max_retries=5,
     retry_delay=1.0,
@@ -168,7 +160,6 @@ def linear_backoff_function() -> str:
     return "完了"
 
 
-# run_with_retryを使用した例
 def run_with_retry_example() -> None:
     """run_with_retryを使用した例"""
     print("\n=== run_with_retry の使用例 ===")
@@ -193,7 +184,6 @@ def run_with_retry_example() -> None:
         print(f"最大リトライ回数を超えました: {e}")
 
 
-# run_async_with_retryを使用した例
 async def run_async_with_retry_example() -> None:
     """run_async_with_retryを使用した例"""
     print("\n=== run_async_with_retry の使用例 ===")
@@ -218,7 +208,6 @@ async def run_async_with_retry_example() -> None:
         print(f"最大リトライ回数を超えました: {e}")
 
 
-# LLM呼び出しのモック例
 @retry(retry_key="LLM_CALL")
 def mock_llm_call(prompt: str) -> str:
     """LLM呼び出しのモック関数"""
@@ -231,7 +220,6 @@ def mock_llm_call(prompt: str) -> str:
     return f"「{prompt}」に対する応答です。"
 
 
-# データベースクエリのモック例
 @async_retry(retry_key="DB_QUERY")
 async def mock_db_query(query: str) -> List[Dict[str, Any]]:
     """データベースクエリのモック関数"""
@@ -244,7 +232,6 @@ async def mock_db_query(query: str) -> List[Dict[str, Any]]:
     return [{"id": 1, "name": "テストデータ1"}, {"id": 2, "name": "テストデータ2"}]
 
 
-# タイムアウト処理と組み合わせた例
 from app.utils.timeout import timeout
 
 @timeout(seconds=2.0)
@@ -260,7 +247,6 @@ def timeout_with_retry() -> str:
     return "完了"
 
 
-# メイン関数
 async def main() -> None:
     """メイン関数"""
     print("=== リトライ処理ユーティリティの使用例 ===")

@@ -27,7 +27,6 @@ from app.utils.timeout import async_timeout
 from app.utils.retry import async_retry, RetryStrategy
 from app.services.test.variable_manager import VariableManager, VariableScope, VariableType
 
-# 型変数の定義
 T = TypeVar('T')
 ResultT = TypeVar('ResultT')
 

@@ -23,7 +23,6 @@ import {
 import { toast } from 'sonner';
 import { fetcher } from '@/utils/fetcher';
 
-// フォームのスキーマ定義
 const formSchema = z.object({
   name: z.string().min(1, { message: 'テストスイート名は必須です。' }),
   target_method: z.string().min(1, { message: '対象メソッドは必須です。' }),

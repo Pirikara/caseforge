@@ -16,11 +16,9 @@ from app.logging_config import logger
 from app.utils.retry import retry, async_retry, RetryStrategy
 from app.utils.timeout import timeout, async_timeout
 
-# サードパーティライブラリのインポート
 from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# 型変数の定義
 T = TypeVar('T')
 EmbeddingModelType = TypeVar('EmbeddingModelType', bound='EmbeddingModel')
 

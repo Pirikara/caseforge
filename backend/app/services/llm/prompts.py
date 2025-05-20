@@ -312,7 +312,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                 logger.error(f"Error loading templates from {templates_dir}: {e}", exc_info=True)
 
 
-# シングルトンインスタンス
 prompt_registry = PromptTemplateRegistry()
 
 

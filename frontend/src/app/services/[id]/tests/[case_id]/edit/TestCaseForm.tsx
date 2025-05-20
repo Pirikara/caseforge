@@ -59,7 +59,6 @@ export function TestCaseForm({ testCase, onSave, serviceId }: TestCaseFormProps)
     },
   });
 
-  // testCase が更新されたらフォームの値をリセット
   React.useEffect(() => {
     if (testCase) {
       form.reset({
@@ -78,12 +77,11 @@ export function TestCaseForm({ testCase, onSave, serviceId }: TestCaseFormProps)
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
-      // フォームデータを整形
       const formData = {
         ...values,
         request_body: values.request_body ? JSON.parse(values.request_body) : null,
         expected_response: values.expected_response ? JSON.parse(values.expected_response) : null,
-        steps: steps, // テストステップも含める
+        steps: steps
       };
       
       await onSave(formData);
@@ -102,12 +100,9 @@ export function TestCaseForm({ testCase, onSave, serviceId }: TestCaseFormProps)
     }
   };
 
-  // テストステップの削除
   const handleDeleteStep = async (stepId: string) => {
     try {
-      // APIを呼び出してステップを削除
       await fetcher(`/api/services/${serviceId}/test-cases/${testCase.id}/steps/${stepId}`, 'DELETE');
-      // 成功したら、ステップリストから削除
       setSteps(steps.filter(step => step.id !== stepId));
       toast.success('テストステップが削除されました。');
     } catch (error: any) {
@@ -123,15 +118,12 @@ export function TestCaseForm({ testCase, onSave, serviceId }: TestCaseFormProps)
     
     try {
       const newSteps = [...steps];
-      // 順序を入れ替え
       const temp = newSteps[index].sequence;
       newSteps[index].sequence = newSteps[index - 1].sequence;
       newSteps[index - 1].sequence = temp;
       
-      // 順序でソート
       newSteps.sort((a, b) => a.sequence - b.sequence);
       
-      // APIを呼び出して順序を更新
       await Promise.all([
         fetcher(`/api/services/${serviceId}/test-cases/${testCase.id}/steps/${newSteps[index].id}`, 'PUT', {
           sequence: newSteps[index].sequence
@@ -141,7 +133,6 @@ export function TestCaseForm({ testCase, onSave, serviceId }: TestCaseFormProps)
         })
       ]);
       
-      // API呼び出しが成功した場合のみ状態を更新
       setSteps(newSteps);
       toast.success('テストステップの順序が更新されました。');
     } catch (error: any) {
@@ -151,7 +142,6 @@ export function TestCaseForm({ testCase, onSave, serviceId }: TestCaseFormProps)
     }
   };
 
-  // テストステップの順序を下げる
   const handleMoveStepDown = async (index: number) => {
     if (index >= steps.length - 1) return;
     

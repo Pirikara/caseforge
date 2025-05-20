@@ -18,15 +18,12 @@ from app.config import settings
 from app.exceptions import TimeoutException
 from app.logging_config import logger
 
-# 型変数の定義
 T = TypeVar('T')
 F = TypeVar('F', bound=Callable[..., Any])
 AsyncF = TypeVar('AsyncF', bound=Callable[..., Any])
 
-# デフォルトのタイムアウト値（秒）
 DEFAULT_TIMEOUT = 30.0
 
-# 環境変数から設定を読み込む
 def get_timeout_config(timeout_key: str, default: float = DEFAULT_TIMEOUT) -> float:
     """
     環境変数または設定から特定のタイムアウト値を取得する
@@ -56,7 +53,6 @@ def get_timeout_config(timeout_key: str, default: float = DEFAULT_TIMEOUT) -> fl
     
     return default
 
-# 同期関数用のタイムアウトデコレータ
 def timeout(seconds: Optional[Union[float, str]] = None, timeout_key: Optional[str] = None) -> Callable[[F], F]:
     """
     同期関数にタイムアウト機能を追加するデコレータ
@@ -116,7 +112,6 @@ def timeout(seconds: Optional[Union[float, str]] = None, timeout_key: Optional[s
     
     return decorator
 
-# スレッドベースのタイムアウト実装（Windows対応）
 def _thread_based_timeout(func: Callable[..., T], timeout_value: float, *args: Any, **kwargs: Any) -> T:
     """
     スレッドを使用したタイムアウト処理の実装
@@ -158,7 +153,6 @@ def _thread_based_timeout(func: Callable[..., T], timeout_value: float, *args: A
     
     return result[0]
 
-# 非同期関数用のタイムアウトデコレータ
 def async_timeout(seconds: Optional[Union[float, str]] = None, timeout_key: Optional[str] = None) -> Callable[[AsyncF], AsyncF]:
     """
     非同期関数にタイムアウト機能を追加するデコレータ
@@ -200,7 +194,6 @@ def async_timeout(seconds: Optional[Union[float, str]] = None, timeout_key: Opti
     
     return decorator
 
-# タイムアウト値を解決するヘルパー関数
 def _resolve_timeout(seconds: Optional[Union[float, str]], timeout_key: Optional[str]) -> float:
     """
     タイムアウト値を解決する
@@ -226,7 +219,6 @@ def _resolve_timeout(seconds: Optional[Union[float, str]], timeout_key: Optional
     
     return DEFAULT_TIMEOUT
 
-# 関数を指定したタイムアウトで実行するユーティリティ関数
 def run_with_timeout(func: Callable[..., T], timeout_value: float, *args: Any, **kwargs: Any) -> T:
     """
     関数を指定したタイムアウトで実行する
@@ -273,7 +265,6 @@ def run_with_timeout(func: Callable[..., T], timeout_value: float, *args: Any, *
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, original_handler)
 
-# 非同期関数を指定したタイムアウトで実行するユーティリティ関数
 async def run_async_with_timeout(func: Callable[..., Any], timeout_value: float, *args: Any, **kwargs: Any) -> Any:
     """
     非同期関数を指定したタイムアウトで実行する

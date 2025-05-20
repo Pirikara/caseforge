@@ -17,12 +17,10 @@ from app.config import settings
 from app.exceptions import CaseforgeException, ErrorCode
 from app.logging_config import logger
 
-# 型変数の定義
 T = TypeVar('T')
 F = TypeVar('F', bound=Callable[..., Any])
 AsyncF = TypeVar('AsyncF', bound=Callable[..., Any])
 
-# デフォルトのリトライ設定
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_DELAY = 1.0
 DEFAULT_MAX_RETRY_DELAY = 60.0
@@ -47,7 +45,6 @@ class MaxRetriesExceededException(CaseforgeException):
         super().__init__(message, ErrorCode.GENERAL_ERROR, details)
 
 
-# 環境変数から設定を読み込む
 def get_retry_config(retry_key: str, config_name: str, default: Union[int, float]) -> Union[int, float]:
     """
     環境変数または設定から特定のリトライ設定値を取得する
@@ -177,7 +174,6 @@ def should_retry(
     # リトライ回数が上限に達している場合はリトライしない
     if retry_count >= max_retries:
         return False
-# 同期関数用のリトライデコレータ
 def retry(
     max_retries: Optional[Union[int, str]] = None,
     retry_delay: Optional[Union[float, str]] = None,
@@ -320,7 +316,6 @@ def retry(
     return decorator
 
 
-# 非同期関数用のリトライデコレータ
 def async_retry(
     max_retries: Optional[Union[int, str]] = None,
     retry_delay: Optional[Union[float, str]] = None,
@@ -481,7 +476,6 @@ def retry_result_evaluator(result: Any) -> bool:
         リトライすべきかどうか（デフォルトではリトライしない）
     """
     return False
-# リトライ設定値を解決するヘルパー関数
 def _resolve_retry_setting(
     value: Optional[Union[int, float, str]],
     config_name: str,
@@ -517,7 +511,6 @@ def _resolve_retry_setting(
     return default
 
 
-# 関数を指定したリトライ設定で実行するユーティリティ関数
 def run_with_retry(
     func: Callable[..., T],
     *args: Any,
@@ -632,7 +625,6 @@ def run_with_retry(
             time.sleep(delay)
 
 
-# 非同期関数を指定したリトライ設定で実行するユーティリティ関数
 async def run_async_with_retry(
     func: Callable[..., Any],
     *args: Any,

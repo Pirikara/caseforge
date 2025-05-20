@@ -23,7 +23,6 @@ export default function TestStepResultList({
   stepResults,
   testCaseName
 }: TestStepResultListProps) {
-  // JSONを整形して表示
   const formatJSON = (json: any) => {
     try {
       return JSON.stringify(json, null, 2);
@@ -32,7 +31,6 @@ export default function TestStepResultList({
     }
   };
 
-  // ステップをシーケンス順にソート
   const sortedStepResults = React.useMemo(() => {
     if (!stepResults) return [];
     return [...stepResults].sort((a, b) => a.sequence - b.sequence);

@@ -23,7 +23,6 @@ import {
 import { format } from 'date-fns';
 import dynamic from 'next/dynamic';
 
-// コンポーネントを動的にインポート（クライアントサイドのみ）
 const TestRunSummary = dynamic(
   () => import('@/components/molecules/TestRunSummary'),
   {

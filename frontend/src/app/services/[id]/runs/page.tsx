@@ -46,7 +46,6 @@ import {
   Bar
 } from 'recharts';
 
-// グラフコンポーネントを動的にインポート（クライアントサイドのみ）
 const TestRunChart = dynamic(
   () => import('@/components/molecules/TestRunChart'),
   {
@@ -75,27 +74,22 @@ export default function TestRunsPage() {
     return services.find(p => p.id === serviceId);
   }, [services, serviceId]);
   
-  // 検索とフィルタリング
   const filteredTestRuns = React.useMemo(() => {
     if (!testRuns) return [];
     
     return testRuns.filter(run => {
-      // 検索フィルター
       const matchesSearch = 
         run.run_id.toLowerCase().includes(searchQuery.toLowerCase());
       
-      // ステータスフィルター
       const matchesStatus = statusFilter === 'all' || run.status === statusFilter;
       
       return matchesSearch && matchesStatus;
     });
   }, [testRuns, searchQuery, statusFilter]);
   
-  // グラフデータの作成
   const chartData = React.useMemo(() => {
     if (!testRuns || testRuns.length === 0) return [];
     
-    // 最新の10件を取得
     const recentRuns = [...testRuns]
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
       .slice(0, 10)

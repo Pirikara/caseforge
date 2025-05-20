@@ -30,12 +30,9 @@ from app.exceptions import (
     handle_exceptions, exception_to_response, safe_execute, convert_exception
 )
 
-# ロガーの設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-# 基本的な例外の発生と捕捉
 def basic_exception_example() -> None:
     """基本的な例外の発生と捕捉の例"""
     print("\n=== 基本的な例外の発生と捕捉 ===")
@@ -50,7 +47,6 @@ def basic_exception_example() -> None:
         print(f"詳細: {e.details}")
 
 
-# エラーコードとメッセージの使用
 def error_code_example() -> None:
     """エラーコードとメッセージの使用例"""
     print("\n=== エラーコードとメッセージの使用 ===")
@@ -67,7 +63,6 @@ def error_code_example() -> None:
         print(f"メッセージ: {e.message}")
 
 
-# 詳細情報の追加
 def details_example() -> None:
     """詳細情報の追加例"""
     print("\n=== 詳細情報の追加 ===")
@@ -95,7 +90,6 @@ def details_example() -> None:
         print(f"辞書形式: {error_dict}")
 
 
-# 例外階層の使用
 def exception_hierarchy_example() -> None:
     """例外階層の使用例"""
     print("\n=== 例外階層の使用 ===")
@@ -130,7 +124,6 @@ def exception_hierarchy_example() -> None:
             print()
 
 
-# handle_exceptionsデコレータの使用例
 @handle_exceptions(fallback_value=None, log_level=logging.WARNING)
 def risky_function(value: int) -> int:
     """例外が発生する可能性のある関数"""
@@ -158,7 +151,6 @@ def decorator_example() -> None:
     print(f"一般的な例外が発生するケース: {result3}")
 
 
-# convert_exceptionデコレータの使用例
 @convert_exception(DatabaseException, "データベース操作中にエラーが発生しました")
 def database_operation(query: str) -> List[Dict[str, Any]]:
     """データベース操作を行う関数"""
@@ -189,7 +181,6 @@ def convert_exception_example() -> None:
         print(f"詳細: {e.details}")
 
 
-# safe_execute関数の使用例
 def safe_execute_example() -> None:
     """safe_execute関数の使用例"""
     print("\n=== safe_execute関数の使用 ===")
@@ -203,7 +194,6 @@ def safe_execute_example() -> None:
     print(f"例外が発生するケース: {result2}")
 
 
-# exception_to_response関数の使用例
 def exception_to_response_example() -> None:
     """exception_to_response関数の使用例"""
     print("\n=== exception_to_response関数の使用 ===")

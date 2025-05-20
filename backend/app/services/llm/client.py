@@ -17,11 +17,9 @@ from app.logging_config import logger
 from app.utils.retry import retry, async_retry, RetryStrategy
 from app.utils.timeout import timeout, async_timeout
 
-# サードパーティライブラリのインポート
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
-# 型変数の定義
 T = TypeVar('T')
 LLMClientType = TypeVar('LLMClientType', bound='LLMClient')
 

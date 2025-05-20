@@ -9,7 +9,6 @@ export default function GeneratePageRedirect() {
   const serviceId = params.id as string;
   
   useEffect(() => {
-    // サービス詳細ページのテストチェーン管理タブにリダイレクト
     router.replace(`/services/${serviceId}?tab=test-chains`);
   }, [serviceId, router]);
   

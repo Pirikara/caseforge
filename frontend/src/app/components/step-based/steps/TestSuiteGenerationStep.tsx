@@ -23,7 +23,6 @@ export function TestSuiteGenerationStep() {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [isGenerated, setIsGenerated] = useState(false);
   
-  // テストスイート生成処理
   const handleGenerateTests = async () => {
     if (!serviceId) {
       toast.error("サービスIDがありません", {
@@ -50,12 +49,10 @@ export function TestSuiteGenerationStep() {
     setGenerationProgress(0);
     
     try {
-      // 生成開始を通知
       toast.info("テスト生成を開始しました", {
         description: "AIによるテストケース生成を開始しました。完了までしばらくお待ちください。",
       });
       
-      // 進捗シミュレーション（実際はWebSocketなどでリアルタイム進捗を取得するべき）
       const progressInterval = setInterval(() => {
         setGenerationProgress(prev => {
           const newProgress = prev + Math.random() * 10;
@@ -63,7 +60,6 @@ export function TestSuiteGenerationStep() {
         });
       }, 1000);
       
-      // APIリクエスト
       const response = await fetcher(`/api/services/${serviceId}/generate-tests`, 'POST', {
         name: suiteName,
         description: description,
@@ -74,7 +70,6 @@ export function TestSuiteGenerationStep() {
       clearInterval(progressInterval);
       setGenerationProgress(100);
       
-      // 生成したテストスイート情報を共有データに保存
       updateSharedData('testSuiteId', response.id);
       updateSharedData('testSuiteName', suiteName);
       updateSharedData('testSuiteDescription', description);
