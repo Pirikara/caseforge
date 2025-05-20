@@ -1,107 +1,95 @@
 "use client"
 
 import * as React from 'react';
-import { Control, Controller, useFieldArray } from 'react-hook-form';
+import { Control, Controller, useFormContext, FieldValues, Path } from 'react-hook-form';
 import { FormControl, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PlusIcon, TrashIcon } from 'lucide-react';
 
-interface PathParamEditorProps {
-  control: Control<any>;
-  name: string;
+interface PathParamEditorProps<TFieldValues extends FieldValues = FieldValues> {
+  control: Control<TFieldValues>;
+  name: Path<TFieldValues>;
 }
 
-export function PathParamEditor({ control, name }: PathParamEditorProps) {
-  // useFieldArrayを使用してパスパラメータの配列を管理
-  const { fields, append, remove, update } = useFieldArray({
-    control,
-    name: name, // 親から渡されるフィールド名を使用
-  });
+export function PathParamEditor<TFieldValues extends FieldValues = FieldValues>({ name }: PathParamEditorProps<TFieldValues>) {
+  const { control, watch, setValue } = useFormContext<TFieldValues>();
+  const pathParams = watch(name) as Record<string, string> | undefined;
 
-  // オブジェクトから配列への変換と、配列からオブジェクトへの変換を行う
-  const convertObjectToArray = (obj: Record<string, string> = {}) => {
-    return Object.entries(obj).map(([key, value]) => ({ key, value }));
+  const handleAddParam = () => {
+    const currentParams = pathParams || {};
+    const newKey = `new_param_${Date.now()}`;
+    setValue(name, { ...currentParams, [newKey]: '' } as any);
   };
 
-  const convertArrayToObject = (arr: { key: string; value: string }[]) => {
-    return arr.reduce((acc, { key, value }) => {
-      if (key) {
-        acc[key] = value;
-      }
-      return acc;
-    }, {} as Record<string, string>);
+  const handleRemoveParam = (keyToRemove: string) => {
+    const currentParams = pathParams || {};
+    const { [keyToRemove]: _, ...rest } = currentParams;
+    setValue(name, rest as any);
   };
+
+  const handleKeyChange = (oldKey: string, newKey: string) => {
+    const currentParams = pathParams || {};
+    if (oldKey === newKey) return;
+
+    const value = currentParams[oldKey];
+    const { [oldKey]: _, ...rest } = currentParams;
+    setValue(name, { ...rest, [newKey]: value } as any);
+  };
+
+  const handleValueChange = (key: string, newValue: string) => {
+    const currentParams = pathParams || {};
+    setValue(name, { ...currentParams, [key]: newValue } as any);
+  };
+
+  const paramKeys = Object.keys(pathParams || {});
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <Controller
-          control={control}
-          name={name}
-          render={({ field }) => {
-            // オブジェクトを配列に変換してuseFieldArrayのfieldsを初期化
-            React.useEffect(() => {
-              if (field.value && Object.keys(field.value).length > 0 && fields.length === 0) {
-                const paramsArray = convertObjectToArray(field.value);
-                append(paramsArray);
-              } else if ((!field.value || Object.keys(field.value).length === 0) && fields.length > 0) {
-                 // field.value が空になったら fields もクリア
-                 remove(fields.map((_, index) => index));
-              }
-            }, [field.value, fields.length, append, remove]);
-
-
-            // fields の変更を親フォームに通知
-            React.useEffect(() => {
-              field.onChange(convertArrayToObject(fields));
-            }, [fields, field.onChange]);
-
-
-            return (
-              <FormItem>
-                <FormLabel>パスパラメータ</FormLabel>
-                <FormControl>
-                  <div className="space-y-2">
-                    {fields.map((item, index) => (
-                      <div key={item.id} className="flex items-center gap-2">
-                        <Input
-                          placeholder="パラメータ名"
-                          value={item.key}
-                          onChange={(e) => update(index, { ...item, key: e.target.value })}
-                        />
-                        <Input
-                          placeholder="値"
-                          value={item.value}
-                          onChange={(e) => update(index, { ...item, value: e.target.value })}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => remove(index)}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => append({ key: '', value: '' })}
-                    >
-                      <PlusIcon className="h-4 w-4 mr-1" />
-                      パラメータを追加
-                    </Button>
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            );
-          }}
-        />
+        <FormItem>
+          <FormLabel>パスパラメータ</FormLabel>
+          <div className="text-sm text-muted-foreground mb-2">
+            パスパラメータを指定します。例: <code>/users/{"{id}"}</code> の <code>&quot;{"{id}"}&quot;</code>
+          </div>
+          <FormControl>
+            <div className="space-y-2">
+              {paramKeys.map((key) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Input
+                    placeholder="キー"
+                    value={key}
+                    onChange={(e) => handleKeyChange(key, e.target.value)}
+                  />
+                  <Input
+                    placeholder="値"
+                    value={pathParams?.[key] || ''}
+                    onChange={(e) => handleValueChange(key, e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleRemoveParam(key)}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddParam}
+              >
+                <PlusIcon className="h-4 w-4 mr-1" />
+                パスパラメータを追加
+              </Button>
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
       </CardContent>
     </Card>
   );
