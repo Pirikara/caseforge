@@ -112,9 +112,6 @@ export default function TestRunsPage() {
     return (
       <div className="text-center py-8">
         <p>サービスが見つかりません</p>
-        <Button asChild className="mt-4">
-          <Link href="/services">サービス一覧に戻る</Link>
-        </Button>
       </div>
     );
   }

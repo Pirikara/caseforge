@@ -50,24 +50,7 @@ export function Header({ className }: { className?: string }) {
                     </SheetClose>
                   </div>
                 </SheetHeader>
-                <div className="py-4">
-                  <nav className="flex flex-col space-y-1 px-4">
-                    <Link
-                      href="/"
-                      className="py-2 px-2 rounded-md hover:bg-accent"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      ダッシュボード
-                    </Link>
-                    <Link
-                      href="/services"
-                      className="py-2 px-2 rounded-md hover:bg-accent"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      サービス
-                    </Link>
-                  </nav>
-                </div>
+                <Sidebar className="static border-none" showLogo={false} />
               </SheetContent>
             </Sheet>
           </div>

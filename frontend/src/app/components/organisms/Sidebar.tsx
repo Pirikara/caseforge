@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import Image from 'next/image'; // Imageコンポーネメントをインポート
-import { PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
+import { PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, HomeIcon, BoxIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -62,53 +62,91 @@ function useRecentTestRuns() {
   return { recentRuns, isLoading, error };
 }
 
-export function Sidebar({ className }: { className?: string }) {
+export function Sidebar({ className, showLogo = true }: { className?: string; showLogo?: boolean }) {
   const { services, isLoading: servicesLoading, error: servicesError } = useServices();
   const { recentRuns, isLoading: runsLoading, error: runsError } = useRecentTestRuns();
   const { theme, setTheme } = useTheme();
 
   return (
-    <aside className={`w-64 border-r border-border bg-background p-4 fixed top-0 left-0 h-full overflow-y-auto ${className}`}>
-      <Link href="/" className="font-bold text-xl mb-4 flex items-center"> {/* flex items-centerを追加 */}
-        {/* テーマに応じてロゴを切り替え */}
-        {theme === 'dark' ? (
-          <Image src="/logo/caseforge-logo-dark.svg" alt="Caseforge Logo Dark" width={48} height={48} className="mr-2" />
-        ) : (
-          <Image src="/logo/caseforge-logo-light.svg" alt="Caseforge Logo Light" width={48} height={48} className="mr-2" />
-        )}
-      </Link>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">サービス</h2>
-        {/* 新規作成ボタンを削除 */}
-      </div>
-
-      {servicesLoading ? (
-        <div>読み込み中...</div>
-      ) : servicesError ? (
-        <div>エラーが発生しました</div>
-      ) : (
-        <ul className="space-y-1">
-          {services?.map((service) => (
-            <li key={service.id}>
-              <Link
-                href={`/services/${service.id}?tab=test-chains`}
-                className="block p-2 rounded hover:bg-accent hover:text-accent-foreground"
-              >
-                {service.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
+    <aside className={`w-64 border-r border-border bg-background fixed top-0 left-0 h-full overflow-y-auto flex flex-col ${className}`}>
+      {/* ロゴ (上部固定) */}
+      {showLogo && (
+        <div className="flex items-center h-16 border-b border-border px-4">
+          <Link href="/">
+            {theme === 'dark' ? (
+              <Image src="/logo/caseforge-logo-dark.svg" alt="Caseforge Logo Dark" width={48} height={48} />
+            ) : (
+              <Image src="/logo/caseforge-logo-light.svg" alt="Caseforge Logo Light" width={48} height={48} />
+            )}
+          </Link>
+        </div>
       )}
 
-      {/* 最近のテスト実行セクションを削除 */}
-      <div className="mt-auto p-4 border-t">
+      {/* メインメニュー */}
+      <nav className="p-4 space-y-1">
+        <Link href="/" className="flex items-center p-2 rounded hover:bg-accent hover:text-accent-foreground">
+          <HomeIcon className="w-6 mr-2" /> ダッシュボード
+        </Link>
+        <Link href="/services" className="flex items-center p-2 rounded hover:bg-accent hover:text-accent-foreground">
+          <BoxIcon className="w-6 mr-2" /> すべてのサービス
+        </Link>
+      </nav>
+
+      {/* セクション区切り */}
+      <div className="border-b border-border mx-4 my-2"></div>
+
+      {/* 最近使ったサービス一覧 */}
+      <div className="p-4 flex-grow overflow-y-auto"> {/* flex-growを追加 */}
+        <h3 className="text-sm font-semibold mb-2 text-muted-foreground">最近使ったサービス</h3>
+        {servicesLoading ? (
+          <div>読み込み中...</div>
+        ) : servicesError ? (
+          <div>エラーが発生しました</div>
+        ) : (
+          <ul className="space-y-1">
+            {/* 最大5件表示 */}
+            {services?.slice(0, 5).map((service) => (
+              <li key={service.id}>
+                <Link
+                  href={`/services/${service.id}?tab=test-chains`}
+                  className="block p-2 rounded hover:bg-accent hover:text-accent-foreground text-sm"
+                >
+                  {service.name}
+                </Link>
+              </li>
+            ))}
+            {/* サービスが5件より多い場合に「すべて表示」リンクを表示 */}
+            {services && services.length > 5 && (
+              <li>
+                <Link
+                  href="/services"
+                  className="block p-2 rounded hover:bg-accent hover:text-accent-foreground text-sm text-blue-500"
+                >
+                  すべて表示 →
+                </Link>
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+
+      {/* 下部固定（ダークモード切替） */}
+      <div className="p-4 border-t border-border flex justify-start items-center"> {/* items-centerを追加 */}
         <Button
           variant="ghost"
-          size="icon"
+          size="sm" // サイズをsmに変更
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="w-full flex justify-start items-center" // 幅をいっぱいにし、左揃え
         >
-          {theme === 'dark' ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+          {theme === 'dark' ? (
+            <>
+              <SunIcon className="h-4 w-4 mr-2" /> ライトモードに切り替え
+            </>
+          ) : (
+            <>
+              <MoonIcon className="h-4 w-4 mr-2" /> ダークモードに切り替え
+            </>
+          )}
         </Button>
       </div>
     </aside>

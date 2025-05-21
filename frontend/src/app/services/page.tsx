@@ -47,11 +47,11 @@ export default function ServicesPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">サービス一覧</h1>
+        <h1 className="text-3xl font-bold">すべてのサービス</h1>
         <Button asChild>
           <Link href="/services/new">
             <PlusIcon className="h-4 w-4 mr-2" />
-            新規サービス
+            作成
           </Link>
         </Button>
       </div>

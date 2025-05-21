@@ -163,7 +163,22 @@ async def list_services(session: Optional[Session] = None):
                 logger.info(f"Filtering services for test environment, returning only test_service")
                 services = test_services
         
-        result = [{"id": p.service_id, "name": p.name, "description": p.description, "base_url": p.base_url, "created_at": p.created_at.isoformat() if p.created_at else datetime.now().isoformat()} for p in services]
+        result = []
+        for p in services:
+            # 各サービスに紐づくSchemaが存在するか確認
+            schema_exists_query = select(Schema).where(Schema.service_id == p.id)
+            schema = session.exec(schema_exists_query).first()
+            has_schema = schema is not None
+
+            result.append({
+                "id": p.service_id,
+                "name": p.name,
+                "description": p.description,
+                "base_url": p.base_url,
+                "created_at": p.created_at.isoformat() if p.created_at else datetime.now().isoformat(),
+                "has_schema": has_schema
+            })
+        
         return result
     except Exception as e:
         logger.error(f"Error listing services: {e}", exc_info=True)
@@ -174,7 +189,8 @@ async def list_services(session: Optional[Session] = None):
                 services = [d.name for d in schema_dir.iterdir() if d.is_dir()]
                 logger.info(f"Found {len(services)} services in filesystem")
                 now = datetime.now().isoformat()
-                return [{"id": p, "name": p, "description": "", "created_at": now} for p in services]
+                # ファイルシステムからのフォールバックではスキーマの有無は判定できないため、has_schemaは常にfalseとする
+                return [{"id": p, "name": p, "description": "", "created_at": now, "has_schema": False} for p in services]
         except Exception as fallback_error:
             logger.error(f"Fallback error listing services from filesystem: {fallback_error}")
         return []

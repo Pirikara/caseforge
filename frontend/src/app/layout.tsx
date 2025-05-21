@@ -10,7 +10,6 @@ import Favicon from '/public/favicon.ico';
 const ThemeProvider = dynamic(() => import("./components/ThemeProvider").then(mod => mod.ThemeProvider), { ssr: true });
 const Header = dynamic(() => import("./components/organisms/Header").then(mod => mod.Header), { ssr: true });
 const Sidebar = dynamic(() => import("./components/organisms/Sidebar").then(mod => mod.Sidebar), { ssr: true });
-const Footer = dynamic(() => import("./components/organisms/Footer").then(mod => mod.Footer), { ssr: true });
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -41,7 +40,6 @@ export default function RootLayout({
                 <Sidebar className="hidden md:block" />
                 <main className="flex-1 p-4 md:p-6 md:ml-64">{children}</main>
               </div>
-              <Footer />
             </div>
           </UIModeProviderClient>
           <Toaster />

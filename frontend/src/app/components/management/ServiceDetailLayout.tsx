@@ -73,9 +73,6 @@ export function ServiceDetailLayout({
     return (
       <div className="text-center py-8">
         <p>サービスが見つかりません</p>
-        <Button asChild className="mt-4">
-          <Link href="/services">サービス一覧に戻る</Link>
-        </Button>
       </div>
     );
   }
@@ -84,11 +81,6 @@ export function ServiceDetailLayout({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{service.name}</h1>
-        <Button asChild variant="outline">
-          <Link href="/services">
-            サービス一覧に戻る
-          </Link>
-        </Button>
       </div>
 
       {service.description && (

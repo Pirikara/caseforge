@@ -8,6 +8,7 @@ export interface Service {
   base_url?: string;
   created_at: string;
   updated_at: string;
+  has_schema?: boolean;
 }
 
 export function useServices() {
