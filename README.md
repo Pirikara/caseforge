@@ -113,7 +113,7 @@ To run backend tests:
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file (if it exists) for details on how to contribute.
+Contributions are welcome!
 
 ## 📄 License
 
