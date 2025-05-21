@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUIMode } from '@/contexts/UIModeContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,30 +28,30 @@ export function EndpointSelectionStep() {
   const [searchQuery, setSearchQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
   
-  useEffect(() => {
-    if (serviceId) {
-      fetchEndpoints();
-    }
-  }, [serviceId]);
-  
-  const fetchEndpoints = async () => {
+  const fetchEndpoints = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await fetcher(`/api/services/${serviceId}/endpoints`);
       setEndpoints(data);
-      
+
       if (sharedData.selectedEndpoints) {
         setSelectedEndpoints(sharedData.selectedEndpoints);
       }
     } catch (error) {
-      console.error('エンドポイント取得エラー:', error);
+      console.error("エンドポイント取得エラー:", error);
       toast.error("エンドポイント取得エラー", {
         description: "エンドポイント一覧の取得中にエラーが発生しました",
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [serviceId, sharedData.selectedEndpoints]);
+
+  useEffect(() => {
+    if (serviceId) {
+      fetchEndpoints();
+    }
+  }, [serviceId, fetchEndpoints]);
   
   const filteredEndpoints = endpoints.filter(endpoint => {
     const matchesSearch = 

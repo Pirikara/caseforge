@@ -6,6 +6,8 @@ import { PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react'
 import { Button } from '../ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { useTheme } from 'next-themes';
+import { MoonIcon, SunIcon } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -60,17 +62,14 @@ function useRecentTestRuns() {
 export function Sidebar({ className }: { className?: string }) {
   const { services, isLoading: servicesLoading, error: servicesError } = useServices();
   const { recentRuns, isLoading: runsLoading, error: runsError } = useRecentTestRuns();
+  const { theme, setTheme } = useTheme();
 
   return (
-    <aside className={`w-64 border-r border-border bg-background p-4 ${className}`}>
+    <aside className={`w-64 border-r border-border bg-background p-4 fixed top-0 left-0 h-full overflow-y-auto ${className}`}>
+      <Link href="/" className="font-bold text-xl mb-4 block">Caseforge</Link>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">サービス</h2>
-        <Button size="sm" asChild>
-          <Link href="/services/new">
-            <PlusIcon className="h-4 w-4 mr-1" />
-            新規
-          </Link>
-        </Button>
+        {/* 新規作成ボタンを削除 */}
       </div>
 
       {servicesLoading ? (
@@ -92,40 +91,15 @@ export function Sidebar({ className }: { className?: string }) {
         </ul>
       )}
 
-      <div className="mt-8">
-        <h3 className="text-sm font-semibold mb-2">最近のテスト実行</h3>
-        {runsLoading ? (
-          <div className="text-xs text-muted-foreground">読み込み中...</div>
-        ) : runsError ? (
-          <div className="text-xs text-muted-foreground">テスト実行の取得に失敗しました</div>
-        ) : recentRuns && recentRuns.length > 0 ? (
-          <ul className="space-y-2">
-            {recentRuns.map((run) => (
-              <li key={run.run_id}>
-                <Link
-                  href={`/services/${run.service_id}/runs/${run.run_id}`}
-                  className="flex items-center gap-2 p-2 rounded text-sm hover:bg-accent hover:text-accent-foreground"
-                >
-                  {run.status === 'completed' ? (
-                    <CheckCircleIcon className="h-4 w-4 text-green-500 flex-shrink-0" />
-                  ) : run.status === 'failed' ? (
-                    <XCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0" />
-                  ) : (
-                    <ClockIcon className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-                  )}
-                  <div className="overflow-hidden">
-                    <div className="truncate font-medium">{run.service_name || run.service_id}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {formatDistanceToNow(new Date(run.start_time), { addSuffix: true, locale: ja })}
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-xs text-muted-foreground">テスト実行履歴がありません</div>
-        )}
+      {/* 最近のテスト実行セクションを削除 */}
+      <div className="mt-auto p-4 border-t">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        >
+          {theme === 'dark' ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+        </Button>
       </div>
     </aside>
   );

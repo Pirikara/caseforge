@@ -8,12 +8,15 @@ import EndpointManagementTab from '@/components/tabs/EndpointManagementTab';
 import TestSuiteManagementTab from '@/components/tabs/TestSuiteManagementTab';
 import { TabsContent } from '@/components/ui/tabs';
 import { useServices } from '@/hooks/useServices';
+import { useTestRuns } from '@/hooks/useTestRuns'; // useTestRunsフックを追加
+import TestRunsPage from './runs/page'; // TestRunsPageコンポーネントをインポート
 
 export default function ServiceDetailPage() {
   const params = useParams();
   const serviceId = params.id as string;
   const [activeTab, setActiveTab] = useState<string>('schema');
   const { services } = useServices();
+  const { testRuns, isLoading: isLoadingTestRuns } = useTestRuns(serviceId); // useTestRunsフックを呼び出し
 
   const service = React.useMemo(() => {
     if (!services) return null;
@@ -43,6 +46,12 @@ export default function ServiceDetailPage() {
 
         <TabsContent value="test-suites" className="space-y-4">
           {service && <TestSuiteManagementTab serviceId={serviceId} service={service} />}
+        </TabsContent>
+
+        {/* 実行履歴タブを追加 */}
+        <TabsContent value="runs" className="space-y-4">
+           {/* TestRunsPageコンポーネントをレンダリング */}
+           <TestRunsPage />
         </TabsContent>
       </ServiceDetailLayout>
     </div>

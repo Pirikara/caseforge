@@ -34,10 +34,10 @@ export default function RootLayout({
         >
           <UIModeProviderClient>
             <div className="flex min-h-screen flex-col">
-              <Header />
+              <Header className="md:hidden" />
               <div className="flex flex-1">
                 <Sidebar className="hidden md:block" />
-                <main className="flex-1 p-4 md:p-6">{children}</main>
+                <main className="flex-1 p-4 md:p-6 md:ml-64">{children}</main>
               </div>
               <Footer />
             </div>

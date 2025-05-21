@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUIMode } from '@/contexts/UIModeContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,17 +47,11 @@ export function TestExecutionStep() {
   const [isRunning, setIsRunning] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
   
-  useEffect(() => {
-    if (serviceId && testSuiteId) {
-      fetchTestCases();
-    }
-  }, [serviceId, testSuiteId]);
-  
-  const fetchTestCases = async () => {
+  const fetchTestCases = useCallback(async () => {
     try {
       const data = await fetcher(`/api/services/${serviceId}/test-suites/${testSuiteId}/test-cases`);
       setTestCases(data);
-      
+
       const initialResults: Record<string, TestResult> = {};
       data.forEach((testCase: TestCase) => {
         initialResults[testCase.id] = {
@@ -67,15 +61,20 @@ export function TestExecutionStep() {
         };
       });
       setTestResults(initialResults);
-      
     } catch (error) {
       console.error('テストケース取得エラー:', error);
       toast.error("テストケース取得エラー", {
         description: "テストケース一覧の取得中にエラーが発生しました",
       });
     }
-  };
+  }, [serviceId, testSuiteId]);
   
+  useEffect(() => {
+    if (serviceId && testSuiteId) {
+      fetchTestCases();
+    }
+  }, [serviceId, testSuiteId, fetchTestCases]);
+
   const handleRunTests = async () => {
     if (!serviceId || !testSuiteId) {
       toast.error("テスト実行エラー", {

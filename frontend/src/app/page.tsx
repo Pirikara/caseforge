@@ -98,7 +98,6 @@ export default function Dashboard() {
         
         {/* サイドバー */}
         <div className="space-y-6">
-          <MemoizedQuickActions />
           
           {isLoadingRuns ? (
             <div className="text-center py-4">読み込み中...</div>
