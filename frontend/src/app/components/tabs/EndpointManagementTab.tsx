@@ -201,28 +201,30 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
           </div>
 
           {/* 異常系テスト生成オプション */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              生成する異常系テストの種類 (任意)
-            </Label>
-            <div className="grid grid-cols-2 gap-4">
-              {errorTypes.map((type) => (
-                <div key={type.value} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`error-type-${type.value}`}
-                    checked={selectedErrorTypes.includes(type.value)}
-                    onCheckedChange={(checked) => handleErrorTypeChange(type.value, checked as boolean)}
-                  />
-                  <label
-                    htmlFor={`error-type-${type.value}`}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {type.label}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-lg">生成する異常系テストの種類</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm"> {/* 縦並びのためのスタイルとtext-sm */}
+                {errorTypes.map((type) => (
+                  <div key={type.value} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`error-type-${type.value}`}
+                      checked={selectedErrorTypes.includes(type.value)}
+                      onCheckedChange={(checked) => handleErrorTypeChange(type.value, checked as boolean)}
+                    />
+                    <label
+                      htmlFor={`error-type-${type.value}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {type.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
           
           {isLoading ? (
             <div className="text-center py-8">読み込み中...</div>
