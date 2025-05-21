@@ -2,12 +2,15 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image'; // Imageコンポーネメントをインポート
 import { PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useTheme } from 'next-themes';
 import { MoonIcon, SunIcon } from 'lucide-react';
+
+// SVGロゴをインポート
 
 interface Service {
   id: string;
@@ -66,7 +69,14 @@ export function Sidebar({ className }: { className?: string }) {
 
   return (
     <aside className={`w-64 border-r border-border bg-background p-4 fixed top-0 left-0 h-full overflow-y-auto ${className}`}>
-      <Link href="/" className="font-bold text-xl mb-4 block">Caseforge</Link>
+      <Link href="/" className="font-bold text-xl mb-4 flex items-center"> {/* flex items-centerを追加 */}
+        {/* テーマに応じてロゴを切り替え */}
+        {theme === 'dark' ? (
+          <Image src="/logo/caseforge-logo-dark.svg" alt="Caseforge Logo Dark" width={48} height={48} className="mr-2" />
+        ) : (
+          <Image src="/logo/caseforge-logo-light.svg" alt="Caseforge Logo Light" width={48} height={48} className="mr-2" />
+        )}
+      </Link>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">サービス</h2>
         {/* 新規作成ボタンを削除 */}

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo/caseforge-logo-light-with-text.png" alt="Caseforge Logo" width="300"/>
+  <img src="./logo.png" alt="Caseforge Logo" width="300"/>
 </p>
 
 Caseforge automatically generates and executes AI-driven request chain test scenarios from OpenAPI specifications, taking inter-endpoint dependencies into account.

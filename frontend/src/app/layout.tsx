@@ -4,6 +4,7 @@ import "./globals.css";
 import dynamic from "next/dynamic";
 import { Toaster } from "./components/ui/sonner";
 import { UIModeProviderClient } from "./components/UIModeProviderClient";
+import Favicon from '/public/favicon.ico';
 
 // 動的インポート
 const ThemeProvider = dynamic(() => import("./components/ThemeProvider").then(mod => mod.ThemeProvider), { ssr: true });
@@ -14,8 +15,9 @@ const Footer = dynamic(() => import("./components/organisms/Footer").then(mod =>
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Caseforge - OpenAPIテスト自動化ツール",
+  title: "Caseforge",
   description: "OpenAPIスキーマに基づくAIテストケースの生成・実行・可視化を行うOSSツール",
+  icons: [{ rel: 'icon', url: Favicon.src }],
 };
 
 export default function RootLayout({
