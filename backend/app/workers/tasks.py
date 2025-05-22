@@ -1,13 +1,11 @@
-import warnings
-import functools
-from app.workers import celery_app
-from app.services.chain_generator import DependencyAwareRAG, ChainStore
-from app.services.schema import get_schema_content
-from app.services.endpoint_chain_generator import EndpointChainGenerator
 import json
 import os
 import yaml
 import logging
+from app.workers import celery_app
+from app.services.chain_generator import DependencyAwareRAG, ChainStore
+from app.services.schema import get_schema_content
+from app.services.endpoint_chain_generator import EndpointChainGenerator
 from app.config import settings
 from app.models import Endpoint, Service
 from sqlmodel import select, Session
@@ -58,36 +56,6 @@ def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] 
     except Exception as e:
         logger.error(f"Error generating test suites: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
-
-def deprecated(func):
-    """非推奨関数を示すデコレータ"""
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        warnings.warn(
-            f"Function {func.__name__} is deprecated and will be removed in future versions. "
-            f"Use generate_test_suites_task instead.",
-            category=DeprecationWarning,
-            stacklevel=2
-        )
-        return func(*args, **kwargs)
-    return wrapper
-
-@celery_app.task
-@deprecated
-def generate_tests_task(service_id: str):
-    """
-    OpenAPIスキーマからテストケースを生成するCeleryタスク（廃止予定）
-    
-    Args:
-        service_id: サービスID
-        
-    Returns:
-        dict: 生成結果の情報
-    """
-    logger.info(f"Generating tests for service {service_id} (DEPRECATED)")
-    logger.warning("This function is deprecated. Use generate_test_suites_task instead.")
-    
-    return generate_test_suites_task(service_id, None)
 
 @celery_app.task
 def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[str], error_types: Optional[List[str]] = None) -> Dict:
