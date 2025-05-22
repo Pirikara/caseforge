@@ -60,7 +60,7 @@ caseforge/
 │       ├── lib/           # ユーティリティ関数
 │       └── services/[id]/ # サービス関連ページ（テスト生成・実行等）
 │
-├── docker-compose.yml     # backend, frontend, redis, chroma, db を含む開発用サービス定義
+├── docker-compose.yml     # backend, frontend, redis, db を含む開発用サービス定義
 └── .env.example           # 環境変数テンプレート
 ```
 
