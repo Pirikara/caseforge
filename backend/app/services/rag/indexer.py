@@ -1,5 +1,4 @@
 import os
-from langchain_community.vectorstores import FAISS
 from app.logging_config import logger
 from .chunker import OpenAPISchemaChunker
 from app.utils.path_manager import path_manager

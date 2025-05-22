@@ -161,7 +161,7 @@ def test_generate_test_suites_task_rag_initialization_error(monkeypatch):
     assert result["status"] == "error"
     assert "message" in result
 
-def test_generate_test_suites_task_generate_chains_error(mock_faiss, mock_llm, monkeypatch):
+def test_generate_test_suites_task_generate_chains_error(mock_llm, monkeypatch):
     """テストスイート生成に失敗する場合のテスト"""
     # get_schema_contentをモック化
     mock_get_schema = MagicMock()

@@ -174,7 +174,7 @@ def test_generate_test_suite_for_candidate(monkeypatch):
     assert len(test_suite["test_cases"][0]["test_steps"]) == len(SAMPLE_TEST_SUITE["test_cases"][0]["test_steps"])
     assert test_suite["test_cases"][1]["error_type"] == SAMPLE_TEST_SUITE["test_cases"][1]["error_type"]
 
-def test_generate_test_suites(mock_faiss, mock_llm, monkeypatch):
+def test_generate_test_suites(mock_llm, monkeypatch):
     """テストスイート生成のテスト"""
     mock_graph = {
         "POST /users": {
@@ -356,19 +356,6 @@ def test_dependency_aware_rag_error_handling(monkeypatch):
     rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
     
     assert hasattr(rag, "analyzer")
-
-def test_dependency_aware_rag_faiss_timeout(monkeypatch):
-    """FAISSの初期化タイムアウトテスト"""
-    from app.exceptions import TimeoutException
-    
-    def mock_run_with_timeout(func, timeout_value):
-        raise TimeoutException("FAISS initialization timeout")
-    
-    monkeypatch.setattr("app.services.chain_generator.run_with_timeout", mock_run_with_timeout)
-    
-    rag = DependencyAwareRAG("test_service", SAMPLE_SCHEMA)
-    
-    assert rag.vectordb is None
 
 def test_dependency_aware_rag_generate_chain_for_candidate_error(monkeypatch):
     """_generate_chain_for_candidateのエラーハンドリングテスト"""

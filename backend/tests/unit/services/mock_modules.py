@@ -18,16 +18,6 @@ class MockDocument:
 class MockVectorStore:
     pass
 
-class MockFAISS(MockVectorStore):
-    @classmethod
-    def from_documents(cls, documents, embedding):
-        mock = cls()
-        mock.documents = documents
-        mock.embedding = embedding
-        return mock
-    
-    def save_local(self, path):
-        pass
 
 sys.modules['langchain'] = MagicMock()
 sys.modules['langchain_core'] = MagicMock()
@@ -45,7 +35,6 @@ sys.modules['langchain_core.language_models'] = MagicMock()
 
 sys.modules['langchain_community'] = MagicMock()
 sys.modules['langchain_community.vectorstores'] = MagicMock()
-sys.modules['langchain_community.vectorstores'].FAISS = MockFAISS
 sys.modules['langchain_community.vectorstores.base'] = MagicMock()
 sys.modules['langchain_community.vectorstores.base'].VectorStore = MockVectorStore
 sys.modules['langchain_community.chat_models'] = MagicMock()

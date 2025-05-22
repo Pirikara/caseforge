@@ -1,7 +1,7 @@
 """
 ベクトルデータベース管理モジュール
 
-このモジュールは、異なるベクトルデータベース（FAISS, ChromaDB等）に対して統一的なインターフェースを提供します。
+このモジュールは、異なるベクトルデータベースに対して統一的なインターフェースを提供します。
 同期処理と非同期処理の両方に対応し、タイムアウト処理とリトライ機構を組み込んでいます。
 """
 
@@ -22,8 +22,7 @@ from app.utils.retry import retry, async_retry, RetryStrategy
 from app.utils.timeout import timeout, async_timeout
 
 from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS, Chroma, PGVector
-from faiss import IndexFlatL2
+from langchain_community.vectorstores import PGVector
 from langchain_community.docstore.in_memory import InMemoryDocstore
 
 from app.services.vector_db.embeddings import (
@@ -592,317 +591,7 @@ class VectorDBManager(abc.ABC):
         return count
 
 
-class FAISSManager(VectorDBManager):
-    """FAISSベクトルDBマネージャー"""
-    
-    def _setup_vectordb(self) -> None:
-        """FAISSベクトルDBの設定"""
-        try:
-            if self.persist_directory and path_manager.exists(path_manager.join_path(self.persist_directory, "index.faiss")):
-                self.vectordb = FAISS.load_local(
-                    self.persist_directory,
-                    self.embedding_function,
-                    allow_dangerous_deserialization=True
-                )
-                logger.info(f"Loaded FAISS index from {self.persist_directory}")
-            else:
-                embedding_dim = 384
-                index = IndexFlatL2(embedding_dim)
-                docstore = InMemoryDocstore()
-                index_to_docstore_id = {}
 
-                self.vectordb = FAISS(
-                    index=index,
-                    docstore=docstore,
-                    index_to_docstore_id=index_to_docstore_id,
-                    embedding_function=self.embedding_function,
-                )
-                logger.info("Created new FAISS index")
-        except Exception as e:
-            logger.error(f"Error setting up FAISS vector database: {e}", exc_info=True)
-            raise VectorDBException(f"FAISSベクトルDBの設定に失敗しました: {e}", details={
-                "persist_directory": self.persist_directory,
-                "error": str(e)
-            })
-    
-    def _add_documents(self, documents: List[Document]) -> None:
-        """
-        ドキュメントをFAISSベクトルDBに追加する
-        
-        Args:
-            documents: 追加するドキュメント
-        """
-        if self.vectordb is None:
-            raise VectorDBException("FAISSベクトルDBが初期化されていません")
-        
-        self.vectordb.add_documents(documents)
-    
-    def _similarity_search(
-        self, 
-        query: str, 
-        k: int = 4, 
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
-        """
-        FAISSベクトルDBで類似度検索を実行する
-        
-        Args:
-            query: 検索クエリ
-            k: 取得するドキュメント数
-            filter: 検索フィルタ
-            
-        Returns:
-            類似度の高いドキュメントのリスト
-        """
-        if self.vectordb is None:
-            raise VectorDBException("FAISSベクトルDBが初期化されていません")
-        
-        return self.vectordb.similarity_search(query, k=k, filter=filter)
-    
-    def _similarity_search_with_score(
-        self, 
-        query: str, 
-        k: int = 4, 
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Tuple[Document, float]]:
-        """
-        FAISSベクトルDBでスコア付きの類似度検索を実行する
-        
-        Args:
-            query: 検索クエリ
-            k: 取得するドキュメント数
-            filter: 検索フィルタ
-            
-        Returns:
-            類似度の高いドキュメントとスコアのタプルのリスト
-        """
-        if self.vectordb is None:
-            raise VectorDBException("FAISSベクトルDBが初期化されていません")
-        
-        return self.vectordb.similarity_search_with_score(query, k=k, filter=filter)
-    
-    def _save(self) -> None:
-        """FAISSベクトルDBを保存する"""
-        if self.vectordb is None:
-            raise VectorDBException("FAISSベクトルDBが初期化されていません")
-        
-        if self.persist_directory:
-            self.vectordb.save_local(self.persist_directory)
-            logger.info(f"Saved FAISS index to {self.persist_directory}")
-    
-    async def _aadd_documents(self, documents: List[Document]) -> None:
-        """
-        ドキュメントをFAISSベクトルDBに非同期で追加する
-        
-        Args:
-            documents: 追加するドキュメント
-        """
-        await asyncio.to_thread(self._add_documents, documents)
-    
-    async def _asimilarity_search(
-        self, 
-        query: str, 
-        k: int = 4, 
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
-        """
-        FAISSベクトルDBで類似度検索を非同期で実行する
-        
-        Args:
-            query: 検索クエリ
-            k: 取得するドキュメント数
-            filter: 検索フィルタ
-            
-        Returns:
-            類似度の高いドキュメントのリスト
-        """
-        return await asyncio.to_thread(self._similarity_search, query, k, filter)
-    
-    async def _asimilarity_search_with_score(
-        self, 
-        query: str, 
-        k: int = 4, 
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Tuple[Document, float]]:
-        """
-        FAISSベクトルDBでスコア付きの類似度検索を非同期で実行する
-        
-        Args:
-            query: 検索クエリ
-            k: 取得するドキュメント数
-            filter: 検索フィルタ
-            
-        Returns:
-            類似度の高いドキュメントとスコアのタプルのリスト
-        """
-        return await asyncio.to_thread(self._similarity_search_with_score, query, k, filter)
-    
-    async def _asave(self) -> None:
-        """FAISSベクトルDBを非同期で保存する"""
-        await asyncio.to_thread(self._save)
-
-
-class ChromaDBManager(VectorDBManager):
-    """ChromaDBベクトルDBマネージャー"""
-    
-    def _setup_vectordb(self) -> None:
-        """ChromaDBベクトルDBの設定"""
-        try:
-            from chromadb.config import Settings as ChromaSettings
-            import chromadb
-            
-            chroma_settings = ChromaSettings(
-                anonymized_telemetry=False,
-                persist_directory=self.persist_directory
-            )
-            
-            client = chromadb.Client(chroma_settings)
-            
-            if self.persist_directory:
-                self.vectordb = Chroma(
-                    client=client,
-                    collection_name=self.collection_name,
-                    embedding_function=self.embedding_function,
-                    persist_directory=self.persist_directory
-                )
-                logger.info(f"Loaded ChromaDB collection from {self.persist_directory}")
-            else:
-                self.vectordb = Chroma(
-                    client=client,
-                    collection_name=self.collection_name,
-                    embedding_function=self.embedding_function
-                )
-                logger.info(f"Created new ChromaDB collection: {self.collection_name}")
-        except ImportError:
-            logger.error("ChromaDB is not installed. Please install it with 'pip install chromadb'.")
-            raise VectorDBException("ChromaDBがインストールされていません。'pip install chromadb'でインストールしてください。")
-        except Exception as e:
-            logger.error(f"Error setting up ChromaDB vector database: {e}", exc_info=True)
-            raise VectorDBException(f"ChromaDBベクトルDBの設定に失敗しました: {e}", details={
-                "persist_directory": self.persist_directory,
-                "collection_name": self.collection_name,
-                "error": str(e)
-            })
-    
-    def _add_documents(self, documents: List[Document]) -> None:
-        """
-        ドキュメントをChromaDBベクトルDBに追加する
-        
-        Args:
-            documents: 追加するドキュメント
-        """
-        if self.vectordb is None:
-            raise VectorDBException("ChromaDBベクトルDBが初期化されていません")
-        
-        self.vectordb.add_documents(documents)
-    
-    def _similarity_search(
-        self, 
-        query: str, 
-        k: int = 4, 
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
-        """
-        ChromaDBベクトルDBで類似度検索を実行する
-        
-        Args:
-            query: 検索クエリ
-            k: 取得するドキュメント数
-            filter: 検索フィルタ
-            
-        Returns:
-            類似度の高いドキュメントのリスト
-        """
-        if self.vectordb is None:
-            raise VectorDBException("ChromaDBベクトルDBが初期化されていません")
-        
-        where = filter if filter else None
-        
-        return self.vectordb.similarity_search(query, k=k, filter=where)
-    
-    def _similarity_search_with_score(
-        self, 
-        query: str, 
-        k: int = 4, 
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Tuple[Document, float]]:
-        """
-        ChromaDBベクトルDBでスコア付きの類似度検索を実行する
-        
-        Args:
-            query: 検索クエリ
-            k: 取得するドキュメント数
-            filter: 検索フィルタ
-            
-        Returns:
-            類似度の高いドキュメントとスコアのタプルのリスト
-        """
-        if self.vectordb is None:
-            raise VectorDBException("ChromaDBベクトルDBが初期化されていません")
-        
-        where = filter if filter else None
-        
-        return self.vectordb.similarity_search_with_score(query, k=k, filter=where)
-    
-    def _save(self) -> None:
-        """ChromaDBベクトルDBを保存する"""
-        if self.vectordb is None:
-            raise VectorDBException("ChromaDBベクトルDBが初期化されていません")
-        
-        if self.persist_directory:
-            self.vectordb.persist()
-            logger.info(f"Saved ChromaDB collection to {self.persist_directory}")
-    
-    async def _aadd_documents(self, documents: List[Document]) -> None:
-        """
-        ドキュメントをChromaDBベクトルDBに非同期で追加する
-        
-        Args:
-            documents: 追加するドキュメント
-        """
-        await asyncio.to_thread(self._add_documents, documents)
-    
-    async def _asimilarity_search(
-        self, 
-        query: str, 
-        k: int = 4, 
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
-        """
-        ChromaDBベクトルDBで類似度検索を非同期で実行する
-        
-        Args:
-            query: 検索クエリ
-            k: 取得するドキュメント数
-            filter: 検索フィルタ
-            
-        Returns:
-            類似度の高いドキュメントのリスト
-        """
-        return await asyncio.to_thread(self._similarity_search, query, k, filter)
-    
-    async def _asimilarity_search_with_score(
-        self, 
-        query: str, 
-        k: int = 4, 
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Tuple[Document, float]]:
-        """
-        ChromaDBベクトルDBでスコア付きの類似度検索を非同期で実行する
-        
-        Args:
-            query: 検索クエリ
-            k: 取得するドキュメント数
-            filter: 検索フィルタ
-            
-        Returns:
-            類似度の高いドキュメントとスコアのタプルのリスト
-        """
-        return await asyncio.to_thread(self._similarity_search_with_score, query, k, filter)
-    
-    async def _asave(self) -> None:
-        """ChromaDBベクトルDBを非同期で保存する"""
-        await asyncio.to_thread(self._save)
 
 
 class VectorDBManagerFactory:
@@ -910,7 +599,7 @@ class VectorDBManagerFactory:
     
     @staticmethod
     def create(
-        db_type: str = "faiss",
+        db_type: str = "pgvector",
         embedding_model: Optional[EmbeddingModel] = None,
         persist_directory: Optional[str] = None,
         collection_name: Optional[str] = None,
@@ -920,7 +609,7 @@ class VectorDBManagerFactory:
         ベクトルDBマネージャーを作成する
         
         Args:
-            db_type: ベクトルDBの種類 ("faiss" または "chroma")
+            db_type: ベクトルDBの種類 ("pgvector")
             embedding_model: 埋め込みモデル
             persist_directory: 永続化ディレクトリ
             collection_name: コレクション名
@@ -929,17 +618,9 @@ class VectorDBManagerFactory:
         Returns:
             ベクトルDBマネージャー
         """
-        if db_type.lower() == "faiss":
-            return FAISSManager(
+        if db_type.lower() == "pgvector":
+            return PGVectorManager(
                 embedding_model=embedding_model,
-                persist_directory=persist_directory,
-                collection_name=collection_name,
-                **kwargs
-            )
-        elif db_type.lower() == "chroma":
-            return ChromaDBManager(
-                embedding_model=embedding_model,
-                persist_directory=persist_directory,
                 collection_name=collection_name,
                 **kwargs
             )
@@ -957,7 +638,7 @@ class VectorDBManagerFactory:
         Returns:
             ベクトルDBマネージャー
         """
-        db_type = config.get("db_type", "faiss")
+        db_type = config.get("db_type", "pgvector")
         persist_directory = config.get("persist_directory")
         collection_name = config.get("collection_name")
         
@@ -968,15 +649,18 @@ class VectorDBManagerFactory:
         
         cache_config = config.get("cache", {})
         
-        kwargs = {k: v for k, v in config.items() if k not in ["db_type", "persist_directory", "collection_name", "embedding", "cache"]}
+        kwargs = {k: v for k, v in config.items() if k not in ["db_type", "persist_directory", "collection_name", "embedding", "cache", "service_id"]}
         
         kwargs["cache_config"] = cache_config
+        
+        service_id = config.get("service_id")
         
         return VectorDBManagerFactory.create(
             db_type=db_type,
             embedding_model=embedding_model,
             persist_directory=persist_directory,
             collection_name=collection_name,
+            service_id=service_id,
             **kwargs
         )
     
@@ -991,7 +675,7 @@ class VectorDBManagerFactory:
         Returns:
             ベクトルDBマネージャー
         """
-        db_type = os.environ.get("VECTOR_DB_TYPE", "faiss")
+        db_type = os.environ.get("VECTOR_DB_TYPE", "pgvector")
         logger.info(f"📌 VECTOR_DB_TYPE = {db_type}")
         
         data_dir = os.environ.get("DATA_DIR", "/app/data")
@@ -1008,23 +692,27 @@ class VectorDBManagerFactory:
         logger.info("🧱 Creating vector DB manager...")
         
         if db_type == "pgvector":
-            # PGVectorManager の初期化パラメータを設定
             return PGVectorManager(
                 embedding_model=embedding_model,
-                collection_name=collection_name, # service_id が設定される
+                collection_name=collection_name,
                 timeout_seconds=settings.TIMEOUT_EMBEDDING,
-                retry_config=None, # 必要に応じて設定
-                cache_config=None, # 必要に応じて設定
-                service_id=service_id # service_id は必須
+                retry_config=None,
+                cache_config=None,
+                service_id=service_id
             )
         
-        return VectorDBManagerFactory.create(
-            db_type=db_type,
-            embedding_model=embedding_model,
-            persist_directory=persist_directory,
-            collection_name=collection_name
-        )
-
+        if db_type.lower() == "pgvector":
+            return PGVectorManager(
+                embedding_model=embedding_model,
+                collection_name=collection_name,
+                timeout_seconds=settings.TIMEOUT_EMBEDDING,
+                retry_config=None,
+                cache_config=None,
+                service_id=service_id
+            )
+        else:
+            raise VectorDBException(f"Unsupported vector database type: {db_type}")
+    
 import os
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -1089,6 +777,7 @@ class PGVectorManager(VectorDBManager):
         """PGVectorの設定"""
         # PGVectorはデータベース自体がベクトルDBとして機能するため、特別なセットアップは不要
         # テーブルの存在確認や作成は__init__で行う
+        # 例: CREATE INDEX ON schema_chunk USING ivfflat(embedding vector_l2_ops) WITH (lists = 100);
         logger.info(f"PGVectorManager setup complete for service_id: {self.service_id}")
         pass
 

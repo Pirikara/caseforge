@@ -3,7 +3,7 @@ from app.models import Service, Schema
 from sqlmodel import select
 import os
 
-async def test_save_and_index_schema(session, monkeypatch, mock_faiss):
+async def test_save_and_index_schema(session, monkeypatch):
     def mock_index_schema(service_id, path):
         return True
     

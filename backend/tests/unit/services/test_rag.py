@@ -1,11 +1,10 @@
 import pytest
 from app.services.rag.chunker import OpenAPISchemaChunker
 from app.services.rag.indexer import index_schema
-from tests.unit.services.mock_modules import MockDocument, MockFAISS
+from tests.unit.services.mock_modules import MockDocument
 from unittest.mock import patch, MagicMock
 
 Document = MockDocument
-FAISS = MockFAISS
 
 @pytest.fixture
 def dummy_openapi_schema(tmp_path):
@@ -188,8 +187,6 @@ def test_index_schema_symlink_error(mock_logger, mock_factory_cls, mock_chunker_
     mock_chunker_instance.get_documents.return_value = [MockDocument(page_content="chunk", metadata={})]
     mock_vector_db_manager = MagicMock()
     mock_factory_cls.create_default.return_value = mock_vector_db_manager
-    mock_vector_db_manager.vectordb = MagicMock(spec=FAISS)
-    mock_vector_db_manager.persist_directory = "/tmp/data/faiss/test_service"
     
     def side_effect(*args, **kwargs):
         raise Exception("Symlink error")

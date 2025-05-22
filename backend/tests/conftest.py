@@ -182,24 +182,6 @@ def test_schema_fixture(session, test_service):
     session.refresh(schema)
     return schema
 
-@pytest.fixture(name="mock_faiss")
-def mock_faiss_fixture(monkeypatch):
-    """FAISSのモック"""
-    class MockFAISS:
-        def __init__(self, *args, **kwargs):
-            pass
-            
-        @classmethod
-        def from_documents(cls, documents, embedding):
-            return cls()
-        
-        def similarity_search(self, query, k=1):
-            class MockDocument:
-                page_content = "test content"
-            return [MockDocument()]
-    
-    monkeypatch.setattr("langchain_community.vectorstores.FAISS", MockFAISS)
-    return MockFAISS
 
 @pytest.fixture(name="mock_llm")
 def mock_llm_fixture(monkeypatch):

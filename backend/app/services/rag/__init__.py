@@ -9,8 +9,6 @@ from app.exceptions import TimeoutException
 class HuggingFaceEmbeddings:
     pass
 
-class FAISS:
-    pass
 
 __all__ = [
     "EmbeddingFunctionForCaseforge",

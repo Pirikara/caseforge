@@ -124,22 +124,6 @@ class PathManager:
             return temp_dir / subdir
         return temp_dir
     
-    def get_faiss_dir(self, service_id: str, temp: bool = False) -> Path:
-        """
-        FAISSベクトルDBディレクトリのパスを取得する
-        
-        Args:
-            service_id (str): サービスID
-            temp (bool): 一時ディレクトリを使用するかどうか
-            
-        Returns:
-            Path: FAISSベクトルDBディレクトリのパス
-        """
-        if temp:
-            return self.get_temp_dir("faiss") / service_id
-        
-        data_dir = os.environ.get("DATA_DIR", "/app/data")
-        return Path(data_dir) / "faiss" / service_id
     
     def ensure_dir(self, path: Union[str, Path]) -> Path:
         """
