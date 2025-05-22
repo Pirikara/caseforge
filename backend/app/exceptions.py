@@ -322,13 +322,11 @@ def handle_exceptions(
             try:
                 return func(*args, **kwargs)
             except tuple(handled_exceptions) as e:
-                # 例外情報をログに記録
                 if isinstance(e, CaseforgeException):
                     logger.log(log_level, f"{e} - 詳細: {e.details}", exc_info=True)
                 else:
                     logger.log(log_level, str(e), exc_info=True)
                 
-                # 例外を再送出するか、フォールバック値を返す
                 if reraise:
                     raise
                 return fallback_value
@@ -394,10 +392,8 @@ def convert_exception(
             try:
                 return func(*args, **kwargs)
             except CaseforgeException:
-                # すでにCaseforge例外の場合はそのまま再送出
                 raise
             except Exception as e:
-                # 一般的な例外をCaseforge例外に変換
                 error_message = message if message is not None else str(e)
                 details = {"original_exception": str(e), "exception_type": type(e).__name__}
                 raise exception_type(error_message, details=details) from e

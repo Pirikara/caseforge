@@ -10,11 +10,11 @@ class TestCase(TimestampModel, table=True):
     __test__ = False
     __tablename__ = "testcase"
     """テストケースモデル（1つのテストパターン）"""
-    id: str = Field(index=True, primary_key=True) # Optional[int] から str に変更し、index=True を追加
-    suite_id: str = Field(foreign_key="testsuite.id") # int から str に変更
+    id: str = Field(index=True, primary_key=True)
+    suite_id: str = Field(foreign_key="testsuite.id")
     name: str
     description: Optional[str] = None
-    error_type: Optional[str] = None # 例: invalid_input, authentication_error
+    error_type: Optional[str] = None
     
     # リレーションシップ
     test_suite: "TestSuite" = Relationship(back_populates="test_cases")
@@ -28,7 +28,7 @@ class TestRun(TimestampModel, table=True):
     run_id: str = Field(index=True, unique=True)
     suite_id: str = Field(foreign_key="testsuite.id")
     service_id: int = Field(foreign_key="service.id")
-    status: str  # running, completed, failed
+    status: str
     start_time: datetime
     end_time: Optional[datetime] = None
     
@@ -42,8 +42,8 @@ class TestCaseResult(TimestampModel, table=True):
     """テストケース結果モデル"""
     id: Optional[int] = Field(default=None, primary_key=True)
     test_run_id: int = Field(foreign_key="testrun.id")
-    case_id: str = Field(foreign_key="testcase.id") # int から str に変更
-    status: str  # passed, failed, skipped
+    case_id: str = Field(foreign_key="testcase.id")
+    status: str
     error_message: Optional[str] = None
     
     # リレーションシップ

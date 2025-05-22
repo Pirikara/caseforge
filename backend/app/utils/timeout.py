@@ -35,7 +35,6 @@ def get_timeout_config(timeout_key: str, default: float = DEFAULT_TIMEOUT) -> fl
     Returns:
         タイムアウト値（秒）
     """
-    # 環境変数から直接取得を試みる
     env_value = os.environ.get(f"TIMEOUT_{timeout_key.upper()}")
     if env_value:
         try:
@@ -43,7 +42,6 @@ def get_timeout_config(timeout_key: str, default: float = DEFAULT_TIMEOUT) -> fl
         except ValueError:
             logger.warning(f"Invalid timeout value in environment variable TIMEOUT_{timeout_key.upper()}: {env_value}")
     
-    # settingsから取得を試みる
     try:
         timeout_attr = f"TIMEOUT_{timeout_key.upper()}"
         if hasattr(settings, timeout_attr):
@@ -78,33 +76,26 @@ def timeout(seconds: Optional[Union[float, str]] = None, timeout_key: Optional[s
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # タイムアウト値の決定
             timeout_value = _resolve_timeout(seconds, timeout_key)
             
-            # Windowsの場合はスレッドベースのタイムアウトを使用
             if not hasattr(signal, 'SIGALRM'):
                 return _thread_based_timeout(func, timeout_value, *args, **kwargs)
             
-            # UNIX系OSの場合はsignalベースのタイムアウトを使用
             def timeout_handler(signum: int, frame: Any) -> None:
                 raise TimeoutException(
                     f"Function {func.__name__} timed out after {timeout_value} seconds",
                     details={"function": func.__name__, "timeout": timeout_value}
                 )
             
-            # 元のハンドラを保存
             original_handler = signal.getsignal(signal.SIGALRM)
             
-            # タイムアウトハンドラを設定
             signal.signal(signal.SIGALRM, timeout_handler)
             
             try:
-                # タイマーを設定
                 signal.setitimer(signal.ITIMER_REAL, timeout_value)
                 result = func(*args, **kwargs)
                 return result
             finally:
-                # タイマーをキャンセルし、元のハンドラを復元
                 signal.setitimer(signal.ITIMER_REAL, 0)
                 signal.signal(signal.SIGALRM, original_handler)
         
@@ -178,11 +169,9 @@ def async_timeout(seconds: Optional[Union[float, str]] = None, timeout_key: Opti
     def decorator(func: AsyncF) -> AsyncF:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # タイムアウト値の決定
             timeout_value = _resolve_timeout(seconds, timeout_key)
             
             try:
-                # asyncio.wait_forを使用してタイムアウトを設定
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_value)
             except asyncio.TimeoutError:
                 raise TimeoutException(
@@ -238,30 +227,24 @@ def run_with_timeout(func: Callable[..., T], timeout_value: float, *args: Any, *
     Examples:
         >>> result = run_with_timeout(slow_function, 5.0, arg1, arg2, kwarg1=value1)
     """
-    # Windowsの場合はスレッドベースのタイムアウトを使用
     if not hasattr(signal, 'SIGALRM'):
         return _thread_based_timeout(func, timeout_value, *args, **kwargs)
     
-    # UNIX系OSの場合はsignalベースのタイムアウトを使用
     def timeout_handler(signum: int, frame: Any) -> None:
         raise TimeoutException(
             f"Function {func.__name__} timed out after {timeout_value} seconds",
             details={"function": func.__name__, "timeout": timeout_value}
         )
     
-    # 元のハンドラを保存
     original_handler = signal.getsignal(signal.SIGALRM)
     
-    # タイムアウトハンドラを設定
     signal.signal(signal.SIGALRM, timeout_handler)
     
     try:
-        # タイマーを設定
         signal.setitimer(signal.ITIMER_REAL, timeout_value)
         result = func(*args, **kwargs)
         return result
     finally:
-        # タイマーをキャンセルし、元のハンドラを復元
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, original_handler)
 
@@ -285,11 +268,9 @@ async def run_async_with_timeout(func: Callable[..., Any], timeout_value: float,
         >>> result = await run_async_with_timeout(slow_async_function, 5.0, arg1, arg2, kwarg1=value1)
     """
     try:
-        # asyncio.wait_forを使用してタイムアウトを設定
         if asyncio.iscoroutinefunction(func):
             return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_value)
         else:
-            # 同期関数の場合は、ThreadPoolExecutorを使用して実行
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor() as executor:
                 return await asyncio.wait_for(

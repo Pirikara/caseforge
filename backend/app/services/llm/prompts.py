@@ -154,7 +154,6 @@ class PromptTemplateRegistry:
         """デフォルトのテンプレートを読み込む"""
         self._loaded = True
         
-        # 組み込みのテンプレートを登録
         self.register("test_suite_generation", PromptTemplate(
             template="""あなたはAPIテストの専門家です。以下のOpenAPIエンドポイント情報を使用してください。
 {context}
@@ -298,12 +297,11 @@ Return only a single valid JSON object matching the following format. **Do not i
 """,
             metadata={
                 "description": "特定のエンドポイントに対するテスト生成用のプロンプト",
-                "version": "1.2", # バージョンを更新
+                "version": "1.2",
                 "author": "Caseforge Team"
             }
         ))
         
-        # 環境変数で指定されたディレクトリからテンプレートを読み込む
         templates_dir = os.environ.get("PROMPT_TEMPLATES_DIR")
         if templates_dir and os.path.isdir(templates_dir):
             try:

@@ -36,12 +36,11 @@ class EndpointBase(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def parse_json_fields(cls, data: Any) -> Any:
-        # dict に変換（SQLModel オブジェクトでも対応できるようにする）
         if not isinstance(data, dict):
             try:
                 data = data.dict()
             except AttributeError:
-                data = vars(data)  # fallback
+                data = vars(data)
 
         for field in ["request_body", "request_headers", "request_query_params", "responses"]:
             val = data.get(field)

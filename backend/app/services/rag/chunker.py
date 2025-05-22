@@ -46,12 +46,10 @@ class OpenAPISchemaChunker:
                     try:
                         for part in ref_path:
                             ref_value = ref_value[part]
-                        # $refを解決した値で置き換え、さらにその値内の$refも解決
                         resolved_obj.update(self._resolve_references(copy.deepcopy(ref_value)))
                     except (KeyError, TypeError) as e:
                         logger.warning(f"Could not resolve reference {value}: {e}")
-                        # 解決できなかった場合は元の$refを残すか、エラーを示す
-                        resolved_obj[key] = value # または resolved_obj[key] = {"$error": f"Unresolved reference: {value}"}
+                        resolved_obj[key] = value
                 else:
                     resolved_obj[key] = self._resolve_references(value)
             return resolved_obj
@@ -71,39 +69,34 @@ class OpenAPISchemaChunker:
 
         for path, methods in self.schema["paths"].items():
             if not isinstance(methods, dict):
-                continue # Skip if not a dictionary (e.g., $ref at path level)
+                continue
 
             for method, details in methods.items():
                 if not isinstance(details, dict):
-                    continue # Skip if not a dictionary (e.g., $ref at method level)
+                    continue
 
-                # $refを解決したチャンク内容を構築
                 chunk_content: Dict[str, Any] = {
                     "method": method.upper(),
                     "path": path,
                 }
 
-                # parameters, requestBody, responses を含める（$ref解決済み）
                 if "parameters" in details:
                     chunk_content["parameters"] = self._resolve_references(details["parameters"])
                 if "requestBody" in details:
                     chunk_content["requestBody"] = self._resolve_references(details["requestBody"])
                 if "responses" in details:
-                    # 主要なレスポンスのみを含める（例: 200, 201）
                     relevant_responses = {
                         status: resp for status, resp in details["responses"].items()
-                        if status in ["200", "201", "204"] or status.startswith("2") # 2xx系を主要とみなす
+                        if status in ["200", "201", "204"] or status.startswith("2")
                     }
                     chunk_content["responses"] = self._resolve_references(relevant_responses)
 
-                # YAML形式の文字列としてpage_contentを作成
                 page_content = yaml.dump(chunk_content, indent=2, sort_keys=False)
 
-                # Documentオブジェクトを作成
                 metadata = {
                     "source": f"{self.path}::paths::{path}::{method}",
                     "type": "path-method",
-                    "path": path, # メタデータにもpathとmethodを追加しておくと便利かもしれない
+                    "path": path,
                     "method": method.upper(),
                 }
                 documents.append(Document(page_content=page_content, metadata=metadata))

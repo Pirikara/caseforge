@@ -17,10 +17,8 @@ class Service(TimestampModel, table=True):
 
     # リレーションシップ
     schemas: List["Schema"] = Relationship(back_populates="service", sa_relationship_kwargs={"cascade": "delete, all"})
-    # 新しいリレーションシップ
     test_suites: List["TestSuite"] = Relationship(back_populates="service", sa_relationship_kwargs={"cascade": "delete, all"})
     test_runs: List["TestRun"] = Relationship(back_populates="service", sa_relationship_kwargs={"cascade": "delete, all"})
-    # エンドポイント管理のリレーションシップ
     endpoints: List["Endpoint"] = Relationship(back_populates="service", sa_relationship_kwargs={"cascade": "delete, all"})
 
 class Schema(TimestampModel, table=True):

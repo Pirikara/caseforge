@@ -4,7 +4,7 @@ from app.services.runner import get_recent_runs
 from app.services.chain_generator import ChainStore
 from app.services.chain_runner import run_test_suites, list_test_runs, get_test_run
 from app.services.endpoint_parser import EndpointParser
-from app.workers.tasks import generate_test_suites_task, generate_test_suites_for_endpoints_task # タスク名を変更
+from app.workers.tasks import generate_test_suites_task, generate_test_suites_for_endpoints_task
 from fastapi.responses import JSONResponse
 from pathlib import Path
 from app.config import settings

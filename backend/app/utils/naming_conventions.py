@@ -182,7 +182,6 @@ NAMING_EXCEPTIONS = [
 def naming_examples():
     """命名規則の適用例を示します"""
     
-    # Python (バックエンド) の例
     python_examples = {
         "良い例": [
             "class UserAuthentication:",
@@ -192,15 +191,14 @@ def naming_examples():
             "class ErrorType(Enum):\n    VALIDATION_ERROR = 1"
         ],
         "悪い例": [
-            "class userAuthentication:",  # パスカルケースではない
-            "def ValidateToken(token):",  # スネークケースではない
-            "UserProfile = GetUserProfile(UserId)",  # 変数名がスネークケースではない
-            "maxLoginAttempts = 5",  # 定数名が大文字のスネークケースではない
-            "class ErrorType(Enum):\n    validation_error = 1"  # 列挙型の値が大文字ではない
+            "class userAuthentication:",
+            "def ValidateToken(token):",
+            "UserProfile = GetUserProfile(UserId)",
+            "maxLoginAttempts = 5",
+            "class ErrorType(Enum):\n    validation_error = 1"
         ]
     }
     
-    # TypeScript/React (フロントエンド) の例
     typescript_examples = {
         "良い例": [
             "function ServiceCard({ service }) {...}",
@@ -210,11 +208,11 @@ def naming_examples():
             "const userData = await fetchUserData();"
         ],
         "悪い例": [
-            "function service_card({ service }) {...}",  # パスカルケースではない
-            "interface user_profile_props {...}",  # パスカルケースではない
-            "function UseAuthentication() {...}",  # キャメルケースではない
-            "const HandleSubmit = () => {...}",  # キャメルケースではない
-            "const user_data = await fetch_user_data();"  # キャメルケースではない
+            "function service_card({ service }) {...}",
+            "interface user_profile_props {...}",
+            "function UseAuthentication() {...}",
+            "const HandleSubmit = () => {...}",
+            "const user_data = await fetch_user_data();"
         ]
     }
     

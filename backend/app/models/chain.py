@@ -8,7 +8,7 @@ from app.models.json_encode_dict import JSONEncodedDict
 class TestSuite(TimestampModel, table=True):
     __tablename__ = "testsuite"
     """テストスイートモデル（APIエンドポイント単位のテスト群）"""
-    id: str = Field(index=True, primary_key=True) # Optional[int] から str に変更し、index=True を追加
+    id: str = Field(index=True, primary_key=True)
     service_id: int = Field(foreign_key="service.id") 
     target_method: str
     target_path: str
@@ -23,9 +23,9 @@ class TestSuite(TimestampModel, table=True):
 class TestStep(TimestampModel, table=True):
     __tablename__ = "teststep"
     """テストステップモデル（テストケース内の1つのリクエスト）"""
-    id: str = Field(index=True, primary_key=True) # Optional[int] から str に変更し、index=True を追加
-    case_id: str = Field(foreign_key="testcase.id") # int から str に変更
-    sequence: int  # ステップの実行順序
+    id: str = Field(index=True, primary_key=True)
+    case_id: str = Field(foreign_key="testcase.id")
+    sequence: int
     name: Optional[str] = None
     method: str
     path: str

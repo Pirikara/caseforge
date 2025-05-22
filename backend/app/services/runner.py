@@ -171,34 +171,25 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
             run_path = path_manager.join_path(service_path, run_file)
 
             try:
-                # ファイル名から開始時間を推測 (YYYYMMDD-HHMMSS 形式を想定)
                 try:
-                    # ファイル名が "YYYYMMDD-HHMMSS.json" または "YYYYMMDD-HHMMSS_suiteId.json" の形式を想定
                     name_parts = run_id.split('_')
                     start_time_str = name_parts[0]
                     start_time = datetime.strptime(start_time_str, "%Y%m%d-%H%M%S").replace(tzinfo=timezone.utc)
                     suite_id = name_parts[1] if len(name_parts) > 1 else ""
                 except ValueError:
-                    # ファイル名から取得できない場合はファイルの更新時間を使用
                     start_time = datetime.fromtimestamp(os.path.getmtime(str(run_path)), tzinfo=timezone.utc)
                     suite_id = ""
 
-                # 実行結果を読み込む
                 with open(run_path, 'r') as f:
                     results = json.load(f)
 
-                # ステータスと成功/失敗を判定
-                # ログファイルに直接ステータス情報がないため、結果から推測
-                # 1つでも失敗があればfailed、そうでなければcompletedと仮定
                 status = "completed"
                 is_failed = False
                 if results:
                     if any(not r.get('pass', False) for r in results):
                         status = "failed"
                         is_failed = True
-                # 結果が空の場合はcompleted (テストケースが0件だった可能性) とみなす
 
-                # 統計情報を更新
                 total_runs += 1
                 if status == "completed":
                     completed_runs += 1
@@ -206,9 +197,7 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
                         passed_runs += 1
                     else:
                         failed_runs += 1
-                # running_runs は現在のログ構造では正確に判定できないため、常に0とする
 
-                # 実行情報を追加
                 all_runs.append({
                     "id": run_id,
                     "suite_id": suite_id,
@@ -219,24 +208,18 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
                 })
             except FileNotFoundError:
                  logger.warning(f"Run file not found (possibly deleted during scan): {run_path}")
-                 continue # ファイルが見つからない場合はスキップ
+                 continue
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON in run file {run_path}: {e}")
-                # JSONエラーが発生した実行は失敗とみなし、統計に含めることも検討
-                # ここでは一旦スキップ
                 continue
             except Exception as e:
                 logger.error(f"Error processing run file {run_path}: {e}", exc_info=True)
-                # その他のエラーが発生した実行もスキップ
                 continue
 
-    # 日時でソート
     all_runs.sort(key=lambda x: x["start_time"], reverse=True)
 
-    # 上限数に制限
     recent_runs = all_runs[:limit]
 
-    # RecentTestRunsResponse スキーマに適合する形式で返す
     return {
         "recent_runs": recent_runs,
         "total_runs": total_runs,

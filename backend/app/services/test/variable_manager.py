@@ -21,11 +21,11 @@ class VariableType(str, Enum):
 
 class VariableScope(str, Enum):
     """変数のスコープを定義する列挙型"""
-    GLOBAL = "global"  # 全テストで共有
-    SUITE = "suite"    # テストスイート内で共有
-    CASE = "case"      # テストケース内で共有
-    STEP = "step"      # テストステップ内のみ
-    SESSION = "session"  # セッション内で共有（永続化）
+    GLOBAL = "global"
+    SUITE = "suite"
+    CASE = "case"
+    STEP = "step"
+    SESSION = "session"
 
 class Variable(BaseModel):
     """変数を表すモデル"""
@@ -94,7 +94,6 @@ class VariableManager:
         Args:
             storage_path: 変数の永続化に使用するファイルパス
         """
-        # スコープごとの変数辞書
         self._variables: Dict[VariableScope, Dict[str, Variable]] = {
             VariableScope.GLOBAL: {},
             VariableScope.SUITE: {},
@@ -103,10 +102,8 @@ class VariableManager:
             VariableScope.SESSION: {}
         }
         
-        # 永続化用のファイルパス
         self._storage_path = storage_path
         
-        # 永続化された変数の読み込み
         if storage_path:
             self._load_persistent_variables()
     
@@ -125,11 +122,9 @@ class VariableManager:
         Returns:
             設定された変数
         """
-        # 型の自動判定
         if var_type is None:
             var_type = self._infer_type(value)
         
-        # 変数の作成
         variable = Variable(
             name=name,
             value=value,
@@ -138,10 +133,8 @@ class VariableManager:
             description=description
         )
         
-        # 変数の保存
         self._variables[scope][name] = variable
         
-        # セッションスコープの場合は永続化
         if scope == VariableScope.SESSION and self._storage_path:
             self._save_persistent_variables()
         
@@ -200,7 +193,6 @@ class VariableManager:
             if name in self._variables[scope]:
                 del self._variables[scope][name]
                 
-                # セッションスコープの場合は永続化
                 if scope == VariableScope.SESSION and self._storage_path:
                     self._save_persistent_variables()
                 
@@ -217,7 +209,6 @@ class VariableManager:
         """
         self._variables[scope].clear()
         
-        # セッションスコープの場合は永続化
         if scope == VariableScope.SESSION and self._storage_path:
             self._save_persistent_variables()
     
@@ -235,7 +226,6 @@ class VariableManager:
         if max_depth <= 0:
             raise CircularReferenceError("Maximum recursion depth exceeded, possible circular reference")
         
-        # ${variable_name} 形式の変数参照を検出
         pattern = r'\${([^}]+)}'
         
         def replace_match(match):
@@ -243,14 +233,11 @@ class VariableManager:
             try:
                 value = self.get_variable(var_name)
                 
-                # 値が文字列の場合、さらに変数参照があるかもしれないので再帰的に置換
                 if isinstance(value, str):
                     return self.replace_variables_in_string(value, max_depth - 1)
                 
-                # 文字列以外の場合は文字列に変換
                 return str(value)
             except VariableNotFoundError:
-                # 変数が見つからない場合は元のまま
                 return match.group(0)
         
         return re.sub(pattern, replace_match, template)
@@ -421,10 +408,8 @@ class VariableManager:
                         if variable.scope == VariableScope.SESSION:
                             self._variables[VariableScope.SESSION][variable.name] = variable
                     except ValidationError:
-                        # 無効な変数データはスキップ
                         pass
         except (FileNotFoundError, json.JSONDecodeError):
-            # ファイルが存在しないか、JSONとして解析できない場合は何もしない
             pass
     
     def _save_persistent_variables(self) -> None:
@@ -448,7 +433,6 @@ class VariableManager:
         Returns:
             変数が置換された文字列
         """
-        # 非同期版も同じ実装で問題ない（内部で非同期処理を行わないため）
         return self.replace_variables_in_string(template, max_depth)
     
     async def replace_variables_in_object_async(self, obj: Any, max_depth: int = 10) -> Any:
@@ -462,5 +446,4 @@ class VariableManager:
         Returns:
             変数が置換されたオブジェクト
         """
-        # 非同期版も同じ実装で問題ない（内部で非同期処理を行わないため）
         return self.replace_variables_in_object(obj, max_depth)

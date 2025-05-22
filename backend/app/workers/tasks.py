@@ -30,7 +30,6 @@ def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] 
     logger.info(f"Generating test suites for service {service_id}")
     
     try:
-        # スキーマファイルの取得
         schema_path = f"{settings.SCHEMA_DIR}/{service_id}"
         schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
         
@@ -38,24 +37,19 @@ def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] 
             logger.error(f"No schema files found for service {service_id}")
             return {"status": "error", "message": "No schema files found"}
         
-        # 最初のスキーマファイルを使用
         schema_file = schema_files[0]
         schema_content = get_schema_content(service_id, schema_file)
         
-        # スキーマのパース
         if schema_file.endswith('.json'):
             schema = json.loads(schema_content)
         else:
             schema = yaml.safe_load(schema_content)
         
-        # 依存関係を考慮したRAGの初期化
         rag = DependencyAwareRAG(service_id, schema, error_types)
         
-        # テストスイートの生成
         test_suites = rag.generate_request_chains()
         logger.info(f"Successfully generated {len(test_suites)} test suites")
         
-        # テストスイートの保存
         chain_store = ChainStore()
         chain_store.save_suites(service_id, test_suites)
         
@@ -71,14 +65,13 @@ def deprecated(func):
     def wrapper(*args, **kwargs):
         warnings.warn(
             f"Function {func.__name__} is deprecated and will be removed in future versions. "
-            f"Use generate_test_suites_task instead.", # 警告メッセージを修正
+            f"Use generate_test_suites_task instead.",
             category=DeprecationWarning,
             stacklevel=2
         )
         return func(*args, **kwargs)
     return wrapper
 
-# 既存のテストケース生成タスク（廃止予定）
 @celery_app.task
 @deprecated
 def generate_tests_task(service_id: str):
@@ -118,10 +111,8 @@ def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[
                 logger.error(f"Service not found: {service_id}")
                 return {"status": "error", "message": "Service not found"}
             
-            # 取得したサービスのIDをログ出力 (デバッグ用)
             logger.info(f"Found service with service_id (str): {service_id} and database id (int): {db_service.id}")
 
-            # 選択されたエンドポイントの取得
             endpoints_query = select(Endpoint).where(
                 Endpoint.service_id == db_service.id,
                 Endpoint.endpoint_id.in_(endpoint_ids)
@@ -132,7 +123,6 @@ def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[
                 logger.error(f"No valid endpoints selected for service {service_id}")
                 return {"status": "error", "message": "No valid endpoints selected"}
 
-            # スキーマファイルの取得
             schema_path = f"{settings.SCHEMA_DIR}/{service_id}"
             schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
             
@@ -140,19 +130,16 @@ def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[
                 logger.error(f"No schema files found for service {service_id}")
                 return {"status": "error", "message": "No schema files found"}
             
-            # 最初のスキーマファイルを使用
             schema_file = schema_files[0]
             schema_content = get_schema_content(service_id, schema_file)
             
-            # スキーマのパース
             if schema_file.endswith('.json'):
                 schema = json.loads(schema_content)
             else:
                 schema = yaml.safe_load(schema_content)
 
-            # エンドポイントごとにテストスイートを生成
-            generated_suites_count = 0 # generated_chains_count を generated_suites_count に変更
-            all_generated_suites = [] # all_generated_chains を all_generated_suites に変更
+            generated_suites_count = 0
+            all_generated_suites = []
             
             logger.info(f"Generating test suites for {len(selected_endpoints)} selected endpoints")
             generator = EndpointChainGenerator(service_id, selected_endpoints, schema, error_types)

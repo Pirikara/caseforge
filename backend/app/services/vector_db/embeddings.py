@@ -68,7 +68,6 @@ class EmbeddingModel(abc.ABC):
         }
         self.extra_params = kwargs
         
-        # 初期化時に埋め込みモデルを設定
         self._setup_model()
     
     @abc.abstractmethod
@@ -287,8 +286,6 @@ class HuggingFaceEmbeddingModel(EmbeddingModel):
         if self.model is None:
             raise EmbeddingException("HuggingFace埋め込みモデルが初期化されていません")
         
-        # HuggingFaceEmbeddingsは非同期メソッドを提供していないため、同期メソッドを使用
-        # 実際の非同期実装では、別スレッドで実行するなどの工夫が必要
         import asyncio
         return await asyncio.to_thread(self.model.embed_documents, texts)
     
@@ -305,7 +302,6 @@ class HuggingFaceEmbeddingModel(EmbeddingModel):
         if self.model is None:
             raise EmbeddingException("HuggingFace埋め込みモデルが初期化されていません")
         
-        # HuggingFaceEmbeddingsは非同期メソッドを提供していないため、同期メソッドを使用
         import asyncio
         return await asyncio.to_thread(self.model.embed_query, text)
 
@@ -315,7 +311,6 @@ class SimplifiedEmbeddingModel(EmbeddingModel):
     
     def _setup_model(self) -> None:
         """簡易的な埋め込みモデルの設定"""
-        # 特に初期化は必要ない
         self.model = None
         logger.info("Successfully initialized simplified embedding model")
     
@@ -362,13 +357,11 @@ class SimplifiedEmbeddingModel(EmbeddingModel):
         """
         try:
             logger.info(f"Creating simplified embedding for query: {text[:30]}...")
-            # 単一のテキストに対する埋め込みを生成
             result = self._embed_documents([text])[0]
             logger.info("Successfully created simplified query embedding")
             return result
         except Exception as e:
             logger.error(f"Error creating simplified query embedding: {e}", exc_info=True)
-            # エラーが発生した場合は、ダミーのベクトルを返す
             return [0.0] * self.dimension
     
     async def _aembed_documents(self, texts: List[str]) -> List[List[float]]:
@@ -381,7 +374,6 @@ class SimplifiedEmbeddingModel(EmbeddingModel):
         Returns:
             埋め込みベクトルのリスト
         """
-        # 簡易的な実装では同期メソッドを使用
         import asyncio
         return await asyncio.to_thread(self._embed_documents, texts)
     
@@ -395,7 +387,6 @@ class SimplifiedEmbeddingModel(EmbeddingModel):
         Returns:
             埋め込みベクトル
         """
-        # 簡易的な実装では同期メソッドを使用
         import asyncio
         return await asyncio.to_thread(self._embed_query, text)
 
@@ -449,7 +440,6 @@ class EmbeddingModelFactory:
         model_name = config.get("model_name")
         dimension = config.get("dimension", 384)
         
-        # その他のパラメータを抽出
         kwargs = {k: v for k, v in config.items() if k not in ["model_type", "model_name", "dimension"]}
         
         return EmbeddingModelFactory.create(model_type, model_name, dimension, **kwargs)
@@ -462,7 +452,6 @@ class EmbeddingModelFactory:
         Returns:
             埋め込みモデル
         """
-        # 環境変数から設定を取得
         model_type = os.environ.get("EMBEDDING_MODEL_TYPE", "huggingface")
         model_name = os.environ.get("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
         dimension = int(os.environ.get("EMBEDDING_DIMENSION", "384"))
@@ -470,7 +459,6 @@ class EmbeddingModelFactory:
         return EmbeddingModelFactory.create(model_type, model_name, dimension)
 
 
-# LangChain Embeddings互換のラッパークラス
 class EmbeddingModelWrapper(Embeddings):
     """LangChain Embeddings互換のラッパークラス"""
     

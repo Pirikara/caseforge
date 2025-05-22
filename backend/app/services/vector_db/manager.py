@@ -64,7 +64,6 @@ class DocumentCache:
         )
         self.ttl = ttl
         
-        # キャッシュディレクトリの作成
         path_manager.ensure_dir(self.cache_dir)
     
     def _get_cache_key(self, key: str) -> str:
@@ -107,10 +106,8 @@ class DocumentCache:
         if not path_manager.exists(cache_path):
             return None
         
-        # キャッシュの有効期限をチェック
         mtime = os.path.getmtime(str(cache_path))
         if datetime.fromtimestamp(mtime) + timedelta(seconds=self.ttl) < datetime.now():
-            # キャッシュの有効期限切れ
             os.remove(cache_path)
             return None
         
@@ -119,7 +116,6 @@ class DocumentCache:
                 return pickle.load(f)
         except Exception as e:
             logger.error(f"Error loading document cache: {e}", exc_info=True)
-            # 破損したキャッシュを削除
             os.remove(cache_path)
             return None
     
@@ -138,7 +134,6 @@ class DocumentCache:
                 pickle.dump(documents, f)
         except Exception as e:
             logger.error(f"Error saving document cache: {e}", exc_info=True)
-            # 保存に失敗した場合、部分的に書き込まれたファイルを削除
             if path_manager.exists(cache_path):
                 os.remove(str(cache_path))
     
@@ -150,12 +145,10 @@ class DocumentCache:
             key: クリアするキャッシュキー、Noneの場合は全てのキャッシュをクリア
         """
         if key is None:
-            # 全てのキャッシュをクリア
             for file in os.listdir(str(self.cache_dir)):
                 if file.endswith(".pkl"):
                     os.remove(path_manager.join_path(self.cache_dir, file))
         else:
-            # 特定のキャッシュをクリア
             cache_path = self._get_cache_path(key)
             if path_manager.exists(cache_path):
                 os.remove(str(cache_path))
@@ -195,19 +188,15 @@ class VectorDBManager(abc.ABC):
             cache_config: キャッシュ設定
             **kwargs: その他のパラメータ
         """
-        # 埋め込みモデルの設定
         self.embedding_model = embedding_model or EmbeddingModelFactory.create_default()
         self.embedding_function = EmbeddingModelWrapper(self.embedding_model)
         
-        # 永続化ディレクトリの設定
         self.persist_directory = persist_directory
         if self.persist_directory:
             os.makedirs(self.persist_directory, exist_ok=True)
         
-        # コレクション名の設定
         self.collection_name = collection_name or "default"
         
-        # タイムアウトとリトライの設定
         self.timeout_seconds = timeout_seconds or settings.TIMEOUT_EMBEDDING
         self.retry_config = retry_config or {
             "max_retries": 3,
@@ -219,18 +208,13 @@ class VectorDBManager(abc.ABC):
             "retry_exceptions": [ConnectionError, TimeoutError, ValueError]
         }
         
-        # キャッシュの設定
         cache_config = cache_config or {}
         self.document_cache = DocumentCache(
             cache_dir=cache_config.get("cache_dir"),
             ttl=cache_config.get("ttl", 3600)
         )
         self.use_cache = cache_config.get("use_cache", True)
-        
-        # その他のパラメータ
         self.extra_params = kwargs
-        
-        # ベクトルDBの初期化
         self.vectordb = None
         self._setup_vectordb()
     
@@ -363,7 +347,6 @@ class VectorDBManager(abc.ABC):
         Returns:
             キャッシュキー
         """
-        # ドキュメントの内容とメタデータからハッシュを生成
         content_hash = hashlib.md5()
         for doc in documents:
             content_hash.update(doc.page_content.encode())
@@ -384,7 +367,6 @@ class VectorDBManager(abc.ABC):
         Returns:
             キャッシュキー
         """
-        # クエリとフィルタからハッシュを生成
         query_hash = hashlib.md5()
         query_hash.update(query.encode())
         query_hash.update(str(k).encode())
@@ -405,13 +387,11 @@ class VectorDBManager(abc.ABC):
         try:
             logger.info(f"Adding {len(documents)} documents to vector database")
             
-            # キャッシュをクリア（ドキュメントが追加されるとキャッシュが無効になるため）
             if self.use_cache:
                 self.document_cache.clear()
             
             self._add_documents(documents)
             
-            # 変更を保存
             if self.persist_directory:
                 self._save()
             
@@ -444,7 +424,6 @@ class VectorDBManager(abc.ABC):
         try:
             logger.info(f"Performing similarity search for query: {query[:30]}...")
             
-            # キャッシュをチェック
             if self.use_cache:
                 cache_key = self._get_cache_key_for_query(query, k, filter)
                 cached_results = self.document_cache.get(cache_key)
@@ -454,7 +433,6 @@ class VectorDBManager(abc.ABC):
             
             results = self._similarity_search(query, k, filter)
             
-            # 結果をキャッシュ
             if self.use_cache:
                 self.document_cache.set(cache_key, results)
             
@@ -487,10 +465,7 @@ class VectorDBManager(abc.ABC):
             類似度の高いドキュメントとスコアのタプルのリスト
         """
         try:
-            logger.info(f"Performing similarity search with score for query: {query[:30]}...")
-            
-            # キャッシュは使用しない（スコアが含まれるため）
-            
+            logger.info(f"Performing similarity search with score for query: {query[:30]}...")            
             results = self._similarity_search_with_score(query, k, filter)
             
             logger.info(f"Successfully performed similarity search with score, found {len(results)} documents")
@@ -513,14 +488,11 @@ class VectorDBManager(abc.ABC):
         """
         try:
             logger.info(f"Async adding {len(documents)} documents to vector database")
-            
-            # キャッシュをクリア（ドキュメントが追加されるとキャッシュが無効になるため）
             if self.use_cache:
                 self.document_cache.clear()
             
             await self._aadd_documents(documents)
             
-            # 変更を保存
             if self.persist_directory:
                 await self._asave()
             
@@ -552,8 +524,6 @@ class VectorDBManager(abc.ABC):
         """
         try:
             logger.info(f"Async performing similarity search for query: {query[:30]}...")
-            
-            # キャッシュをチェック
             if self.use_cache:
                 cache_key = self._get_cache_key_for_query(query, k, filter)
                 cached_results = self.document_cache.get(cache_key)
@@ -563,7 +533,6 @@ class VectorDBManager(abc.ABC):
             
             results = await self._asimilarity_search(query, k, filter)
             
-            # 結果をキャッシュ
             if self.use_cache:
                 self.document_cache.set(cache_key, results)
             
@@ -596,10 +565,7 @@ class VectorDBManager(abc.ABC):
             類似度の高いドキュメントとスコアのタプルのリスト
         """
         try:
-            logger.info(f"Async performing similarity search with score for query: {query[:30]}...")
-            
-            # キャッシュは使用しない（スコアが含まれるため）
-            
+            logger.info(f"Async performing similarity search with score for query: {query[:30]}...")            
             results = await self._asimilarity_search_with_score(query, k, filter)
             
             logger.info(f"Successfully async performed similarity search with score, found {len(results)} documents")
@@ -633,7 +599,6 @@ class FAISSManager(VectorDBManager):
         """FAISSベクトルDBの設定"""
         try:
             if self.persist_directory and path_manager.exists(path_manager.join_path(self.persist_directory, "index.faiss")):
-                # 既存のFAISSインデックスをロード
                 self.vectordb = FAISS.load_local(
                     self.persist_directory,
                     self.embedding_function,
@@ -641,8 +606,7 @@ class FAISSManager(VectorDBManager):
                 )
                 logger.info(f"Loaded FAISS index from {self.persist_directory}")
             else:
-                # 新しいFAISSインデックスを作成
-                embedding_dim = 384  # あなたのモデル次第で確認
+                embedding_dim = 384
                 index = IndexFlatL2(embedding_dim)
                 docstore = InMemoryDocstore()
                 index_to_docstore_id = {}
@@ -733,7 +697,6 @@ class FAISSManager(VectorDBManager):
         Args:
             documents: 追加するドキュメント
         """
-        # FAISSは非同期APIを提供していないため、同期メソッドを使用
         await asyncio.to_thread(self._add_documents, documents)
     
     async def _asimilarity_search(
@@ -753,7 +716,6 @@ class FAISSManager(VectorDBManager):
         Returns:
             類似度の高いドキュメントのリスト
         """
-        # FAISSは非同期APIを提供していないため、同期メソッドを使用
         return await asyncio.to_thread(self._similarity_search, query, k, filter)
     
     async def _asimilarity_search_with_score(
@@ -773,12 +735,10 @@ class FAISSManager(VectorDBManager):
         Returns:
             類似度の高いドキュメントとスコアのタプルのリスト
         """
-        # FAISSは非同期APIを提供していないため、同期メソッドを使用
         return await asyncio.to_thread(self._similarity_search_with_score, query, k, filter)
     
     async def _asave(self) -> None:
         """FAISSベクトルDBを非同期で保存する"""
-        # FAISSは非同期APIを提供していないため、同期メソッドを使用
         await asyncio.to_thread(self._save)
 
 
@@ -788,22 +748,17 @@ class ChromaDBManager(VectorDBManager):
     def _setup_vectordb(self) -> None:
         """ChromaDBベクトルDBの設定"""
         try:
-            # ChromaDBのクライアントを設定
             from chromadb.config import Settings as ChromaSettings
             import chromadb
             
-            # ChromaDBの設定
             chroma_settings = ChromaSettings(
                 anonymized_telemetry=False,
                 persist_directory=self.persist_directory
             )
             
-            # ChromaDBのクライアントを作成
             client = chromadb.Client(chroma_settings)
             
-            # コレクションを取得または作成
             if self.persist_directory:
-                # 永続化ディレクトリが指定されている場合、既存のコレクションをロード
                 self.vectordb = Chroma(
                     client=client,
                     collection_name=self.collection_name,
@@ -812,7 +767,6 @@ class ChromaDBManager(VectorDBManager):
                 )
                 logger.info(f"Loaded ChromaDB collection from {self.persist_directory}")
             else:
-                # 永続化ディレクトリが指定されていない場合、新しいコレクションを作成
                 self.vectordb = Chroma(
                     client=client,
                     collection_name=self.collection_name,
@@ -862,7 +816,6 @@ class ChromaDBManager(VectorDBManager):
         if self.vectordb is None:
             raise VectorDBException("ChromaDBベクトルDBが初期化されていません")
         
-        # ChromaDBのフィルタ形式に変換
         where = filter if filter else None
         
         return self.vectordb.similarity_search(query, k=k, filter=where)
@@ -887,7 +840,6 @@ class ChromaDBManager(VectorDBManager):
         if self.vectordb is None:
             raise VectorDBException("ChromaDBベクトルDBが初期化されていません")
         
-        # ChromaDBのフィルタ形式に変換
         where = filter if filter else None
         
         return self.vectordb.similarity_search_with_score(query, k=k, filter=where)
@@ -908,7 +860,6 @@ class ChromaDBManager(VectorDBManager):
         Args:
             documents: 追加するドキュメント
         """
-        # ChromaDBは非同期APIを提供していないため、同期メソッドを使用
         await asyncio.to_thread(self._add_documents, documents)
     
     async def _asimilarity_search(
@@ -928,7 +879,6 @@ class ChromaDBManager(VectorDBManager):
         Returns:
             類似度の高いドキュメントのリスト
         """
-        # ChromaDBは非同期APIを提供していないため、同期メソッドを使用
         return await asyncio.to_thread(self._similarity_search, query, k, filter)
     
     async def _asimilarity_search_with_score(
@@ -948,12 +898,10 @@ class ChromaDBManager(VectorDBManager):
         Returns:
             類似度の高いドキュメントとスコアのタプルのリスト
         """
-        # ChromaDBは非同期APIを提供していないため、同期メソッドを使用
         return await asyncio.to_thread(self._similarity_search_with_score, query, k, filter)
     
     async def _asave(self) -> None:
         """ChromaDBベクトルDBを非同期で保存する"""
-        # ChromaDBは非同期APIを提供していないため、同期メソッドを使用
         await asyncio.to_thread(self._save)
 
 
@@ -1013,19 +961,15 @@ class VectorDBManagerFactory:
         persist_directory = config.get("persist_directory")
         collection_name = config.get("collection_name")
         
-        # 埋め込みモデルの設定
         embedding_config = config.get("embedding", {})
         embedding_model = None
         if embedding_config:
             embedding_model = EmbeddingModelFactory.create_from_config(embedding_config)
         
-        # キャッシュの設定
         cache_config = config.get("cache", {})
         
-        # その他のパラメータを抽出
         kwargs = {k: v for k, v in config.items() if k not in ["db_type", "persist_directory", "collection_name", "embedding", "cache"]}
         
-        # キャッシュ設定を追加
         kwargs["cache_config"] = cache_config
         
         return VectorDBManagerFactory.create(

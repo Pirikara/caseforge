@@ -30,17 +30,14 @@ class ConfigValue(Generic[T]):
         if self._is_cached:
             return cast(T, self._value)
         
-        # 環境変数から取得
         if self.env_var and self.env_var in os.environ:
             env_value = os.environ[self.env_var]
             self._value = self._convert_value(env_value)
             self._is_cached = True
             return cast(T, self._value)
         
-        # 設定ファイルから取得
         if config_data and self.config_path:
             try:
-                # ドット記法でネストした設定値にアクセス
                 paths = self.config_path.split('.')
                 value = config_data
                 for path in paths:
@@ -49,10 +46,8 @@ class ConfigValue(Generic[T]):
                 self._is_cached = True
                 return cast(T, self._value)
             except (KeyError, TypeError):
-                # 設定ファイルに該当のパスがない場合は無視
                 pass
         
-        # デフォルト値を返す
         self._value = self.default
         self._is_cached = True
         return self.default
@@ -254,7 +249,6 @@ class Config:
         self.config_data: Dict[str, Any] = {}
         self._load_config_file()
         
-        # 設定カテゴリの初期化
         self.app = AppConfig()
         self.paths = PathConfig()
         self.llm = LLMConfig()
@@ -266,10 +260,8 @@ class Config:
     def _load_config_file(self) -> None:
         """設定ファイルを読み込む"""
         if not self.config_file:
-            # 環境変数から設定ファイルのパスを取得
             self.config_file = os.environ.get("CONFIG_FILE", "config.yaml")
         
-        # 設定ファイルが存在する場合は読み込む
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'r') as f:
@@ -298,7 +290,6 @@ class Config:
         """すべての設定値を辞書形式で取得する"""
         result = {}
         
-        # 各カテゴリの設定値を取得
         for category_name, category in [
             ('app', self.app),
             ('paths', self.paths),

@@ -33,14 +33,14 @@ ResultT = TypeVar('ResultT')
 
 class TestStatus(str, Enum):
     """テストの実行状態を表す列挙型"""
-    PENDING = "pending"     # 実行待ち
-    RUNNING = "running"     # 実行中
-    PASSED = "passed"       # 成功
-    FAILED = "failed"       # 失敗
-    ERROR = "error"         # エラー
-    SKIPPED = "skipped"     # スキップ
-    TIMEOUT = "timeout"     # タイムアウト
-    COMPLETED = "completed" # 完了（成功）
+    PENDING = "pending"
+    RUNNING = "running"
+    PASSED = "passed"
+    FAILED = "failed"
+    ERROR = "error"
+    SKIPPED = "skipped"
+    TIMEOUT = "timeout"
+    COMPLETED = "completed"
 
 
 class TestRunnerError(CaseforgeException):
@@ -215,7 +215,6 @@ class TestRunner(Generic[ResultT], abc.ABC):
                     hook()
             except Exception as e:
                 logger.error(f"Error in teardown hook: {e}", exc_info=True)
-                # ティアダウンフックのエラーは記録するだけで例外は発生させない
     
     async def _run_before_test_hooks(self, test_data: Dict[str, Any]) -> None:
         """
@@ -250,7 +249,6 @@ class TestRunner(Generic[ResultT], abc.ABC):
                     hook(test_data, result)
             except Exception as e:
                 logger.error(f"Error in after test hook: {e}", exc_info=True)
-                # テスト実行後フックのエラーは記録するだけで例外は発生させない
     
     async def _run_before_step_hooks(self, step_data: Dict[str, Any]) -> None:
         """
@@ -285,7 +283,6 @@ class TestRunner(Generic[ResultT], abc.ABC):
                     hook(step_data, result)
             except Exception as e:
                 logger.error(f"Error in after step hook: {e}", exc_info=True)
-                # ステップ実行後フックのエラーは記録するだけで例外は発生させない
     
     def _extract_values(self, response_body: Any, extract_rules: Dict[str, str]) -> Dict[str, Any]:
         """
@@ -306,7 +303,6 @@ class TestRunner(Generic[ResultT], abc.ABC):
         for key, path in extract_rules.items():
             try:
                 if path.startswith("$."):
-                    # JSONPathを使用して値を抽出
                     import jsonpath_ng
                     jsonpath_expr = jsonpath_ng.parse(path)
                     matches = jsonpath_expr.find(response_body)
@@ -325,10 +321,7 @@ class TestRunner(Generic[ResultT], abc.ABC):
         Args:
             result: テスト結果
         """
-        # デフォルトの実装ではログに出力するだけ
         logger.info(f"Test result: {result}")
-        
-        # サブクラスでオーバーライドして実際の保存処理を実装する
 
 
 class APITestRunner(TestRunner[StepTestResult]):
@@ -389,7 +382,6 @@ class APITestRunner(TestRunner[StepTestResult]):
                 status=TestStatus.RUNNING
             )
             
-            # リクエストの準備
             method = test_data.get("method", "GET")
             path = await self.variable_manager.replace_variables_in_string_async(test_data.get("path", "/"))
             
@@ -398,14 +390,11 @@ class APITestRunner(TestRunner[StepTestResult]):
             body = test_data.get("request_body")
             params = await self.variable_manager.replace_variables_in_object_async(request.get("params", {}))
             
-            # 抽出した値でリクエストボディを更新
             if body:
                 body = await self.variable_manager.replace_variables_in_object_async(body)
             
-            # リクエストの実行
             logger.info(f"Executing request: {method} {path} with headers={headers}, params={params}, body={body}")
             
-            # HTTPリクエストをリトライ機構で包む
             @async_retry(
                 retry_key="API_CALL",
                 retry_exceptions=[httpx.RequestError, httpx.HTTPStatusError, ConnectionError, TimeoutError],
@@ -423,38 +412,31 @@ class APITestRunner(TestRunner[StepTestResult]):
             start_time = datetime.now(timezone.utc)
             response = await execute_request_with_retry()
             end_time = datetime.now(timezone.utc)
-            response_time = (end_time - start_time).total_seconds() * 1000  # ミリ秒単位
+            response_time = (end_time - start_time).total_seconds() * 1000
             
-            # レスポンスの処理
             result.status_code = response.status_code
             result.response_time = response_time
             
-            # レスポンスボディの取得
             try:
                 response_body = response.json()
                 result.response_body = response_body
             except json.JSONDecodeError:
                 result.response_body = response.text
             
-            # 成功判定
             expected_status = test_data.get("expected_status")
             if expected_status:
                 result.passed = response.status_code == expected_status
             else:
-                # デフォルトでは2xx系のステータスコードを成功とみなす
                 result.passed = 200 <= response.status_code < 300
             
-            # 値の抽出
             extract_rules = test_data.get("extract_rules", {})
             if extract_rules:
                 extracted_values = self._extract_values(result.response_body, extract_rules)
                 result.extracted_values = extracted_values
                 
-                # 抽出した値をSTEPスコープに設定
                 for key, value in extracted_values.items():
                     self.variable_manager.set_variable(key, value, VariableScope.STEP)
             
-            # 結果のステータス設定
             if result.passed:
                 result.complete(TestStatus.PASSED)
             else:
@@ -487,6 +469,8 @@ class APITestRunner(TestRunner[StepTestResult]):
                 error_message=f"Unexpected error: {str(e)}"
             )
             result.complete(TestStatus.ERROR, f"Unexpected error: {str(e)}")
+
+
 class ChainTestRunner(TestRunner[SuiteTestResult]):
     """テストチェーン実行クラス"""
     
@@ -550,12 +534,10 @@ class ChainTestRunner(TestRunner[SuiteTestResult]):
                 case_result = await self._run_test_case(case_data)
                 suite_result.test_case_results.append(case_result)
                 
-                # テストケースが失敗した場合、テストスイートの実行を中止（オプション：異常系は失敗しても続行する場合もある）
                 if case_result.status in [TestStatus.FAILED, TestStatus.ERROR]:
                     suite_result.status = TestStatus.FAILED
                     break
             
-            # テストスイート全体のステータス判定
             if all(case.status == TestStatus.PASSED for case in suite_result.test_case_results):
                 suite_result.complete(TestStatus.COMPLETED)
                 suite_result.success = True
@@ -607,7 +589,6 @@ class ChainTestRunner(TestRunner[SuiteTestResult]):
             status=TestStatus.RUNNING
         )
         
-        # テストケースごとに変数をリセット
         self.variable_manager.clear_scope(VariableScope.STEP)
         self.variable_manager.clear_scope(VariableScope.CASE)
         
@@ -616,22 +597,17 @@ class ChainTestRunner(TestRunner[SuiteTestResult]):
                 step_result = await self._execute_step(step_data)
                 case_result.step_results.append(step_result)
                 
-                # ステップが失敗した場合、テストケースの実行を中止
                 if not step_result.passed:
                     case_result.complete(TestStatus.FAILED, step_result.error_message)
                     break
                 
-                # 抽出した値を次のステップのために保存（CASEスコープに設定）
                 for key, value in step_result.extracted_values.items():
                     self.variable_manager.set_variable(key, value, VariableScope.CASE)
             
-            # テストケースのステータス判定
             if case_result.status != TestStatus.FAILED:
                 if case_data.get("error_type") is not None:
-                    # 異常系テストケースの場合、ステップが期待通りに完了したら成功とみなす
                     case_result.complete(TestStatus.PASSED)
                 else:
-                    # 正常系テストケースの場合、すべてのステップが成功したら成功とみなす
                     case_result.complete(TestStatus.PASSED)
         
         except Exception as e:
@@ -651,7 +627,6 @@ class ChainTestRunner(TestRunner[SuiteTestResult]):
         Returns:
             テストステップ実行結果
         """
-        # ステップごとに変数をリセット
         self.variable_manager.clear_scope(VariableScope.STEP)
         
         await self._run_before_step_hooks(step_data)
@@ -665,23 +640,18 @@ class ChainTestRunner(TestRunner[SuiteTestResult]):
         )
         
         try:
-            # パスパラメータの置換
             path = await self.variable_manager.replace_variables_in_string_async(step_data["path"])
             
-            # リクエストの準備
             request = step_data.get("request", {})
             headers = await self.variable_manager.replace_variables_in_object_async(request.get("headers", {}))
             body = step_data.get("request_body")
             params = await self.variable_manager.replace_variables_in_object_async(request.get("params", {}))
             
-            # 抽出した値でリクエストボディを更新
             if body:
                 body = await self.variable_manager.replace_variables_in_object_async(body)
             
-            # リクエストの実行
             logger.info(f"Executing request: {step_data['method']} {path} with headers={headers}, params={params}, body={body}")
             
-            # HTTPリクエストをリトライ機構で包む
             @async_retry(
                 retry_key="API_CALL",
                 retry_exceptions=[httpx.RequestError, httpx.HTTPStatusError, ConnectionError, TimeoutError],
@@ -699,38 +669,31 @@ class ChainTestRunner(TestRunner[SuiteTestResult]):
             start_time = datetime.now(timezone.utc)
             response = await execute_request_with_retry()
             end_time = datetime.now(timezone.utc)
-            response_time = (end_time - start_time).total_seconds() * 1000  # ミリ秒単位
+            response_time = (end_time - start_time).total_seconds() * 1000
             
-            # レスポンスの処理
             step_result.status_code = response.status_code
             step_result.response_time = response_time
             
-            # レスポンスボディの取得
             try:
                 response_body = response.json()
                 step_result.response_body = response_body
             except json.JSONDecodeError:
                 step_result.response_body = response.text
             
-            # 成功判定
             expected_status = step_data.get("expected_status")
             if expected_status:
                 step_result.passed = response.status_code == expected_status
             else:
-                # デフォルトでは2xx系のステータスコードを成功とみなす
                 step_result.passed = 200 <= response.status_code < 300
             
-            # 値の抽出
             extract_rules = step_data.get("extract_rules", {})
             if extract_rules:
                 extracted_values = self._extract_values(step_result.response_body, extract_rules)
                 step_result.extracted_values = extracted_values
                 
-                # 抽出した値をSTEPスコープに設定
                 for key, value in extracted_values.items():
                     self.variable_manager.set_variable(key, value, VariableScope.STEP)
             
-            # 結果のステータス設定
             if step_result.passed:
                 step_result.complete(TestStatus.PASSED)
             else:
@@ -747,11 +710,11 @@ class ChainTestRunner(TestRunner[SuiteTestResult]):
         except Exception as e:
             logger.error(f"Unexpected error: {e}", exc_info=True)
             step_result.complete(TestStatus.ERROR, f"Unexpected error: {str(e)}")
-            return step_result
-            return result
-            
+            return step_result            
         finally:
             await self.teardown()
+
+
 class TestRunnerFactory:
     """テスト実行クラスのファクトリークラス"""
     
@@ -825,23 +788,19 @@ class TestRunnerFactory:
         from sqlmodel import Session as SQLModelSession
         from app.models import engine
         
-        # セッションが指定されていない場合は新しく作成
         if session is None:
             session = SQLModelSession(engine)
         
         try:
-            # テストスイートの取得
             chain_store = ChainStore()
             
             if suite_id:
-                # 特定のテストスイートを実行
                 test_suite_data = chain_store.get_test_suite(service_id, suite_id)
                 if not test_suite_data:
                     logger.warning(f"TestSuite not found: {suite_id}")
                     return {"status": "error", "message": f"TestSuite not found: {suite_id}"}
                 test_suites_data = [test_suite_data]
             else:
-                # サービスの全テストスイートを実行
                 test_suites_info = chain_store.list_test_suites(service_id)
                 test_suites_data = []
                 for test_suite_info in test_suites_info:
@@ -853,7 +812,6 @@ class TestRunnerFactory:
                 logger.warning(f"No test suites found for service {service_id}")
                 return {"status": "error", "message": "No test suites found"}
             
-            # サービスの取得
             service_query = select(Service).where(Service.service_id == service_id)
             db_service = session.exec(service_query).first()
             
@@ -861,11 +819,9 @@ class TestRunnerFactory:
                 logger.error(f"Service not found: {service_id}")
                 return {"status": "error", "message": f"Service not found: {service_id}"}
             
-            # テストスイートの実行
             results = []
             
             for test_suite_data in test_suites_data:
-                # データベースからテストスイートを取得
                 suite_id = test_suite_data.get("id")
                 if not suite_id:
                     logger.error(f"TestSuite ID not found in test suite data")
@@ -878,7 +834,6 @@ class TestRunnerFactory:
                     logger.error(f"TestSuite not found in database: {suite_id}")
                     continue
                 
-                # テスト実行を記録
                 run_id = str(uuid.uuid4())
                 test_run = TestRun(
                     run_id=run_id,
@@ -891,7 +846,6 @@ class TestRunnerFactory:
                 session.commit()
                 session.refresh(test_run)
                 
-                # テスト実行クラスを作成
                 runner = TestRunnerFactory.create_runner(
                     runner_type="chain",
                     session=session,
@@ -899,17 +853,13 @@ class TestRunnerFactory:
                     base_url=base_url or db_service.base_url
                 )
                 
-                # テストスイートを実行
                 result = await runner.run(test_suite_data)
                 results.append(result)
                 
-                # 実行結果を更新
                 test_run.status = result.status
                 test_run.end_time = datetime.now(timezone.utc)
                 
-                # テストケース結果とステップ結果を保存
                 for case_result in result.test_case_results:
-                    # テストケースの取得
                     case_query = select(TestCase).where(
                         TestCase.suite_id == db_test_suite.id,
                         TestCase.id == case_result.case_id
@@ -920,7 +870,6 @@ class TestRunnerFactory:
                         logger.error(f"TestCase not found for test suite {db_test_suite.id}, case_id {case_result.case_id}")
                         continue
                     
-                    # テストケース結果の保存
                     test_case_result_obj = TestCaseResult(
                         test_run_id=test_run.id,
                         case_id=db_case.id,
@@ -928,11 +877,9 @@ class TestRunnerFactory:
                         error_message=case_result.error_message
                     )
                     session.add(test_case_result_obj)
-                    session.flush()  # IDを生成するためにflush
+                    session.flush()
                     
-                    # ステップ結果を保存
                     for step_result in case_result.step_results:
-                        # ステップの取得
                         step_query = select(TestStep).where(
                             TestStep.case_id == db_case.id,
                             TestStep.sequence == step_result.sequence
@@ -943,7 +890,6 @@ class TestRunnerFactory:
                             logger.error(f"Step not found for test case {db_case.id}, sequence {step_result.sequence}")
                             continue
                         
-                        # ステップ結果の保存
                         step_result_obj = StepResult(
                             test_case_result_id=test_case_result_obj.id,
                             step_id=db_step.id,
@@ -958,7 +904,6 @@ class TestRunnerFactory:
                 
                 session.commit()
             
-            # ファイルシステムにも保存（デバッグ用）
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
             log_path = f"{settings.LOG_DIR}/{service_id}"
             os.makedirs(log_path, exist_ok=True)

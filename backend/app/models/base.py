@@ -4,7 +4,6 @@ import os
 from app.config import settings
 
 if os.environ.get("TESTING") == "1":
-    # テスト用にファイルベースのデータベースを使用
     TEST_DB_PATH = "/tmp/test_caseforge/test.db"
     DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"
 else:

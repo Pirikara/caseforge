@@ -30,9 +30,9 @@ DEFAULT_BACKOFF_FACTOR = 2.0
 
 class RetryStrategy(Enum):
     """リトライ戦略の種類"""
-    CONSTANT = "constant"  # 一定間隔
-    LINEAR = "linear"      # 線形増加
-    EXPONENTIAL = "exponential"  # 指数関数的増加
+    CONSTANT = "constant"
+    LINEAR = "linear"
+    EXPONENTIAL = "exponential"
 
 
 class MaxRetriesExceededException(CaseforgeException):
@@ -57,7 +57,6 @@ def get_retry_config(retry_key: str, config_name: str, default: Union[int, float
     Returns:
         設定値
     """
-    # 環境変数から直接取得を試みる
     env_value = os.environ.get(f"RETRY_{retry_key.upper()}_{config_name.upper()}")
     if env_value:
         try:
@@ -67,7 +66,6 @@ def get_retry_config(retry_key: str, config_name: str, default: Union[int, float
         except ValueError:
             logger.warning(f"Invalid retry value in environment variable RETRY_{retry_key.upper()}_{config_name.upper()}: {env_value}")
     
-    # settingsから取得を試みる
     try:
         setting_attr = f"RETRY_{retry_key.upper()}_{config_name.upper()}"
         if hasattr(settings, setting_attr):
@@ -91,7 +89,6 @@ def get_retry_strategy(retry_key: str) -> RetryStrategy:
     Returns:
         リトライ戦略
     """
-    # 環境変数から直接取得を試みる
     env_value = os.environ.get(f"RETRY_{retry_key.upper()}_STRATEGY")
     if env_value:
         try:
@@ -99,7 +96,6 @@ def get_retry_strategy(retry_key: str) -> RetryStrategy:
         except ValueError:
             logger.warning(f"Invalid retry strategy in environment variable RETRY_{retry_key.upper()}_STRATEGY: {env_value}")
     
-    # settingsから取得を試みる
     try:
         setting_attr = f"RETRY_{retry_key.upper()}_STRATEGY"
         if hasattr(settings, setting_attr):
@@ -108,7 +104,6 @@ def get_retry_strategy(retry_key: str) -> RetryStrategy:
     except (AttributeError, ValueError):
         pass
     
-    # デフォルトは指数関数的バックオフ
     return RetryStrategy.EXPONENTIAL
 
 
@@ -138,18 +133,15 @@ def calculate_next_delay(
         delay = base_delay
     elif strategy == RetryStrategy.LINEAR:
         delay = base_delay * (retry_count + 1)
-    else:  # EXPONENTIAL
+    else:
         delay = base_delay * (backoff_factor ** retry_count)
     
-    # 最大待機時間を超えないようにする
     delay = min(delay, max_delay)
     
-    # ジッターを追加（±jitter%のランダム変動）
     if jitter > 0:
         jitter_amount = delay * jitter
         delay = delay + random.uniform(-jitter_amount, jitter_amount)
     
-    # 負の値にならないようにする
     return max(0.0, delay)
 
 
@@ -171,7 +163,6 @@ def should_retry(
     Returns:
         リトライすべきかどうか
     """
-    # リトライ回数が上限に達している場合はリトライしない
     if retry_count >= max_retries:
         return False
 def retry(
@@ -217,14 +208,12 @@ def retry(
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # リトライ設定の決定
             _max_retries = _resolve_retry_setting(max_retries, "MAX_RETRIES", DEFAULT_MAX_RETRIES, retry_key)
             _retry_delay = _resolve_retry_setting(retry_delay, "RETRY_DELAY", DEFAULT_RETRY_DELAY, retry_key)
             _max_retry_delay = _resolve_retry_setting(max_retry_delay, "MAX_RETRY_DELAY", DEFAULT_MAX_RETRY_DELAY, retry_key)
             _retry_jitter = _resolve_retry_setting(retry_jitter, "RETRY_JITTER", DEFAULT_RETRY_JITTER, retry_key)
             _backoff_factor = _resolve_retry_setting(backoff_factor, "BACKOFF_FACTOR", DEFAULT_BACKOFF_FACTOR, retry_key)
             
-            # リトライ戦略の決定
             _retry_strategy = retry_strategy
             if _retry_strategy is None and retry_key:
                 _retry_strategy = get_retry_strategy(retry_key)
@@ -238,13 +227,11 @@ def retry(
                     logger.warning(f"Invalid retry strategy: {_retry_strategy}, using EXPONENTIAL")
                     _retry_strategy = RetryStrategy.EXPONENTIAL
             
-            # 結果評価関数の決定
             _retry_if_result = retry_if_result or retry_result_evaluator
             
-            # リトライ対象の例外クラスの決定
             _retry_exceptions = retry_exceptions
             if _retry_exceptions is None:
-                _retry_exceptions = [Exception]  # デフォルトでは全ての例外をリトライ
+                _retry_exceptions = [Exception]
             
             retry_count = 0
             last_exception = None
@@ -253,7 +240,6 @@ def retry(
                 try:
                     result = func(*args, **kwargs)
                     
-                    # 結果に基づいてリトライするかどうかを判断
                     if _retry_if_result(result):
                         if retry_count >= _max_retries:
                             logger.warning(
@@ -359,14 +345,12 @@ def async_retry(
     def decorator(func: AsyncF) -> AsyncF:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # リトライ設定の決定
             _max_retries = _resolve_retry_setting(max_retries, "MAX_RETRIES", DEFAULT_MAX_RETRIES, retry_key)
             _retry_delay = _resolve_retry_setting(retry_delay, "RETRY_DELAY", DEFAULT_RETRY_DELAY, retry_key)
             _max_retry_delay = _resolve_retry_setting(max_retry_delay, "MAX_RETRY_DELAY", DEFAULT_MAX_RETRY_DELAY, retry_key)
             _retry_jitter = _resolve_retry_setting(retry_jitter, "RETRY_JITTER", DEFAULT_RETRY_JITTER, retry_key)
             _backoff_factor = _resolve_retry_setting(backoff_factor, "BACKOFF_FACTOR", DEFAULT_BACKOFF_FACTOR, retry_key)
             
-            # リトライ戦略の決定
             _retry_strategy = retry_strategy
             if _retry_strategy is None and retry_key:
                 _retry_strategy = get_retry_strategy(retry_key)
@@ -380,13 +364,11 @@ def async_retry(
                     logger.warning(f"Invalid retry strategy: {_retry_strategy}, using EXPONENTIAL")
                     _retry_strategy = RetryStrategy.EXPONENTIAL
             
-            # 結果評価関数の決定
             _retry_if_result = retry_if_result or retry_result_evaluator
             
-            # リトライ対象の例外クラスの決定
             _retry_exceptions = retry_exceptions
             if _retry_exceptions is None:
-                _retry_exceptions = [Exception]  # デフォルトでは全ての例外をリトライ
+                _retry_exceptions = [Exception]
             
             retry_count = 0
             last_exception = None
@@ -395,7 +377,6 @@ def async_retry(
                 try:
                     result = await func(*args, **kwargs)
                     
-                    # 結果に基づいてリトライするかどうかを判断
                     if _retry_if_result(result):
                         if retry_count >= _max_retries:
                             logger.warning(
@@ -457,11 +438,9 @@ def async_retry(
     
     return decorator
     
-    # リトライ対象の例外が指定されていない場合は全ての例外をリトライ
     if retry_exceptions is None:
         return True
     
-    # 指定された例外クラスのいずれかに一致する場合はリトライ
     return any(isinstance(exception, exc_type) for exc_type in retry_exceptions)
 
 
@@ -551,13 +530,11 @@ def run_with_retry(
         >>>     retry_strategy=RetryStrategy.EXPONENTIAL
         >>> )
     """
-    # 結果評価関数の決定
     _retry_if_result = retry_if_result or retry_result_evaluator
     
-    # リトライ対象の例外クラスの決定
     _retry_exceptions = retry_exceptions
     if _retry_exceptions is None:
-        _retry_exceptions = [Exception]  # デフォルトでは全ての例外をリトライ
+        _retry_exceptions = [Exception]
     
     retry_count = 0
     last_exception = None
@@ -566,7 +543,6 @@ def run_with_retry(
         try:
             result = func(*args, **kwargs)
             
-            # 結果に基づいてリトライするかどうかを判断
             if _retry_if_result(result):
                 if retry_count >= max_retries:
                     logger.warning(
@@ -665,30 +641,25 @@ async def run_async_with_retry(
         >>>     retry_strategy=RetryStrategy.EXPONENTIAL
         >>> )
     """
-    # 結果評価関数の決定
     _retry_if_result = retry_if_result or retry_result_evaluator
     
-    # リトライ対象の例外クラスの決定
     _retry_exceptions = retry_exceptions
     if _retry_exceptions is None:
-        _retry_exceptions = [Exception]  # デフォルトでは全ての例外をリトライ
+        _retry_exceptions = [Exception]
     
     retry_count = 0
     last_exception = None
     
     while True:
         try:
-            # 非同期関数と同期関数の両方に対応
             if asyncio.iscoroutinefunction(func):
                 result = await func(*args, **kwargs)
             else:
-                # 同期関数の場合は、ThreadPoolExecutorを使用して実行
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(
                     None, lambda: func(*args, **kwargs)
                 )
             
-            # 結果に基づいてリトライするかどうかを判断
             if _retry_if_result(result):
                 if retry_count >= max_retries:
                     logger.warning(

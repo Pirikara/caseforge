@@ -33,18 +33,15 @@ class EndpointChainGenerator:
         """
         generated_chains = []
         
-        # LLMの設定 (ループの外で一度だけ行う)
         model_name = settings.LLM_MODEL_NAME
         api_base = settings.OPENAI_API_BASE
         
-        # LLMクライアントの設定
         from app.services.llm.client import LLMClientFactory, LLMProviderType, Message, MessageRole, LLMException, LLMResponseFormatException
         from app.services.llm.prompts import get_prompt_template
         
         logger.info(f"Using LLM model: {model_name}")
         
         try:
-            # LLMクライアントを作成
             llm_client = LLMClientFactory.create(
                 provider_type=LLMProviderType.LOCAL,
                 model_name=model_name,
@@ -55,13 +52,11 @@ class EndpointChainGenerator:
             logger.error(f"Error initializing LLM client: {e}", exc_info=True)
             raise
         
-        # プロンプトの設定 (ループの外で一度だけ行う)
         try:
             prompt_template = get_prompt_template("endpoint_test_generation")
             logger.info("Using endpoint_test_generation prompt template from registry")
         except KeyError:
             logger.warning("endpoint_test_generation prompt template not found, using hardcoded prompt")
-            # プロンプトが見つからない場合は、従来のプロンプトを使用
             prompt_template_str = """You are an expert in API testing. Based on the following target endpoint and related OpenAPI schema information, generate a complete test suite (TestSuite) in strict JSON format.
 
 Target endpoint:
@@ -125,7 +120,6 @@ Return only a single valid JSON object matching the following format. **Do not i
 """
             prompt_template = prompt_template_str
 
-        # error_types に基づいて異常系テストに関する指示を生成
         error_types_instruction = "以下の異常系の種類（missing_field, invalid_input, unauthorized, not_found など）"
         if self.error_types and len(self.error_types) > 0:
             error_types_instruction = f"以下の異常系の種類（{', '.join(self.error_types)}）"
@@ -135,31 +129,24 @@ Return only a single valid JSON object matching the following format. **Do not i
             logger.info(f"Generating chain for endpoint: {target_endpoint.method} {target_endpoint.path}")
             
             try:
-                # 1. ターゲットエンドポイント情報からコンテキストを構築
                 target_endpoint_info = self._build_endpoint_context(target_endpoint)
                 
-                # 2. RAGを活用して関連スキーマ情報を取得
                 relevant_schema_info = self._get_relevant_schema_info(target_endpoint)
                 
-                # 3. LLMに渡すコンテキストを構築
                 context = {
                     "target_endpoint_info": target_endpoint_info,
                     "relevant_schema_info": relevant_schema_info,
                     "error_types_instruction": error_types_instruction
                 }
                 
-                # 4. LLMを呼び出してチェーンを生成
                 logger.info(f"Invoking LLM for endpoint {target_endpoint.method} {target_endpoint.path}")
                 try:
-                    # プロンプトテンプレートを使用してLLMを呼び出し、JSONレスポンスを直接取得
                     if 'prompt_template' in locals():
-                        # プロンプトレジストリからのテンプレートを使用
                         suite_data = llm_client.call_with_json_response(
                             [Message(MessageRole.USER,
                                     prompt_template.format(**context))]
                         )
                     else:
-                        # ハードコードされたプロンプトを使用
                         suite_data = llm_client.call_with_json_response(
                             [Message(MessageRole.USER,
                                     prompt_template_str.format(**context))]
@@ -169,7 +156,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                 
                 except (LLMException, LLMResponseFormatException) as llm_error:
                     logger.error(f"Error invoking LLM for endpoint {target_endpoint.method} {target_endpoint.path}: {llm_error}", exc_info=True)
-                    # LLM呼び出しエラーの場合は、シンプルなテストチェーンを生成
                     logger.info(f"Generating fallback test chain for {target_endpoint.method} {target_endpoint.path}")
                     chain = self._generate_fallback_chain(target_endpoint)
                     generated_chains.append(chain)
@@ -177,9 +163,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                     continue
                 
                 try:
-                    # JSONパースは既にLLMClientによって行われているため、構造の検証のみを行う
-
-                    # LLMからの応答が期待するTestSuite構造になっているか検証
                     if not isinstance(suite_data, dict) or \
                        "name" not in suite_data or \
                        "target_method" not in suite_data or \
@@ -188,7 +171,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                        not isinstance(suite_data["test_cases"], list):
                         raise ValueError("LLM response does not match expected TestSuite structure")
 
-                    # 各テストケースの構造を検証
                     for case_data in suite_data["test_cases"]:
                         if not isinstance(case_data, dict) or \
                            "name" not in case_data or \
@@ -198,7 +180,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                            not isinstance(case_data["test_steps"], list):
                             raise ValueError("LLM response contains invalid TestCase structure")
 
-                        # 各ステップの構造を検証
                         for step_data in case_data["test_steps"]:
                              if not isinstance(step_data, dict) or \
                                 "method" not in step_data or \
@@ -210,9 +191,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                                 "expected_status" not in step_data:
                                  raise ValueError("LLM response contains invalid TestStep structure")
 
-                    # 正常にパースできた場合、生成されたスイートデータをリストに追加
-                    
-                    # データベースのNOT NULL制約に対応するため、target_methodとtarget_pathを補完
                     if 'target_method' not in suite_data or suite_data['target_method'] is None:
                         suite_data['target_method'] = target_endpoint.method
                         logger.warning(f"target_method not found in LLM response, using endpoint method: {target_endpoint.method}")
@@ -225,7 +203,6 @@ Return only a single valid JSON object matching the following format. **Do not i
 
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse LLM response as JSON for {target_endpoint.method} {target_endpoint.path}: {e}")
-                    # JSONのパースに失敗した場合、レスポンスから JSON 部分を抽出してみる
                     try:
                         import re
                         json_match = re.search(r'```json\s*(.*?)\s*```', suite_data, re.DOTALL)
@@ -234,7 +211,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                             suite_data = json.loads(json_str)
                             logger.error(f"Raw response json: {suite_data}")
 
-                            # 抽出したJSONが期待するTestSuite構造になっているか検証
                             if not isinstance(suite_data, dict) or \
                                 "name" not in suite_data or \
                                 "target_method" not in suite_data or \
@@ -243,7 +219,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                                 not isinstance(suite_data["test_cases"], list):
                                     raise ValueError("Extracted JSON does not match expected TestSuite structure")
 
-                            # 各テストケースの構造を検証
                             for case_data in suite_data["test_cases"]:
                                 if not isinstance(case_data, dict) or \
                                 "name" not in case_data or \
@@ -253,7 +228,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                                 not isinstance(case_data["test_steps"], list):
                                     raise ValueError("Extracted JSON contains invalid TestCase structure")
 
-                                # 各ステップの構造を検証
                                 for step_data in case_data["test_steps"]:
                                     required_fields = [
                                         "method", "path",
@@ -276,7 +250,7 @@ Return only a single valid JSON object matching the following format. **Do not i
             except Exception as e:
                 logger.error(f"Error generating test suite for {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
 
-        return generated_chains # 複数のテストスイートを返す
+        return generated_chains
 
     def _build_endpoint_context(self, endpoint: Endpoint) -> str:
         """単一のエンドポイント情報からLLMのためのコンテキストを構築する"""
@@ -289,37 +263,30 @@ Return only a single valid JSON object matching the following format. **Do not i
         if endpoint.description:
             endpoint_info += f"Description: {endpoint.description}\n"
         
-        # リクエストボディ情報
         if endpoint_model.request_body:
             endpoint_info += "Request Body:\n"
             endpoint_info += f"```json\n{json.dumps(endpoint_model.request_body, indent=2)}\n```\n"
         
-        # リクエストヘッダー情報
         if endpoint_model.request_headers:
             endpoint_info += "Request Headers:\n"
             for header_name, header_info in endpoint_model.request_headers.items():
                 required = "required" if header_info.get("required", False) else "optional"
                 endpoint_info += f"- {header_name} (in header, {required})\n"
         
-        # クエリパラメータ情報
         if endpoint_model.request_query_params:
             endpoint_info += "Query Parameters:\n"
             for param_name, param_info in endpoint_model.request_query_params.items():
                 required = "required" if param_info.get("required", False) else "optional"
                 endpoint_info += f"- {param_name} (in query, {required})\n"
         
-        # パスパラメータ情報
         path_parameters = []
         
-        # スキーマが利用可能な場合のみパラメータを取得
         if self.schema:
-            # パスレベルのパラメータを取得
             if endpoint.path in self.schema.get("paths", {}):
                 path_item = self.schema["paths"][endpoint.path]
                 if "parameters" in path_item:
                     path_parameters.extend(path_item["parameters"])
             
-            # 操作レベルのパラメータを取得
             if endpoint.path in self.schema.get("paths", {}):
                 path_item = self.schema["paths"][endpoint.path]
                 if endpoint.method.lower() in path_item:
@@ -327,7 +294,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                     if "parameters" in operation:
                         path_parameters.extend(operation["parameters"])
 
-        # 重複を除去 (パラメータ名とinで判断)
         unique_path_parameters = {}
         for param in path_parameters:
             key = (param.get("name"), param.get("in"))
@@ -343,7 +309,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                 param_type = param_schema.get("type", "any")
                 endpoint_info += f"- {param_name} (in path, {required}, type: {param_type})\n"
 
-        # レスポンス情報
         if endpoint_model.responses:
             endpoint_info += "Responses:\n"
             for status, response in endpoint_model.responses.items():
@@ -369,11 +334,8 @@ Return only a single valid JSON object matching the following format. **Do not i
             関連スキーマ情報のテキスト表現
         """
         try:
-            # 永続化されるディレクトリからベクトルDBをロード
-            # 永続化ディレクトリのパス
             faiss_path = path_manager.get_faiss_dir(self.service_id, temp=False)
             
-            # 永続化ディレクトリにベクトルDBがない場合は、/tmpも確認
             if not path_manager.exists(faiss_path):
                 tmp_faiss_path = path_manager.get_faiss_dir(self.service_id, temp=True)
                 if path_manager.exists(tmp_faiss_path):
@@ -382,14 +344,12 @@ Return only a single valid JSON object matching the following format. **Do not i
                 else:
                     logger.warning(f"FAISS vector DB not found for service {self.service_id} at {faiss_path} or {tmp_faiss_path}. Cannot perform RAG search.")
                     
-                    # ベクトルDBがない場合は、スキーマ全体から関連情報を抽出する
                     if self.schema:
                         logger.info(f"Using schema directly for endpoint {target_endpoint.method} {target_endpoint.path}")
                         return self._extract_schema_info_directly(target_endpoint)
                     else:
                         return "No relevant schema information found."
             
-            # ベクトルDBが存在する場合は通常通りRAG検索を行う
             logger.info(f"Loading FAISS vector DB from {faiss_path}")
             embedding_fn = EmbeddingFunctionForCaseforge()
             
@@ -399,14 +359,12 @@ Return only a single valid JSON object matching the following format. **Do not i
             except Exception as load_error:
                 logger.error(f"Error loading FAISS vector DB from {faiss_path}: {load_error}", exc_info=True)
                 
-                # ベクトルDBのロードに失敗した場合は、スキーマ全体から関連情報を抽出する
                 if self.schema:
                     logger.info(f"Falling back to direct schema extraction due to FAISS load error")
                     return self._extract_schema_info_directly(target_endpoint)
                 else:
                     return "Error loading vector database. No relevant schema information found."
 
-            # クエリの生成 (ターゲットエンドポイントの情報を使用)
             query = f"{target_endpoint.method.upper()} {target_endpoint.path} {target_endpoint.summary or ''} {target_endpoint.description or ''}"
             if target_endpoint.request_body:
                  query += f" Request Body: {json.dumps(target_endpoint.request_body)}"
@@ -417,11 +375,8 @@ Return only a single valid JSON object matching the following format. **Do not i
             if target_endpoint.responses:
                  query += f" Responses: {json.dumps(target_endpoint.responses)}"
 
-            # ベクトルDB検索
-            # k=5 で上位5件の関連情報を取得
             docs = vectordb.similarity_search(query, k=5)
 
-            # 取得したスキーマチャンクをテキスト形式に整形（ソース情報を含める）
             relevant_info_parts = []
             for i, doc in enumerate(docs):
                 source = doc.metadata.get("source", "unknown")
@@ -441,7 +396,6 @@ Return only a single valid JSON object matching the following format. **Do not i
         except Exception as e:
             logger.error(f"Error during RAG search for endpoint {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
             
-            # エラーが発生した場合は、スキーマから直接情報を抽出する
             if self.schema:
                 logger.info(f"Falling back to direct schema extraction for endpoint {target_endpoint.method} {target_endpoint.path}")
                 return self._extract_schema_info_directly(target_endpoint)
@@ -466,13 +420,11 @@ Return only a single valid JSON object matching the following format. **Do not i
         endpoint_model = EndpointSchema.from_orm(target_endpoint)
         
         try:
-            # 1. ターゲットエンドポイントのパス情報を抽出
             if endpoint_model.path in self.schema.get("paths", {}):
                 path_item = self.schema["paths"][endpoint_model.path]
                 relevant_info_parts.append(f"## Path: {endpoint_model.path}")
                 relevant_info_parts.append(f"```json\n{json.dumps(path_item, indent=2)}\n```\n")
             
-            # 2. リクエストボディのスキーマ参照を解決
             if endpoint_model.request_body:
                 for content_type, content in endpoint_model.request_body.get("content", {}).items():
                     if "schema" in content:
@@ -489,7 +441,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                                 relevant_info_parts.append(f"## Request Body Schema Reference: {ref_path}")
                                 relevant_info_parts.append(f"```json\n{json.dumps(ref_value, indent=2)}\n```\n")
             
-            # 3. レスポンススキーマの参照を解決
             if endpoint_model.responses:
                 for status, response in endpoint_model.responses.items():
                     if "content" in response:
@@ -508,13 +459,10 @@ Return only a single valid JSON object matching the following format. **Do not i
                                         relevant_info_parts.append(f"## Response Schema Reference for status {status}: {ref_path}")
                                         relevant_info_parts.append(f"```json\n{json.dumps(ref_value, indent=2)}\n```\n")
             
-            # 4. 関連するコンポーネントスキーマを抽出
             if "components" in self.schema and "schemas" in self.schema["components"]:
-                # パスからリソース名を抽出（例: /users/{user_id} -> users）
                 path_parts = endpoint_model.path.strip("/").split("/")
                 resource_name = path_parts[0] if path_parts else ""
                 
-                # リソース名に関連するスキーマを探す
                 for schema_name, schema in self.schema["components"]["schemas"].items():
                     if resource_name.lower() in schema_name.lower():
                         relevant_info_parts.append(f"## Related Component Schema: {schema_name}")
@@ -547,39 +495,30 @@ Return only a single valid JSON object matching the following format. **Do not i
         method = target_endpoint.method.upper()
         path = target_endpoint.path
         
-        # チェーン名
         chain_name = f"Test for {method} {path}"
         
-        # ステップの初期化
         steps = []
         
-        # パスパラメータの抽出
         path_params = []
         param_pattern = r'\{([^}]+)\}'
         import re
         path_params = re.findall(param_pattern, path)
         
-        # 前提ステップの追加（パスパラメータがある場合）
         for param in path_params:
-            # パラメータの種類を推測
             param_type = "id"
             resource_name = "resource"
             
-            # パスからリソース名を推測
             path_parts = path.strip('/').split('/')
             if len(path_parts) > 0:
                 resource_name = path_parts[0]
-                # 複数形を単数形に変換（簡易的な処理）
                 if resource_name.endswith('s'):
                     resource_name = resource_name[:-1]
             
-            # パラメータ名からリソース名を推測
             if param.endswith('_id') or param == 'id':
                 param_parts = param.split('_')
                 if len(param_parts) > 1 and param_parts[-1] == 'id':
                     resource_name = '_'.join(param_parts[:-1])
             
-            # リソース作成ステップ（POSTリクエスト）
             create_step = {
                 "method": "POST",
                 "path": f"/{resource_name}s",
@@ -593,33 +532,26 @@ Return only a single valid JSON object matching the following format. **Do not i
             }
             steps.append(create_step)
         
-        # ターゲットエンドポイントのステップ
         target_step = {
             "method": method,
             "path": path,
             "request": {}
         }
         
-        # リクエストボディの追加（POSTまたはPUTの場合）
         if method in ["POST", "PUT", "PATCH"]:
-            # リクエストボディのスキーマがある場合は、それを基にサンプルを生成
             if target_endpoint.request_body and "content" in target_endpoint.request_body:
                 for content_type, content in target_endpoint.request_body["content"].items():
                     if "application/json" in content_type and "schema" in content:
                         target_step["request"]["headers"] = {"Content-Type": "application/json"}
-                        # スキーマからサンプルボディを生成（簡易的な実装）
                         sample_body = self._generate_sample_body_from_schema(content["schema"])
                         target_step["request"]["body"] = sample_body
                         break
             else:
-                # スキーマがない場合は、シンプルなJSONを設定
                 target_step["request"]["headers"] = {"Content-Type": "application/json"}
                 target_step["request"]["body"] = {"name": "Test name", "description": "Test description"}
         
-        # ステップの追加
         steps.append(target_step)
         
-        # チェーンの構築
         chain = {
             "name": chain_name,
             "steps": steps
@@ -639,12 +571,9 @@ Return only a single valid JSON object matching the following format. **Do not i
         """
         sample_body = {}
         
-        # $refの解決
         if "$ref" in schema:
-            # $refの解決は複雑なので、ここではシンプルなボディを返す
             return {"name": "Test name", "description": "Test description"}
         
-        # プロパティの処理
         if "properties" in schema:
             for prop_name, prop_schema in schema["properties"].items():
                 prop_type = prop_schema.get("type", "string")
@@ -660,7 +589,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                 elif prop_type == "object":
                     sample_body[prop_name] = {}
         
-        # サンプルボディが空の場合は、デフォルト値を設定
         if not sample_body:
             sample_body = {"name": "Test name", "description": "Test description"}
         

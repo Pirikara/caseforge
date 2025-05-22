@@ -71,9 +71,9 @@ class StepResultBase(BaseModel):
     response_body: Optional[Any] = None
     error_message: Optional[str] = None
     response_time: Optional[int] = None
-    method: str # 追加
-    path: str # 追加
-    extracted_values: Optional[Dict[str, Any]] = None # 追加
+    method: str
+    path: str
+    extracted_values: Optional[Dict[str, Any]] = None
 
 class StepResultCreate(StepResultBase):
     step_id: str
@@ -109,12 +109,12 @@ class TestRunBase(BaseModel):
     end_time: Optional[datetime] = None
 
 class TestRunCreate(BaseModel):
-    suite_id: str # TestSuite ID を指定して実行
+    suite_id: str
 
 class TestRun(TestRunBase):
     id: str
     suite_id: str
-    test_case_results: List[TestCaseResult] = [] # 実行結果に紐づくTestCaseResult
+    test_case_results: List[TestCaseResult] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -131,7 +131,7 @@ class TestCaseResultWithSteps(TestCaseResult):
     step_results: List[StepResult] = []
 
 class TestRunSummary(BaseModel):
-    id: str # TestRun の id (str)
+    id: str
     run_id: str
     suite_id: str
     suite_name: str

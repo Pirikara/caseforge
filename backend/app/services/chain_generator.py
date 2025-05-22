@@ -38,12 +38,10 @@ class DependencyAwareRAG:
             self.vectordb = None
         else:
             try:
-                # 埋め込み関数の初期化
                 logger.info("DependencyAwareRAG: 埋め込み関数の初期化を開始")
                 embedding_fn = EmbeddingFunctionForCaseforge()
                 logger.info("DependencyAwareRAG: 埋め込み関数の初期化完了")
                 
-                # タイムアウト付きでFAISSを初期化
                 logger.info("DependencyAwareRAG: FAISSの初期化を開始")
                 try:
                     self.vectordb = run_with_timeout(
@@ -55,7 +53,6 @@ class DependencyAwareRAG:
                     )
                     logger.info("DependencyAwareRAG: FAISSの初期化完了")
                     
-                    # 既存のベクトルDBがあれば読み込む
                     faiss_path = path_manager.get_faiss_dir(service_id, temp=True)
                     if path_manager.exists(faiss_path):
                         try:
@@ -67,7 +64,6 @@ class DependencyAwareRAG:
                             logger.info("DependencyAwareRAG: 既存のベクトルDBの読み込み完了")
                         except Exception as load_error:
                             logger.warning(f"DependencyAwareRAG: 既存のベクトルDBの読み込みに失敗: {load_error}")
-                            # 読み込みに失敗した場合は、新しいインスタンスをそのまま使用
                 
                 except TimeoutException as e:
                     logger.warning(f"DependencyAwareRAG: 初期化処理がタイムアウトしました: {e}")
@@ -86,13 +82,9 @@ class DependencyAwareRAG:
         Returns:
             リクエストチェーンのリスト
         """
-        # 1. 依存関係グラフを構築
         dependency_graph = self._build_dependency_graph()
-        
-        # 2. 有望なチェーン候補を特定
         chain_candidates = self._identify_chain_candidates(dependency_graph)
         
-        # 3. 各チェーン候補に対してRAGを実行
         chains = []
         for candidate in chain_candidates:
             chain = self._generate_chain_for_candidate(candidate)
@@ -105,7 +97,6 @@ class DependencyAwareRAG:
         """依存関係グラフを構築する"""
         graph = {}
         
-        # グラフの初期化
         for path, methods in self.schema.get("paths", {}).items():
             for method_name in methods:
                 if method_name != "parameters":
@@ -117,7 +108,6 @@ class DependencyAwareRAG:
                         "dependents": []
                     }
         
-        # 依存関係の追加
         for dep in self.dependencies:
             if dep["type"] in ["path_parameter", "resource_operation"]:
                 source_method = dep["source"]["method"].upper()
@@ -129,7 +119,6 @@ class DependencyAwareRAG:
                 target_id = f"{target_method} {target_path}"
                 
                 if source_id in graph and target_id in graph:
-                    # 依存関係を追加
                     graph[target_id]["dependencies"].append(source_id)
                     graph[source_id]["dependents"].append(target_id)
         
@@ -139,18 +128,14 @@ class DependencyAwareRAG:
         """有望なチェーン候補を特定する"""
         candidates = []
         
-        # 1. 依存関係のないノード（チェーンの開始点）を特定
         start_nodes = [node_id for node_id, node in graph.items() if not node["dependencies"]]
         
-        # 2. 各開始点からのパスを探索
         for start_node in start_nodes:
             paths = self._find_paths_from_node(graph, start_node)
             candidates.extend(paths)
         
-        # 3. 長さでソートし、最も長いチェーンを優先
         candidates.sort(key=len, reverse=True)
         
-        # 4. 重複を除去し、最大10個のチェーン候補を返す
         unique_candidates = []
         for candidate in candidates:
             if candidate not in unique_candidates:
@@ -167,19 +152,15 @@ class DependencyAwareRAG:
         
         current_path = path + [start_node]
         
-        # 終端ノード（依存先がない）の場合、パスを返す
         if not graph[start_node]["dependents"]:
             return [current_path]
         
-        # 依存先ノードへのパスを探索
         paths = []
         for dependent in graph[start_node]["dependents"]:
-            # 循環参照を防ぐ
             if dependent not in current_path:
                 new_paths = self._find_paths_from_node(graph, dependent, current_path)
                 paths.extend(new_paths)
         
-        # パスが見つからない場合は現在のパスを返す
         if not paths and len(current_path) > 1:
             return [current_path]
         
@@ -188,13 +169,9 @@ class DependencyAwareRAG:
     def _generate_chain_for_candidate(self, candidate: List[str]) -> Optional[Dict]:
         """チェーン候補に対してRAGを実行し、リクエストチェーンを生成する"""
         try:
-            # テスト環境かどうかを確認
             is_testing = os.environ.get("TESTING") == "1"
             
-            # テスト環境では直接サンプルチェーンを返す
             if is_testing:
-                # テスト用のサンプルチェーンを返す
-                # テスト用のサンプルテストスイート (tests/unit/services/test_chain_generator.py の SAMPLE_TEST_SUITE と同じ構造)
                 sample_chain = {
                     "name": "ユーザー作成と取得",
                     "target_method": "POST",
@@ -241,26 +218,19 @@ class DependencyAwareRAG:
                 logger.info("テスト環境のためサンプルチェーンを返します")
                 return sample_chain
             
-            # 本番環境では通常通りLLMを使用
-            # 1. チェーン候補からコンテキストを構築
             context = self._build_context_for_candidate(candidate)
             
-            # 2. LLMクライアントの設定
             from app.services.llm.client import LLMClientFactory, LLMProviderType
             from app.services.llm.prompts import get_prompt_template
             
-            # LLMクライアントを作成
             llm_client = LLMClientFactory.create(
                 provider_type=LLMProviderType.LOCAL,
                 temperature=0.2,
             )
             
-            # 3. プロンプトの設定
-            # プロンプトレジストリからテンプレートを取得
             try:
                 prompt_template = get_prompt_template("test_suite_generation")
             except KeyError:
-                # プロンプトが見つからない場合は、従来のプロンプトを使用
                 logger.warning("test_suite_generation prompt template not found, using hardcoded prompt")
                 prompt_template_str = """あなたはAPIテストの専門家です。以下のOpenAPIエンドポイント情報を使用してください。
 {context}
@@ -320,20 +290,13 @@ class DependencyAwareRAG:
 5. 出力はJSONのみで構成し、説明文やコメントを含めないでください。
 """
 
-            # error_types に基づいて異常系テストに関する指示を生成
             error_types_instruction = "様々な異常系テストケース（例: 必須フィールドの欠落、無効な入力値、認証エラーなど）"
             if self.error_types and len(self.error_types) > 0:
                 error_types_instruction = f"以下の異常系テストケース（{', '.join(self.error_types)}）"
-                # 異常系の種類リストをプロンプトに含めるための追加のコンテキストや指示が必要になる場合がある
-                # ここではシンプルに指示テキストを置き換える
                 logger.info(f"Generating tests with specific error types: {self.error_types}")
 
-
-            # 4. LLMを呼び出してチェーンを生成
             try:
-                # LLMクライアントを使用してJSONレスポンスを取得
                 if 'prompt_template' in locals():
-                    # プロンプトテンプレートを使用
                     chain = llm_client.call_with_json_response(
                         [llm_client.Message(llm_client.MessageRole.USER,
                                            prompt_template.format(
@@ -342,7 +305,6 @@ class DependencyAwareRAG:
                                            ))]
                     )
                 else:
-                    # ハードコードされたプロンプトを使用
                     chain = llm_client.call_with_json_response(
                         [llm_client.Message(llm_client.MessageRole.USER,
                                            prompt_template_str.format(
@@ -376,13 +338,11 @@ class DependencyAwareRAG:
         for node_id in candidate:
             method, path = node_id.split(" ", 1)
             
-            # OpenAPIスキーマから該当するエンドポイントの情報を取得
             if path in self.schema.get("paths", {}):
                 path_item = self.schema["paths"][path]
                 if method.lower() in path_item:
                     operation = path_item[method.lower()]
                     
-                    # エンドポイントの情報を整形
                     endpoint_info = f"Endpoint: {method} {path}\n"
                     
                     if "summary" in operation:
@@ -391,7 +351,6 @@ class DependencyAwareRAG:
                     if "description" in operation:
                         endpoint_info += f"Description: {operation['description']}\n"
                     
-                    # パラメータ情報
                     if "parameters" in operation:
                         endpoint_info += "Parameters:\n"
                         for param in operation["parameters"]:
@@ -400,7 +359,6 @@ class DependencyAwareRAG:
                             required = "required" if param.get("required", False) else "optional"
                             endpoint_info += f"- {param_name} (in {param_in}, {required})\n"
                     
-                    # リクエストボディ情報
                     if "requestBody" in operation:
                         endpoint_info += "Request Body:\n"
                         content = operation["requestBody"].get("content", {})
@@ -414,7 +372,6 @@ class DependencyAwareRAG:
                                 elif "type" in schema:
                                     endpoint_info += f"  Type: {schema['type']}\n"
                     
-                    # レスポンス情報
                     if "responses" in operation:
                         endpoint_info += "Responses:\n"
                         for status, response in operation["responses"].items():
@@ -431,7 +388,6 @@ class DependencyAwareRAG:
                     
                     context_parts.append(endpoint_info)
         
-        # 依存関係情報を追加
         context_parts.append("\nDependencies:")
         for i in range(len(candidate) - 1):
             source = candidate[i]
@@ -458,33 +414,26 @@ class ChainStore:
             overwrite: 既存のテストスイートを上書きするかどうか (デフォルト: True)
         """
         try:
-            # ファイルシステムにも保存（デバッグ用）
             tests_dir = path_manager.get_tests_dir(service_id)
             path_manager.ensure_dir(tests_dir)
             
-            # overwriteがFalseの場合は、既存のファイルを読み込んで追加する
             suites_file_path = path_manager.join_path(tests_dir, "test_suites.json")
             if not overwrite and path_manager.exists(suites_file_path):
                 try:
                     with open(suites_file_path, "r") as f:
                         existing_suites = json.load(f)
-                    # 既存のスイートに新しいスイートを追加
                     all_suites = existing_suites + test_suites
                     logger.info(f"Adding {len(test_suites)} new test suites to {len(existing_suites)} existing suites")
                     with open(suites_file_path, "w") as f:
                         json.dump(all_suites, f, indent=2)
                 except Exception as e:
                     logger.error(f"Error reading or updating existing test suites file: {e}")
-                    # エラーが発生した場合は、新しいスイートだけを書き込む
                     with open(suites_file_path, "w") as f:
                         json.dump(test_suites, f, indent=2)
             else:
-                # overwriteがTrueまたはファイルが存在しない場合は、新しいスイートだけを書き込む
                 with open(suites_file_path, "w") as f:
                     json.dump(test_suites, f, indent=2)
             
-            # データベースに保存
-            # サービスの取得
             logger.info(f"Exec save_suites Service ID: {service_id}")
             service_query = select(Service).where(Service.service_id == service_id)
             db_service = session.exec(service_query).first()
@@ -494,13 +443,11 @@ class ChainStore:
                 logger.error(f"Service not found: {service_id}")
                 return
             
-            # 既存のテストスイートを削除（overwriteがTrueの場合のみ）
             if overwrite:
                 existing_suites_query = select(TestSuite).where(TestSuite.service_id == db_service.id)
                 existing_suites = session.exec(existing_suites_query).all()
                 
                 for suite in existing_suites:
-                    # 関連するテストケースとステップも削除
                     for case in suite.test_cases:
                         for step in case.test_steps:
                             session.delete(step)
@@ -509,9 +456,7 @@ class ChainStore:
                 
                 logger.info(f"Deleted {len(existing_suites)} existing test suites for service {service_id}")
 
-            # 新しいテストスイートを保存
             for suite_data in test_suites:
-                # 入力データにIDがあればそれを使用、なければUUIDを生成
                 suite_id = suite_data.get("id", str(uuid.uuid4()))
                 test_suite = TestSuite(
                     id=suite_id,
@@ -522,11 +467,10 @@ class ChainStore:
                     description=suite_data.get("description", "")
                 )
                 session.add(test_suite)
-                session.flush()  # IDを生成するためにflush
+                session.flush()
 
                 logger.info(f"All Test Cases: {suite_data.get('test_cases', "ないよ")}")
                 
-                # テストケースを保存
                 for case_data in suite_data.get("test_cases", []):
                     logger.info(f"Test Case: {case_data}")
                     case_id = str(uuid.uuid4())
@@ -538,10 +482,9 @@ class ChainStore:
                         error_type=case_data.get("error_type")
                     )
                     session.add(test_case)
-                    session.flush() # IDを生成するためにflush
+                    session.flush()
 
                     logger.info(f"All Test Steps: {case_data.get('test_steps', "ないよ")}")
-                    # テストステップを保存
                     for i, step_data in enumerate(case_data.get("test_steps", [])):
                         logger.info(f"Test Step: {step_data}")
                         step_id = str(uuid.uuid4())
@@ -580,7 +523,6 @@ class ChainStore:
             テストスイートのリスト
         """
         try:
-            # サービスの取得 (test_suites リレーションシップを Eager Load)
             service_query = select(Service).where(Service.service_id == service_id).options(selectinload(Service.test_suites))
             db_service = session.exec(service_query).first()
 
@@ -588,7 +530,6 @@ class ChainStore:
                 logger.error(f"Service not found: {service_id}")
                 return []
             
-            # テストスイートの取得
             test_suites = []
             for suite in db_service.test_suites:
                 suite_data = {
@@ -608,7 +549,6 @@ class ChainStore:
         except Exception as e:
             logger.error(f"Error listing test suites for service {service_id}: {e}", exc_info=True)
             
-            # ファイルシステムからの読み込みを試みる（フォールバック）
             try:
                 path = path_manager.join_path(path_manager.get_tests_dir(service_id), "test_suites.json")
                 if path_manager.exists(path):
@@ -632,7 +572,6 @@ class ChainStore:
         """
         try:
             with Session(engine) as session:
-                # サービスの取得
                 service_query = select(Service).where(Service.service_id == service_id)
                 db_service = session.exec(service_query).first()
                 
@@ -640,7 +579,6 @@ class ChainStore:
                     logger.error(f"Service not found: {service_id}")
                     return
                 
-                # 既存のテストスイートを (target_method, target_path) をキーとした辞書に変換
                 existing_suites_dict = {(suite.target_method, suite.target_path): suite for suite in db_service.test_suites}
                 
                 suites_to_save = []
@@ -655,9 +593,7 @@ class ChainStore:
 
                     suite_key = (target_method, target_path)
                     
-                    # 既存のテストスイートに同じ組み合わせのものがあるか確認
                     if suite_key in existing_suites_dict:
-                        # 既存のテストスイート、テストケース、テストステップを削除
                         existing_suite = existing_suites_dict[suite_key]
                         for case in existing_suite.test_cases:
                             for step in case.test_steps:
@@ -666,7 +602,6 @@ class ChainStore:
                         session.delete(existing_suite)
                         logger.info(f"Deleted existing test suite for {target_method} {target_path}")
                     
-                    # 新しいテストスイートを追加
                     suite_id = str(uuid.uuid4())
                     test_suite = TestSuite(
                         id=suite_id,
@@ -677,9 +612,8 @@ class ChainStore:
                         description=suite_data.get("description", "")
                     )
                     session.add(test_suite)
-                    session.flush()  # IDを生成するためにflush
+                    session.flush()
                     
-                    # テストケースを保存
                     for case_data in suite_data.get("test_cases", []):
                         case_id = str(uuid.uuid4())
                         test_case = TestCase(
@@ -690,9 +624,8 @@ class ChainStore:
                             error_type=case_data.get("error_type")
                         )
                         session.add(test_case)
-                        session.flush() # IDを生成するためにflush
+                        session.flush()
 
-                        # テストステップを保存
                         for i, step_data in enumerate(case_data.get("test_steps", [])):
                             step_id = str(uuid.uuid4())
                             test_step = TestStep(
@@ -705,19 +638,17 @@ class ChainStore:
                                 expected_status=step_data.get("expected_status")
                             )
                             
-                            # リクエスト情報を設定
                             request = step_data.get("request", {})
                             test_step.request_headers = request.get("headers")
                             test_step.request_body = request.get("body")
                             test_step.request_params = request.get("params")
                             
-                            # 抽出ルールを設定
                             response = step_data.get("response", {})
                             test_step.extract_rules = response.get("extract")
                             
                             session.add(test_step)
                     
-                    suites_to_save.append(test_suite) # マージ後のリストには追加しないが、ログのために保持
+                    suites_to_save.append(test_suite)
 
                 session.commit()
                 logger.info(f"Merged and saved {len(new_test_suites)} new/updated test suites for service {service_id}")
@@ -740,7 +671,6 @@ class ChainStore:
             テストスイートの詳細。見つからない場合はNone。
         """
         try:
-            # サービスの取得 (test_suites リレーションシップを Eager Load)
             service_query = select(Service).where(Service.service_id == service_id).options(selectinload(Service.test_suites))
             db_service = session.exec(service_query).first()
 
@@ -748,16 +678,13 @@ class ChainStore:
                 logger.error(f"Service not found: {service_id}")
                 return None
             
-            # テストスイートの取得
             for suite in db_service.test_suites:
                 if suite.id == suite_id:
                     test_cases_data = []
-                    # テストケースを名前でソート（任意）
                     sorted_cases = sorted(suite.test_cases, key=lambda c: c.name)
 
                     for case in sorted_cases:
                         test_steps_data = []
-                        # テストステップをシーケンス順にソート
                         sorted_steps = sorted(case.test_steps, key=lambda s: s.sequence)
 
                         for step in sorted_steps:

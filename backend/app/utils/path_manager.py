@@ -20,7 +20,6 @@ class PathManager:
         """
         PathManagerの初期化
         """
-        # サービスルートディレクトリの検出
         self._root_path = self._detect_service_root()
         
     @staticmethod
@@ -32,13 +31,10 @@ class PathManager:
         Returns:
             Path: サービスルートディレクトリのパス
         """
-        # 環境変数からサービスルートを取得
         if "PROJECT_ROOT" in os.environ:
             return Path(os.environ["PROJECT_ROOT"])
         
-        # 現在のファイルの場所から推測
         current_file = Path(__file__).resolve()
-        # backend/app/utils/path_manager.py から3階層上がルート
         return current_file.parent.parent.parent.parent
     
     def get_root_path(self) -> Path:
@@ -142,7 +138,6 @@ class PathManager:
         if temp:
             return self.get_temp_dir("faiss") / service_id
         
-        # 永続化ディレクトリのパス
         data_dir = os.environ.get("DATA_DIR", "/app/data")
         return Path(data_dir) / "faiss" / service_id
     

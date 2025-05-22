@@ -13,7 +13,6 @@ def trigger_test_generation(service_id: str, error_types: Optional[List[str]] = 
         タスクID。エラー時はNone。
     """
     try:
-        # 循環インポートを避けるために、関数内で遅延インポート
         from app.workers.tasks import generate_test_suites_task
         
         logger.info(f"Triggering test generation task for service {service_id}")

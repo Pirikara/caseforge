@@ -13,11 +13,11 @@ class Endpoint(TimestampModel, table=True):
     endpoint_id: str = Field(default_factory=lambda: str(uuid4()), index=True)
     service_id: int = Field(foreign_key="service.id")
     
-    path: str  # e.g., "/users/{id}"
-    method: str  # e.g., "GET", "POST", "PUT", "DELETE"
+    path: str
+    method: str
     
-    summary: Optional[str] = None  # OpenAPIのsummary
-    description: Optional[str] = None  # 詳細な説明
+    summary: Optional[str] = None
+    description: Optional[str] = None
     
     request_body: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))
     request_headers: Optional[Dict[str, Any]] = Field(sa_column=Column(JSONEncodedDict))

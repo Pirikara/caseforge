@@ -69,7 +69,6 @@ async def save_and_index_schema(service_id: str, content: bytes, filename: str, 
             for ep_data in endpoints_data:
                 key = (ep_data["path"], ep_data["method"])
                 if key in existing_endpoints_map:
-                    # 既存のエンドポイントを更新
                     db_endpoint = existing_endpoints_map[key]
                     db_endpoint.summary = ep_data.get("summary")
                     db_endpoint.description = ep_data.get("description")
@@ -80,7 +79,6 @@ async def save_and_index_schema(service_id: str, content: bytes, filename: str, 
                     session.add(db_endpoint)
                     logger.debug(f"Updated existing endpoint: {ep_data['method']} {ep_data['path']}")
                 else:
-                    # 新しいエンドポイントを追加
                     new_endpoint = Endpoint(
                         service_id=db_service.id,
                         path=ep_data["path"],
@@ -95,7 +93,6 @@ async def save_and_index_schema(service_id: str, content: bytes, filename: str, 
                     endpoints_to_add.append(new_endpoint)
                     logger.debug(f"Adding new endpoint: {ep_data['method']} {ep_data['path']}")
 
-            # 新しいエンドポイントを一括追加
             if endpoints_to_add:
                 session.add_all(endpoints_to_add)
                 logger.info(f"Added {len(endpoints_to_add)} new endpoints to database")
@@ -114,7 +111,6 @@ async def save_and_index_schema(service_id: str, content: bytes, filename: str, 
             logger.error(f"Error parsing or saving endpoints for service {service_id}: {parse_save_error}", exc_info=True)
             raise parse_save_error
 
-        # RAGインデックスの作成
         logger.info(f"Step 4: Creating RAG index for service {service_id}")
         try:
             index_schema(service_id, save_path)
@@ -165,7 +161,6 @@ async def list_services(session: Optional[Session] = None):
         
         result = []
         for p in services:
-            # 各サービスに紐づくSchemaが存在するか確認
             schema_exists_query = select(Schema).where(Schema.service_id == p.id)
             schema = session.exec(schema_exists_query).first()
             has_schema = schema is not None
@@ -189,7 +184,6 @@ async def list_services(session: Optional[Session] = None):
                 services = [d.name for d in schema_dir.iterdir() if d.is_dir()]
                 logger.info(f"Found {len(services)} services in filesystem")
                 now = datetime.now().isoformat()
-                # ファイルシステムからのフォールバックではスキーマの有無は判定できないため、has_schemaは常にfalseとする
                 return [{"id": p, "name": p, "description": "", "created_at": now, "has_schema": False} for p in services]
         except Exception as fallback_error:
             logger.error(f"Fallback error listing services from filesystem: {fallback_error}")

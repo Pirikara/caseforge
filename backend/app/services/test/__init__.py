@@ -13,12 +13,9 @@ from .variable_manager import (
 )
 
 __all__ = [
-    # テスト実行関連
     "TestStatus", "TestRunnerError", "TestTimeoutError",
     "TestResult", "StepTestResult", "CaseTestResult", "SuiteTestResult",
     "TestRunner", "APITestRunner", "ChainTestRunner", "TestRunnerFactory",
-    
-    # 変数管理関連
     "VariableType", "VariableScope", "Variable",
     "CircularReferenceError", "VariableNotFoundError", "VariableTypeError",
     "VariableManager"

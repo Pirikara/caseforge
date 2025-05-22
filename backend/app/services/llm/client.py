@@ -207,10 +207,8 @@ class LLMClient(abc.ABC):
         Returns:
             LLMからのレスポンス
         """
-        # プロンプトテンプレートを変数で埋める
         prompt = prompt_template.format(**kwargs)
         
-        # ユーザーメッセージとして送信
         messages = [Message(MessageRole.USER, prompt)]
         
         return self.call(messages)
@@ -226,10 +224,8 @@ class LLMClient(abc.ABC):
         Returns:
             LLMからのレスポンス
         """
-        # プロンプトテンプレートを変数で埋める
         prompt = prompt_template.format(**kwargs)
         
-        # ユーザーメッセージとして送信
         messages = [Message(MessageRole.USER, prompt)]
         
         return await self.acall(messages)
@@ -250,7 +246,6 @@ class LLMClient(abc.ABC):
 
         try:
             import regex
-            # 1. Extract all ```json ... ``` blocks
             json_blocks = regex.findall(r"```json\s*(\{(?:[^{}]|(?R))*\})\s*```", response, regex.DOTALL)
             for block in json_blocks:
                 try:
@@ -258,9 +253,8 @@ class LLMClient(abc.ABC):
                     return json.loads(block)
                 except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse block from ```json``` code block: {e}")
-                    continue  # Try other methods
+                    continue
 
-            # 2. Try to extract the first top-level { ... } block
             brace_match = regex.search(r"(\{(?:[^{}]|(?R))*\})", response, regex.DOTALL)
             if brace_match:
                 json_str = brace_match.group(1)
@@ -270,7 +264,6 @@ class LLMClient(abc.ABC):
                 except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse top-level braces JSON: {e}")
 
-            # 3. Fallback: try the entire response
             logger.warning("Attempting to parse entire response as JSON.")
             return json.loads(response)
 
@@ -296,7 +289,6 @@ class LLMClient(abc.ABC):
         response = await self.acall(messages, **kwargs)
         
         try:
-            # MarkdownコードブロックからJSONを抽出
             import re
             json_match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL)
             if json_match:
@@ -304,7 +296,6 @@ class LLMClient(abc.ABC):
                 logger.debug(f"Extracted JSON string: {json_str}")
                 return json.loads(json_str)
             else:
-                # コードブロックが見つからない場合は、レスポンス全体をJSONとしてパースを試みる
                 logger.warning("JSON code block not found in LLM response, attempting to parse entire response as JSON.")
                 return json.loads(response)
         except json.JSONDecodeError as e:
@@ -344,7 +335,6 @@ class OpenAIClient(LLMClient):
         Returns:
             LLMからのレスポンス
         """
-        # メッセージをLangChain形式に変換
         langchain_messages = []
         for message in messages:
             if message.role == MessageRole.SYSTEM:
@@ -354,10 +344,8 @@ class OpenAIClient(LLMClient):
             elif message.role == MessageRole.ASSISTANT:
                 langchain_messages.append(AIMessage(content=message.content))
         
-        # LLMを呼び出す
         response = self.client.invoke(langchain_messages)
         
-        # レスポンスからコンテンツを取得
         return response.content
     
     async def _acall_llm(self, messages: List[Message], **kwargs) -> str:
@@ -371,7 +359,6 @@ class OpenAIClient(LLMClient):
         Returns:
             LLMからのレスポンス
         """
-        # メッセージをLangChain形式に変換
         langchain_messages = []
         for message in messages:
             if message.role == MessageRole.SYSTEM:
@@ -381,10 +368,8 @@ class OpenAIClient(LLMClient):
             elif message.role == MessageRole.ASSISTANT:
                 langchain_messages.append(AIMessage(content=message.content))
         
-        # LLMを非同期で呼び出す
         response = await self.client.ainvoke(langchain_messages)
         
-        # レスポンスからコンテンツを取得
         return response.content
 
 
@@ -425,7 +410,6 @@ class AnthropicClient(LLMClient):
         if self.client is None:
             raise LLMException("Anthropic APIクライアントが初期化されていません")
         
-        # メッセージをLangChain形式に変換
         langchain_messages = []
         for message in messages:
             if message.role == MessageRole.SYSTEM:
@@ -435,10 +419,8 @@ class AnthropicClient(LLMClient):
             elif message.role == MessageRole.ASSISTANT:
                 langchain_messages.append(AIMessage(content=message.content))
         
-        # LLMを呼び出す
         response = self.client.invoke(langchain_messages)
         
-        # レスポンスからコンテンツを取得
         return response.content
     
     async def _acall_llm(self, messages: List[Message], **kwargs) -> str:
@@ -455,7 +437,6 @@ class AnthropicClient(LLMClient):
         if self.client is None:
             raise LLMException("Anthropic APIクライアントが初期化されていません")
         
-        # メッセージをLangChain形式に変換
         langchain_messages = []
         for message in messages:
             if message.role == MessageRole.SYSTEM:
@@ -465,10 +446,8 @@ class AnthropicClient(LLMClient):
             elif message.role == MessageRole.ASSISTANT:
                 langchain_messages.append(AIMessage(content=message.content))
         
-        # LLMを非同期で呼び出す
         response = await self.client.ainvoke(langchain_messages)
         
-        # レスポンスからコンテンツを取得
         return response.content
 
 
@@ -503,7 +482,6 @@ class LLMClientFactory:
             model = model_name or config.llm.ANTHROPIC_MODEL_NAME.get_value()
             return AnthropicClient(model, temperature, max_tokens, **kwargs)
         elif provider_type == LLMProviderType.LOCAL:
-            # ローカルモデルの場合は、OpenAIクライアントを使用し、APIベースを設定
             model = model_name or config.llm.MODEL_NAME.get_value()
             api_base = kwargs.get("api_base", config.llm.OPENAI_API_BASE.get_value())
             return OpenAIClient(model, temperature, max_tokens, api_base=api_base, **kwargs)
@@ -526,7 +504,6 @@ class LLMClientFactory:
         temperature = config_dict.get("temperature", 0.0)
         max_tokens = config_dict.get("max_tokens")
         
-        # その他のパラメータを抽出
         kwargs = {k: v for k, v in config_dict.items() if k not in ["provider", "model_name", "temperature", "max_tokens"]}
         
         return LLMClientFactory.create(provider_type, model_name, temperature, max_tokens, **kwargs)
@@ -539,12 +516,10 @@ class LLMClientFactory:
         Returns:
             LLMクライアント
         """
-        # 設定からプロバイダータイプを決定
         provider_value = config.llm.PROVIDER.get_value()
         if provider_value:
             provider_type = LLMProviderType(provider_value.lower())
         else:
-            # デフォルトはOpenAI
             provider_type = LLMProviderType.OPENAI
         
         return LLMClientFactory.create(provider_type)
