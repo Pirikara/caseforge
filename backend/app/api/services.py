@@ -3,7 +3,7 @@ from app.services.schema import save_and_index_schema, get_schema_content
 from app.services.runner import get_recent_runs
 from app.services.chain_generator import ChainStore
 from app.services.chain_runner import run_test_suites, list_test_runs, get_test_run
-from app.services.endpoint_parser import EndpointParser
+from app.services.openapi.parser import EndpointParser
 from app.workers.tasks import generate_test_suites_task, generate_test_suites_for_endpoints_task
 from fastapi.responses import JSONResponse
 from pathlib import Path
@@ -236,7 +236,7 @@ async def delete_test_suite(
     logger.info(f"Deleting test suite: service_id={service_id}, suite_id={suite_id}")
     try:
         with Session(engine) as session:
-            from app.models.chain import TestSuite
+            from app.models.test.suite import TestSuite
 
             test_suite_query = select(TestSuite).where(
                 TestSuite.id == suite_id,

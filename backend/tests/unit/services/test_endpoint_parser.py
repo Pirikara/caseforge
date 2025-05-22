@@ -1,5 +1,9 @@
 import pytest
-from app.services.endpoint_parser import EndpointParser
+from app.services.openapi.parser import EndpointParser
+
+TEST_SERVICE_ID = 1
+
+from app.services.openapi.parser import EndpointParser, _resolve_references, parse_openapi_schema # Import the common parser and resolver function
 
 TEST_SERVICE_ID = 1
 
@@ -21,14 +25,16 @@ components:
     AnotherSchema:
       $ref: '#/components/schemas/SimpleSchema'
 """
-    parser = EndpointParser(schema_content)
-    resolved_schema = parser._resolve_references(parser.schema["components"]["schemas"]["AnotherSchema"])
+    # Use the common _resolve_references function directly
+    schema, resolved_schema = parse_openapi_schema(schema_content=schema_content)
+    another_schema_part = schema["components"]["schemas"]["AnotherSchema"]
+    resolved_another_schema = _resolve_references(another_schema_part, schema)
 
-    assert "type" in resolved_schema
-    assert resolved_schema["type"] == "object"
-    assert "properties" in resolved_schema
-    assert "id" in resolved_schema["properties"]
-    assert resolved_schema["properties"]["id"]["type"] == "integer"
+    assert "type" in resolved_another_schema
+    assert resolved_another_schema["type"] == "object"
+    assert "properties" in resolved_another_schema
+    assert "id" in resolved_another_schema["properties"]
+    assert resolved_another_schema["properties"]["id"]["type"] == "integer"
 
 def test_resolve_references_nested():
     """ネストされた$ref参照が正しく解決されるかテスト"""
@@ -58,12 +64,14 @@ components:
         user:
           $ref: '#/components/schemas/User'
 """
-    parser = EndpointParser(schema_content)
-    resolved_schema = parser._resolve_references(parser.schema["components"]["schemas"]["UserProfile"])
+    # Use the common _resolve_references function directly
+    schema, resolved_schema = parse_openapi_schema(schema_content=schema_content)
+    user_profile_schema_part = schema["components"]["schemas"]["UserProfile"]
+    resolved_user_profile_schema = _resolve_references(user_profile_schema_part, schema)
 
-    assert "properties" in resolved_schema
-    assert "user" in resolved_schema["properties"]
-    user_schema = resolved_schema["properties"]["user"]
+    assert "properties" in resolved_user_profile_schema
+    assert "user" in resolved_user_profile_schema["properties"]
+    user_schema = resolved_user_profile_schema["properties"]["user"]
     assert "properties" in user_schema
     assert "name" in user_schema["properties"]
     assert user_schema["properties"]["name"]["type"] == "string"
@@ -93,13 +101,14 @@ components:
       items:
         $ref: '#/components/schemas/Item'
 """
-    parser = EndpointParser(schema_content)
-    resolved_schema = parser._resolve_references(parser.schema["components"]["schemas"]["ItemList"])
+    schema, resolved_schema = parse_openapi_schema(schema_content=schema_content)
+    item_list_schema_part = schema["components"]["schemas"]["ItemList"]
+    resolved_item_list_schema = _resolve_references(item_list_schema_part, schema)
 
-    assert "type" in resolved_schema
-    assert resolved_schema["type"] == "array"
-    assert "items" in resolved_schema
-    item_schema = resolved_schema["items"]
+    assert "type" in resolved_item_list_schema
+    assert resolved_item_list_schema["type"] == "array"
+    assert "items" in resolved_item_list_schema
+    item_schema = resolved_item_list_schema["items"]
     assert "type" in item_schema
     assert item_schema["type"] == "object"
     assert "properties" in item_schema
@@ -129,21 +138,23 @@ components:
             message:
               type: string
 """
-    parser = EndpointParser(schema_content)
-    resolved_schema = parser._resolve_references(parser.schema["components"]["schemas"]["ValidationError"])
+    # Use the common _resolve_references function directly
+    schema, resolved_schema = parse_openapi_schema(schema_content=schema_content)
+    validation_error_schema_part = schema["components"]["schemas"]["ValidationError"]
+    resolved_validation_error_schema = _resolve_references(validation_error_schema_part, schema)
 
-    assert "allOf" in resolved_schema
-    assert isinstance(resolved_schema["allOf"], list)
-    assert len(resolved_schema["allOf"]) == 2
+    assert "allOf" in resolved_validation_error_schema
+    assert isinstance(resolved_validation_error_schema["allOf"], list)
+    assert len(resolved_validation_error_schema["allOf"]) == 2
 
-    error_model_schema = resolved_schema["allOf"][0]
+    error_model_schema = resolved_validation_error_schema["allOf"][0]
     assert "type" in error_model_schema
     assert error_model_schema["type"] == "object"
     assert "properties" in error_model_schema
     assert "code" in error_model_schema["properties"]
     assert error_model_schema["properties"]["code"]["type"] == "integer"
 
-    validation_error_schema = resolved_schema["allOf"][1]
+    validation_error_schema = resolved_validation_error_schema["allOf"][1]
     assert "type" in validation_error_schema
     assert validation_error_schema["type"] == "object"
     assert "properties" in validation_error_schema
@@ -163,11 +174,12 @@ components:
     SchemaWithBadRef:
       $ref: '#/components/schemas/NonExistentSchema'
 """
-    parser = EndpointParser(schema_content)
-    resolved_schema = parser._resolve_references(parser.schema["components"]["schemas"]["SchemaWithBadRef"])
+    schema, resolved_schema = parse_openapi_schema(schema_content=schema_content)
+    schema_with_bad_ref_part = schema["components"]["schemas"]["SchemaWithBadRef"]
+    resolved_schema_with_bad_ref = _resolve_references(schema_with_bad_ref_part, schema)
 
-    assert "$ref" in resolved_schema
-    assert resolved_schema["$ref"] == '#/components/schemas/NonExistentSchema'
+    assert "$ref" in resolved_schema_with_bad_ref
+    assert resolved_schema_with_bad_ref["$ref"] == '#/components/schemas/NonExistentSchema'
 
 def test_resolve_references_circular():
     """循環参照が無限ループにならないかテスト (簡易的なチェック)"""
@@ -188,10 +200,11 @@ components:
         a:
           $ref: '#/components/schemas/A'
 """
-    parser = EndpointParser(schema_content)
+    schema, resolved_schema = parse_openapi_schema(schema_content=schema_content)
+    schema_a_part = schema["components"]["schemas"]["A"]
     try:
-        resolved_schema = parser._resolve_references(parser.schema["components"]["schemas"]["A"])
-        assert isinstance(resolved_schema, dict)
+        resolved_schema_a = _resolve_references(schema_a_part, schema)
+        assert isinstance(resolved_schema_a, dict)
     except RecursionError:
         pytest.fail("Circular reference caused RecursionError")
     except Exception as e:
@@ -242,13 +255,18 @@ components:
 
     assert "request_body" in endpoint
     request_body_schema = endpoint["request_body"]
-    assert "type" in request_body_schema
-    assert request_body_schema["type"] == "object"
-    assert "properties" in request_body_schema
-    assert "id" in request_body_schema["properties"]
-    assert request_body_schema["properties"]["id"]["type"] == "integer"
-    assert "name" in request_body_schema["properties"]
-    assert request_body_schema["properties"]["name"]["type"] == "string"
+    assert "content" in request_body_schema
+    assert "application/json" in request_body_schema["content"]
+    request_body_schema_content = request_body_schema["content"]["application/json"].get("schema")
+    assert request_body_schema_content is not None
+    assert "$ref" not in request_body_schema_content
+    assert "type" in request_body_schema_content
+    assert request_body_schema_content["type"] == "object"
+    assert "properties" in request_body_schema_content
+    assert "id" in request_body_schema_content["properties"]
+    assert request_body_schema_content["properties"]["id"]["type"] == "integer"
+    assert "name" in request_body_schema_content["properties"]
+    assert request_body_schema_content["properties"]["name"]["type"] == "string"
 
     assert "responses" in endpoint
     response_201 = endpoint["responses"].get("201")
@@ -256,6 +274,7 @@ components:
     assert "content" in response_201
     response_schema = response_201["content"].get("application/json", {}).get("schema")
     assert response_schema is not None
+    assert "$ref" not in response_schema
     assert "type" in response_schema
     assert response_schema["type"] == "object"
     assert "properties" in response_schema

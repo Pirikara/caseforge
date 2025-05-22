@@ -2,7 +2,7 @@ from app.config import settings
 from app.logging_config import logger
 from app.models import Service, Schema, Endpoint, engine
 from app.services.rag.indexer import index_schema
-from app.services.endpoint_parser import EndpointParser
+from app.services.openapi.parser import EndpointParser
 from sqlmodel import Session, select
 import os
 from typing import Optional
