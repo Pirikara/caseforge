@@ -152,7 +152,7 @@ def test_index_schema_success(mock_factory_cls, mock_chunker_cls, dummy_openapi_
     index_schema(service_id, schema_path)
 
     mock_chunker_cls.assert_called_once_with(schema_path)
-    mock_factory_cls.create_default.assert_called_once_with(service_id)
+    mock_factory_cls.create_default.assert_called_once_with(service_id, db_type='pgvector')
     mock_vector_db_manager.add_documents.assert_called_once()
 
 @patch('app.services.rag.indexer.OpenAPISchemaChunker')

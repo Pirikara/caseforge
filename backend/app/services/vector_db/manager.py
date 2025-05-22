@@ -22,7 +22,7 @@ from app.utils.retry import retry, async_retry, RetryStrategy
 from app.utils.timeout import timeout, async_timeout
 
 from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS, Chroma
+from langchain_community.vectorstores import FAISS, Chroma, PGVector
 from faiss import IndexFlatL2
 from langchain_community.docstore.in_memory import InMemoryDocstore
 
@@ -1006,9 +1006,309 @@ class VectorDBManagerFactory:
         logger.info("✅ Embedding model created")
 
         logger.info("🧱 Creating vector DB manager...")
+        
+        if db_type == "pgvector":
+            # PGVectorManager の初期化パラメータを設定
+            return PGVectorManager(
+                embedding_model=embedding_model,
+                collection_name=collection_name, # service_id が設定される
+                timeout_seconds=settings.TIMEOUT_EMBEDDING,
+                retry_config=None, # 必要に応じて設定
+                cache_config=None, # 必要に応じて設定
+                service_id=service_id # service_id は必須
+            )
+        
         return VectorDBManagerFactory.create(
             db_type=db_type,
             embedding_model=embedding_model,
             persist_directory=persist_directory,
             collection_name=collection_name
         )
+
+import os
+from typing import List, Dict, Any, Optional, Tuple
+
+from sqlmodel import SQLModel, Field, create_engine, Session, select
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column
+
+from langchain_core.documents import Document
+
+from app.config import settings
+from app.models.schema_chunk import SchemaChunk
+from app.services.vector_db.embeddings import EmbeddingModelWrapper
+from app.logging_config import logger
+
+DATABASE_URL = settings.DATABASE_URL
+
+class PGVectorManager(VectorDBManager):
+    """PGVectorベクトルDBマネージャー"""
+
+    def __init__(
+        self,
+        embedding_model: Optional[EmbeddingModelWrapper] = None,
+        collection_name: Optional[str] = None,
+        timeout_seconds: Optional[float] = None,
+        retry_config: Optional[Dict[str, Any]] = None,
+        cache_config: Optional[Dict[str, Any]] = None,
+        service_id: Optional[int] = None,
+        **kwargs
+    ):
+        """
+        PGVectorマネージャーの初期化
+
+        Args:
+            embedding_model: 埋め込みモデルラッパー
+            collection_name: コレクション名（ここではservice_idを使用）
+            timeout_seconds: タイムアウト秒数
+            retry_config: リトライ設定
+            cache_config: キャッシュ設定
+            service_id: サービスID (必須)
+            **kwargs: その他のパラメータ
+        """
+        if service_id is None:
+            raise ValueError("service_id must be provided for PGVectorManager")
+
+        self.service_id = service_id
+        # collection_name は service_id を使用する
+        collection_name = str(service_id)
+
+        super().__init__(
+            embedding_model=embedding_model,
+            collection_name=collection_name,
+            timeout_seconds=timeout_seconds,
+            retry_config=retry_config,
+            cache_config=cache_config,
+            **kwargs
+        )
+
+        self.engine = create_engine(DATABASE_URL)
+        SQLModel.metadata.create_all(self.engine) # テーブルが存在しない場合は作成
+
+    def _setup_vectordb(self) -> None:
+        """PGVectorの設定"""
+        # PGVectorはデータベース自体がベクトルDBとして機能するため、特別なセットアップは不要
+        # テーブルの存在確認や作成は__init__で行う
+        logger.info(f"PGVectorManager setup complete for service_id: {self.service_id}")
+        pass
+
+    def _add_documents(self, documents: List[Document]) -> None:
+        """
+        ドキュメントをPGVectorに追加する
+
+        Args:
+            documents: 追加するドキュメント
+        """
+        logger.info(f"Adding {len(documents)} documents to PGVector for service_id: {self.service_id}")
+        schema_chunks = []
+        for doc in documents:
+            # Documentのmetadataからpathとmethodを取得することを想定
+            path = doc.metadata.get("path")
+            method = doc.metadata.get("method")
+            if not path or not method:
+                logger.warning(f"Skipping document due to missing path or method in metadata: {doc.metadata}")
+                continue
+
+            try:
+                # embedding_functionはVectorDBManagerの__init__で初期化済み
+                embedding = self.embedding_function.embed_query(doc.page_content)
+                schema_chunk = SchemaChunk(
+                    service_id=self.service_id,
+                    path=path,
+                    method=method,
+                    content=doc.page_content,
+                    embedding=embedding
+                )
+                schema_chunks.append(schema_chunk)
+            except Exception as e:
+                logger.error(f"Error creating SchemaChunk for document: {doc.metadata}. Error: {e}", exc_info=True)
+                # エラーが発生したドキュメントはスキップし、処理を続行
+
+        if not schema_chunks:
+            logger.warning("No valid schema chunks to add.")
+            return
+
+        with Session(self.engine) as session:
+            try:
+                session.add_all(schema_chunks)
+                session.commit()
+                logger.info(f"Successfully added {len(schema_chunks)} schema chunks to PGVector.")
+            except Exception as e:
+                session.rollback()
+                logger.error(f"Error adding schema chunks to database: {e}", exc_info=True)
+                raise VectorDBException(f"スキーマチャンクのデータベース追加中にエラーが発生しました: {e}", details={
+                    "service_id": self.service_id,
+                    "error": str(e)
+                })
+
+    def _similarity_search(
+        self,
+        query: str,
+        k: int = 4,
+        filter: Optional[Dict[str, Any]] = None
+    ) -> List[Document]:
+        """
+        PGVectorで類似度検索を実行する
+
+        Args:
+            query: 検索クエリ
+            k: 取得するドキュメント数
+            filter: 検索フィルタ (service_idでのフィルタリングを想定)
+
+        Returns:
+            類似度の高いドキュメントのリスト
+        """
+        logger.info(f"Performing PGVector similarity search for query: {query[:30]}... with k={k} and filter={filter}")
+        try:
+            # クエリのembeddingを生成
+            query_embedding = self.embedding_function.embed_query(query)
+
+            with Session(self.engine) as session:
+                # 類似度検索クエリの構築
+                # service_id でフィルタリングし、embedding の類似度でソート
+                # 類似度演算子 '<->' はL2距離（ユークリッド距離）
+                # 距離が小さいほど類似度が高いので、昇順でソート
+                statement = select(SchemaChunk).where(
+                    SchemaChunk.service_id == self.service_id
+                ).order_by(
+                    SchemaChunk.embedding.l2_distance(query_embedding)
+                ).limit(k)
+
+                results = session.exec(statement).all()
+
+                # 結果をLangChainのDocumentオブジェクトに変換
+                documents = []
+                for chunk in results:
+                    metadata = {
+                        "service_id": chunk.service_id,
+                        "path": chunk.path,
+                        "method": chunk.method,
+                        # embedding はメタデータに含めない
+                    }
+                    documents.append(Document(page_content=chunk.content, metadata=metadata))
+
+                logger.info(f"PGVector similarity search found {len(documents)} documents.")
+                return documents
+
+        except Exception as e:
+            logger.error(f"Error performing PGVector similarity search: {e}", exc_info=True)
+            raise VectorDBException(f"PGVector類似度検索中にエラーが発生しました: {e}", details={
+                "query": query,
+                "k": k,
+                "filter": filter,
+                "error": str(e)
+            })
+
+    def _similarity_search_with_score(
+        self,
+        query: str,
+        k: int = 4,
+        filter: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[Document, float]]:
+        """
+        PGVectorでスコア付きの類似度検索を実行する
+
+        Args:
+            query: 検索クエリ
+            k: 取得するドキュメント数
+            filter: 検索フィルタ (service_idでのフィルタリングを想定)
+
+        Returns:
+            類似度の高いドキュメントとスコアのタプルのリスト
+        """
+        logger.info(f"Performing PGVector similarity search with score for query: {query[:30]}... with k={k} and filter={filter}")
+        try:
+            # クエリのembeddingを生成
+            query_embedding = self.embedding_function.embed_query(query)
+
+            with Session(self.engine) as session:
+                # 類似度検索クエリの構築（スコア付き）
+                # スコアはL2距離の逆数や、1 - 距離/最大距離などで正規化することも考えられるが、
+                # ここではL2距離そのものをスコアとして返す（距離が小さいほど類似度が高い）
+                statement = select(SchemaChunk, SchemaChunk.embedding.l2_distance(query_embedding)).where(
+                     SchemaChunk.service_id == self.service_id
+                ).order_by(
+                    SchemaChunk.embedding.l2_distance(query_embedding)
+                ).limit(k)
+
+                results = session.exec(statement).all()
+
+                # 結果をLangChainのDocumentオブジェクトとスコアのタプルに変換
+                documents_with_score = []
+                for chunk, score in results:
+                    metadata = {
+                        "service_id": chunk.service_id,
+                        "path": chunk.path,
+                        "method": chunk.method,
+                    }
+                    documents_with_score.append((Document(page_content=chunk.content, metadata=metadata), score))
+
+                logger.info(f"PGVector similarity search with score found {len(documents_with_score)} documents.")
+                return documents_with_score
+
+        except Exception as e:
+            logger.error(f"Error performing PGVector similarity search with score: {e}", exc_info=True)
+            raise VectorDBException(f"PGVectorスコア付き類似度検索中にエラーが発生しました: {e}", details={
+                "query": query,
+                "k": k,
+                "filter": filter,
+                "error": str(e)
+            })
+
+
+    def _save(self) -> None:
+        """
+        PGVectorはデータベースに永続化されるため、特別な保存処理は不要
+        """
+        logger.info("PGVector does not require explicit save operation.")
+        pass
+
+    async def _aadd_documents(self, documents: List[Document]) -> None:
+        """
+        ドキュメントをPGVectorに非同期で追加する
+
+        Args:
+            documents: 追加するドキュメント
+        """
+        logger.warning("Asynchronous add_documents not fully implemented for PGVectorManager, falling back to sync.")
+        self._add_documents(documents)
+
+    async def _asimilarity_search(
+        self,
+        query: str,
+        k: int = 4,
+        filter: Optional[Dict[str, Any]] = None
+    ) -> List[Document]:
+        """
+        PGVectorで類似度検索を非同期で実行する
+
+        Args:
+            query: 検索クエリ
+            k: 取得するドキュメント数
+            filter: 検索フィルタ
+
+        Returns:
+            類似度の高いドキュメントのリスト
+        """
+        logger.warning("Asynchronous similarity_search not fully implemented for PGVectorManager, falling back to sync.")
+        return self._similarity_search(query, k, filter)
+
+    async def _asimilarity_search_with_score(
+        self,
+        query: str,
+        k: int = 4,
+        filter: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[Document, float]]:
+        """
+        PGVectorでスコア付きの類似度検索を非同期で実行する
+
+        Args:
+            query: 検索クエリ
+            k: 取得するドキュメント数
+            filter: 検索フィルタ
+
+        Returns:
+            類似度の高いドキュメントとスコアのタプルのリスト
+        """
+        logger.warning("Asynchronous similarity_search_with_score not fully implemented for PGVectorManager, falling back to sync.")
+        return self._similarity_search_with_score(query, k, filter)

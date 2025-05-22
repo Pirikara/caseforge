@@ -27,7 +27,7 @@ This process allows for the automated creation of sophisticated test scenarios t
 ## 🛠️ Technologies Used
 
 - **Frontend**: Next.js (App Router), Tailwind CSS, SWR, Recharts, shadcn/ui, Zod, React Hook Form
-- **Backend**: FastAPI, Celery, LangChain Core/Community/OpenAI, FAISS, SQLModel, Pydantic V2/Settings
+- **Backend**: FastAPI, Celery, LangChain Core/Community/OpenAI, PostgreSQL (pgvector), SQLModel, Pydantic V2/Settings
 - **Infrastructure**: Docker Compose, Redis (Broker), PostgreSQL
 - **Testing**: Pytest, Pytest-asyncio
 - **Robustness**: Structured Exception Handling, Timeout Handling, Retry Mechanism
@@ -96,6 +96,22 @@ For local development:
 1.  Follow the Quick Start steps.
 2.  Backend code is in the `backend/` directory. Frontend code is in the `frontend/` directory.
 3.  Changes to the code will trigger hot-reloads in the respective containers (configured in `docker-compose.dev.yml`).
+4.  Enable the `vector` extension in the PostgreSQL database:
+    ```bash
+    docker compose exec db bash
+    ```
+    Inside the container, connect to the database and enable the extension:
+    ```bash
+    psql -U caseforge -d caseforge
+    ```
+    ```sql
+    CREATE EXTENSION vector;
+    \q
+    ```
+    Exit the container:
+    ```bash
+    exit
+    ```
 
 ## ✅ Running Tests
 
