@@ -1,5 +1,6 @@
 import pytest
-from app.services.rag import OpenAPISchemaChunker, index_schema
+from app.services.rag.chunker import OpenAPISchemaChunker
+from app.services.rag.indexer import index_schema
 from tests.unit.services.mock_modules import MockDocument, MockFAISS
 from unittest.mock import patch, MagicMock
 

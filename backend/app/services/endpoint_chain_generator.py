@@ -3,7 +3,7 @@ import json
 import os
 from app.models import Endpoint
 from app.schemas.service import Endpoint as EndpointSchema 
-from app.services.rag import EmbeddingFunctionForCaseforge
+from app.services.rag.embeddings import EmbeddingFunctionForCaseforge
 from app.config import settings
 from app.logging_config import logger
 from langchain_community.vectorstores import FAISS

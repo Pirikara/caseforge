@@ -4,7 +4,7 @@ import os
 import uuid
 from datetime import datetime
 from langchain_community.vectorstores import FAISS
-from app.services.rag import EmbeddingFunctionForCaseforge
+from app.services.rag.embeddings import EmbeddingFunctionForCaseforge
 from app.services.schema_analyzer import OpenAPIAnalyzer
 from app.config import settings
 from app.logging_config import logger
