@@ -83,9 +83,7 @@ def get_schema_files_or_400(id: int = None, service_path: Path = Depends(get_ser
     """
     schema_files = list(service_path.glob("*.yaml")) + list(service_path.glob("*.yml")) + list(service_path.glob("*.json"))
     if not schema_files:
-        logger.error(f"No schema files found in service directory: {service_path}")
         raise HTTPException(status_code=400, detail="No schema files found for this service. Please upload a schema first.")
-    logger.info(f"Found schema files: {[f.name for f in schema_files]}")
     return schema_files
 
 @router.get("/{id}/schema")
@@ -104,11 +102,9 @@ async def get_schema(id: int, service_path: Path = Depends(get_service_or_404)):
     try:
         schema_files = list(service_path.glob("*.yaml")) + list(service_path.glob("*.yml")) + list(service_path.glob("*.json"))
         if not schema_files:
-            logger.error(f"No schema files found in service directory: {service_path}")
             raise HTTPException(status_code=404, detail="No schema files found for this service")
         
         latest_schema = max(schema_files, key=lambda x: x.stat().st_mtime)
-        logger.info(f"Found latest schema file: {latest_schema.name}")
         
         content = get_schema_content(str(id), latest_schema.name)
         
@@ -119,12 +115,8 @@ async def get_schema(id: int, service_path: Path = Depends(get_service_or_404)):
             "content": content,
             "content_type": content_type
         }
-    except FileNotFoundError as e:
-        logger.error(f"Schema file not found for service {id}: {e}")
-        raise HTTPException(status_code=404, detail="Schema file not found")
     except Exception as e:
-        logger.error(f"Error getting schema for service {id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error getting schema: {str(e)}")
+        raise HTTPException(status_code=404, detail=f"Schema file not found: {str(e)}")
 
 @router.post("/{id}/schema")
 async def upload_schema(id: int, file: UploadFile = File(...)):

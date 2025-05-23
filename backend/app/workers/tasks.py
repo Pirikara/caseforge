@@ -32,7 +32,6 @@ def generate_test_suites_task(service_id: int, error_types: Optional[List[str]] 
         schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
         
         if not schema_files:
-            logger.error(f"No schema files found for service {service_id}")
             return {"status": "error", "message": "No schema files found"}
         
         schema_file = schema_files[0]
@@ -95,7 +94,6 @@ def generate_test_suites_for_endpoints_task(service_id: int, endpoint_ids: List[
             schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
             
             if not schema_files:
-                logger.error(f"No schema files found for service {service_id}")
                 return {"status": "error", "message": "No schema files found"}
             
             schema_file = schema_files[0]
