@@ -22,7 +22,7 @@ def index_schema(service_id: str, path: str) -> None:
         logger.info("Step 2: Initializing vector database manager")
         from app.services.vector_db.manager import VectorDBManagerFactory
         
-        vector_db_manager = VectorDBManagerFactory.create_default(service_id, db_type="pgvector")
+        vector_db_manager = VectorDBManagerFactory.create_default(service_id)
         
         logger.info("Step 3: Adding documents to vector database")
         try:

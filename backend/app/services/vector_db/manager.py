@@ -952,6 +952,13 @@ class PGVectorManager(VectorDBManager):
         logger.info("PGVector does not require explicit save operation.")
         pass
 
+    async def _asave(self) -> None:
+        """
+        PGVectorはデータベースに非同期で永続化されるため、特別な保存処理は不要
+        """
+        logger.info("PGVector does not require explicit asynchronous save operation.")
+        pass
+
     async def _aadd_documents(self, documents: List[Document]) -> None:
         """
         ドキュメントをPGVectorに非同期で追加する
