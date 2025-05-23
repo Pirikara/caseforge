@@ -32,7 +32,6 @@ async def run_tests(id: int) -> list[dict]:
                     json_body = req.get("body")
     
                     try:
-                        logger.debug(f"Running test {test.get('id')}: {method} {path}")
                         response = await client.request(method, path, json=json_body)
                         result = {
                             "id": test.get("id"),
@@ -92,10 +91,8 @@ def list_test_runs(id: int) -> list[str]:
     try:
         path = path_manager.get_log_dir(str(id))
         if not path_manager.exists(path):
-            logger.debug(f"No test runs found for service {id}")
             return []
         runs = sorted(os.listdir(str(path)), reverse=True)
-        logger.debug(f"Found {len(runs)} test runs for service {id}")
         return runs
     except Exception as e:
         logger.error(f"Error listing test runs for service {id}: {e}")
@@ -119,7 +116,6 @@ def get_run_result(id: int, run_id: str) -> list[dict] | None:
             return None
         with open(path, "r") as f:
             result = json.load(f)
-            logger.debug(f"Loaded test results for service {id}, run {run_id}")
             return result
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in test run log {path}: {e}")
@@ -138,7 +134,6 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
     Returns:
         RecentTestRunsResponse スキーマに適合する辞書
     """
-    logger.info(f"Fetching recent test runs with limit {limit}")
     
     all_runs = []
     total_runs = 0
@@ -160,7 +155,6 @@ def get_recent_runs(limit: int = 5) -> Dict[str, Any]:
         }
 
     services = [d for d in os.listdir(str(log_dir)) if path_manager.is_dir(path_manager.join_path(log_dir, d))]
-    logger.debug(f"Found {len(services)} services with test runs logs")
 
     for service_id in services:
         service_path = path_manager.get_log_dir(service_id)

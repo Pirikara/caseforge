@@ -254,11 +254,6 @@ def retry(
                             _max_retry_delay, _backoff_factor, _retry_jitter
                         )
                         
-                        logger.info(
-                            f"Retrying {func.__name__} due to result evaluation (attempt {retry_count}/{_max_retries}, delay {delay:.2f}s)",
-                            extra={"retry_count": retry_count, "delay": delay, "result": result}
-                        )
-                        
                         time.sleep(delay)
                         continue
                     
@@ -288,11 +283,6 @@ def retry(
                     delay = calculate_next_delay(
                         retry_count, _retry_strategy, _retry_delay,
                         _max_retry_delay, _backoff_factor, _retry_jitter
-                    )
-                    
-                    logger.info(
-                        f"Retrying {func.__name__} due to {type(e).__name__} (attempt {retry_count}/{_max_retries}, delay {delay:.2f}s): {str(e)}",
-                        extra={"retry_count": retry_count, "delay": delay, "exception": str(e)}
                     )
                     
                     time.sleep(delay)
@@ -391,11 +381,6 @@ def async_retry(
                             _max_retry_delay, _backoff_factor, _retry_jitter
                         )
                         
-                        logger.info(
-                            f"Retrying {func.__name__} due to result evaluation (attempt {retry_count}/{_max_retries}, delay {delay:.2f}s)",
-                            extra={"retry_count": retry_count, "delay": delay, "result": result}
-                        )
-                        
                         await asyncio.sleep(delay)
                         continue
                     
@@ -427,21 +412,12 @@ def async_retry(
                         _max_retry_delay, _backoff_factor, _retry_jitter
                     )
                     
-                    logger.info(
-                        f"Retrying {func.__name__} due to {type(e).__name__} (attempt {retry_count}/{_max_retries}, delay {delay:.2f}s): {str(e)}",
-                        extra={"retry_count": retry_count, "delay": delay, "exception": str(e)}
-                    )
-                    
                     await asyncio.sleep(delay)
         
         return cast(AsyncF, wrapper)
     
     return decorator
     
-    if retry_exceptions is None:
-        return True
-    
-    return any(isinstance(exception, exc_type) for exc_type in retry_exceptions)
 
 
 def retry_result_evaluator(result: Any) -> bool:
@@ -557,11 +533,6 @@ def run_with_retry(
                     max_retry_delay, backoff_factor, retry_jitter
                 )
                 
-                logger.info(
-                    f"Retrying {func.__name__} due to result evaluation (attempt {retry_count}/{max_retries}, delay {delay:.2f}s)",
-                    extra={"retry_count": retry_count, "delay": delay, "result": result}
-                )
-                
                 time.sleep(delay)
                 continue
             
@@ -591,11 +562,6 @@ def run_with_retry(
             delay = calculate_next_delay(
                 retry_count, retry_strategy, retry_delay,
                 max_retry_delay, backoff_factor, retry_jitter
-            )
-            
-            logger.info(
-                f"Retrying {func.__name__} due to {type(e).__name__} (attempt {retry_count}/{max_retries}, delay {delay:.2f}s): {str(e)}",
-                extra={"retry_count": retry_count, "delay": delay, "exception": str(e)}
             )
             
             time.sleep(delay)
@@ -674,11 +640,6 @@ async def run_async_with_retry(
                     max_retry_delay, backoff_factor, retry_jitter
                 )
                 
-                logger.info(
-                    f"Retrying {func.__name__} due to result evaluation (attempt {retry_count}/{max_retries}, delay {delay:.2f}s)",
-                    extra={"retry_count": retry_count, "delay": delay, "result": result}
-                )
-                
                 await asyncio.sleep(delay)
                 continue
             
@@ -708,11 +669,6 @@ async def run_async_with_retry(
             delay = calculate_next_delay(
                 retry_count, retry_strategy, retry_delay,
                 max_retry_delay, backoff_factor, retry_jitter
-            )
-            
-            logger.info(
-                f"Retrying {func.__name__} due to {type(e).__name__} (attempt {retry_count}/{max_retries}, delay {delay:.2f}s): {str(e)}",
-                extra={"retry_count": retry_count, "delay": delay, "exception": str(e)}
             )
             
             await asyncio.sleep(delay)

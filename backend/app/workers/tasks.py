@@ -25,7 +25,6 @@ def generate_test_suites_task(service_id: int, error_types: Optional[List[str]] 
     Returns:
         dict: 生成結果の情報
     """
-    logger.info(f"Generating test suites for service {service_id}")
     
     try:
         schema_path = f"{settings.SCHEMA_DIR}/{str(service_id)}"
@@ -45,7 +44,6 @@ def generate_test_suites_task(service_id: int, error_types: Optional[List[str]] 
         rag = DependencyAwareRAG(service_id, schema, error_types)
         
         test_suites = rag.generate_request_chains()
-        logger.info(f"Successfully generated {len(test_suites)} test suites")
         
         chain_store = ChainStore()
         chain_store.save_suites(None, service_id, test_suites) # Pass None for session as it's handled internally in save_suites
@@ -68,7 +66,6 @@ def generate_test_suites_for_endpoints_task(service_id: int, endpoint_ids: List[
     Returns:
         生成結果
     """
-    logger.info(f"Starting test suite generation for selected endpoints in service {service_id}")
     try:
         with Session(engine) as session:
             service_query = select(Service).where(Service.id == service_id)
@@ -78,7 +75,6 @@ def generate_test_suites_for_endpoints_task(service_id: int, endpoint_ids: List[
                 logger.error(f"Service not found: {service_id}")
                 return {"status": "error", "message": "Service not found"}
             
-            logger.info(f"Found service with database id (int): {db_service.id}")
 
             endpoints_query = select(Endpoint).where(
                 Endpoint.service_id == db_service.id,
@@ -107,26 +103,19 @@ def generate_test_suites_for_endpoints_task(service_id: int, endpoint_ids: List[
             generated_suites_count = 0
             all_generated_suites = []
             
-            logger.info(f"Generating test suites for {len(selected_endpoints)} selected endpoints")
             generator = EndpointChainGenerator(service_id, selected_endpoints, schema, error_types)
             
             generated_suites = generator.generate_chains()
-            logger.info(f"Generated {len(generated_suites)} test suites for {len(selected_endpoints)} endpoints")
             for i, suite in enumerate(generated_suites):
-                logger.info(f"TestSuite {i+1}: {suite.get('name')} with {len(suite.get('test_cases', []))} test cases")
                 if suite.get('test_cases'):
                     first_case = suite['test_cases'][0]
-                    logger.info(f"  First TestCase: {first_case.get('name')} with {len(first_case.get('test_steps', []))} steps")
                     if first_case.get('test_steps'):
                         first_step = first_case['test_steps'][0]
-                        logger.info(f"    First TestStep: {first_step.get('method')} {first_step.get('path')}")
 
             if generated_suites:
-                logger.info(f"Saving {len(generated_suites)} test suites to the database. Service ID: {service_id}")
                 chain_store = ChainStore()
                 chain_store.save_suites(session, service_id, generated_suites, overwrite=False)
                 generated_suites_count = len(generated_suites)
-                logger.info(f"Successfully generated and saved {generated_suites_count} test suites")
 
         if generated_suites_count == 0:
                 return {"status": "warning", "message": "No test suites were generated for the selected endpoints."}
@@ -137,7 +126,6 @@ def generate_test_suites_for_endpoints_task(service_id: int, endpoint_ids: List[
         logger.error(f"Error generating test suites for service {service_id}: {e}", exc_info=True)
         try:
             session.rollback()
-            logger.info("Session rolled back successfully due to task error")
         except Exception as rollback_error:
             logger.error(f"Error rolling back session after task error: {rollback_error}")
         return {"status": "error", "message": str(e)}

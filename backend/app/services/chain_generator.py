@@ -33,22 +33,16 @@ class DependencyAwareRAG:
         is_testing = os.environ.get("TESTING") == "1"
         
         if is_testing:
-            logger.info("テスト環境のため初期化をスキップします")
             self.vectordb = None
         else:
-                logger.info("DependencyAwareRAG: 埋め込み関数の初期化を開始")
                 embedding_fn = EmbeddingFunctionForCaseforge()
-                logger.info("DependencyAwareRAG: 埋め込み関数の初期化完了")
                 
-                logger.info("DependencyAwareRAG: ベクトルDBの初期化を開始")
                 try:
                     from app.services.vector_db.manager import VectorDBManagerFactory
                     self.vectordb = VectorDBManagerFactory.create_default(str(id), db_type="pgvector")
-                    logger.info("DependencyAwareRAG: ベクトルDBの初期化完了")
                 except Exception as e:
                     logger.warning(f"DependencyAwareRAG: ベクトルDB初期化エラー: {e}", exc_info=True)
                     self.vectordb = None
-                    logger.info("DependencyAwareRAG: ベクトルDBなしで続行します")
     
     def generate_request_chains(self) -> List[Dict]:
         """
@@ -190,7 +184,6 @@ class DependencyAwareRAG:
                         }
                     ]
                 }
-                logger.info("テスト環境のためサンプルチェーンを返します")
                 return sample_chain
             
             context = self._build_context_for_candidate(candidate)
@@ -268,7 +261,6 @@ class DependencyAwareRAG:
             error_types_instruction = "様々な異常系テストケース（例: 必須フィールドの欠落、無効な入力値、認証エラーなど）"
             if self.error_types and len(self.error_types) > 0:
                 error_types_instruction = f"以下の異常系テストケース（{', '.join(self.error_types)}）"
-                logger.info(f"Generating tests with specific error types: {self.error_types}")
 
             try:
                 if 'prompt_template' in locals():
@@ -288,12 +280,9 @@ class DependencyAwareRAG:
                                            ))]
                     )
                 
-                logger.info(f"Successfully generated request chain with {len(chain.get('test_cases', []))} test cases")
                 return chain
             except llm_client.LLMResponseFormatException as e:
                 logger.error(f"Failed to parse LLM response as JSON: {e}")
-                if hasattr(e, "details") and e.details:
-                    logger.debug(f"Raw response: {e.details.get('response', '')[:200]}...")
                 return None
             except llm_client.LLMException as e:
                 logger.error(f"Error invoking LLM: {e}")
@@ -398,7 +387,6 @@ class ChainStore:
                     with open(suites_file_path, "r") as f:
                         existing_suites = json.load(f)
                     all_suites = existing_suites + test_suites
-                    logger.info(f"Adding {len(test_suites)} new test suites to {len(existing_suites)} existing suites")
                     with open(suites_file_path, "w") as f:
                         json.dump(all_suites, f, indent=2)
                 except Exception as e:
@@ -409,10 +397,8 @@ class ChainStore:
                 with open(suites_file_path, "w") as f:
                     json.dump(test_suites, f, indent=2)
             
-            logger.info(f"Exec save_suites Service ID: {id}")
             service_query = select(Service).where(Service.id == id)
             db_service = session.exec(service_query).first()
-            logger.info(f"Found service with database id (int): {db_service.id}")
             
             if not db_service:
                 logger.error(f"Service not found: {id}")
@@ -429,7 +415,6 @@ class ChainStore:
                         session.delete(case)
                     session.delete(suite)
                 
-                logger.info(f"Deleted {len(existing_suites)} existing test suites for service {id}")
 
             for suite_data in test_suites:
                 suite_id = suite_data.get("id", str(uuid.uuid4()))
@@ -444,10 +429,8 @@ class ChainStore:
                 session.add(test_suite)
                 session.flush()
 
-                logger.info(f"All Test Cases: {suite_data.get('test_cases', "ないよ")}")
                 
                 for case_data in suite_data.get("test_cases", []):
-                    logger.info(f"Test Case: {case_data}")
                     case_id = str(uuid.uuid4())
                     test_case = TestCase(
                         id=case_id,
@@ -459,9 +442,7 @@ class ChainStore:
                     session.add(test_case)
                     session.flush()
 
-                    logger.info(f"All Test Steps: {case_data.get('test_steps', "ないよ")}")
                     for i, step_data in enumerate(case_data.get("test_steps", [])):
-                        logger.info(f"Test Step: {step_data}")
                         step_id = str(uuid.uuid4())
                         test_step = TestStep(
                             id=step_id,
@@ -479,7 +460,6 @@ class ChainStore:
                         session.add(test_step)
                 
             session.commit()
-            logger.info(f"Saved {len(test_suites)} test suites with cases and steps to database for service {id}")
                 
         except Exception as e:
             logger.error(f"Error saving test suites for service {id}: {e}", exc_info=True)
@@ -502,7 +482,6 @@ class ChainStore:
             db_service = session.exec(service_query).first()
 
             if not db_service:
-                logger.error(f"Service not found: {id}")
                 return []
             
             test_suites = []
@@ -555,7 +534,6 @@ class ChainStore:
                 db_service = session.exec(service_query).first()
                 
                 if not db_service:
-                    logger.error(f"Service not found: {id}")
                     return
                 
                 existing_suites_dict = {(suite.target_method, suite.target_path): suite for suite in db_service.test_suites}
@@ -579,7 +557,6 @@ class ChainStore:
                                 session.delete(step)
                             session.delete(case)
                         session.delete(existing_suite)
-                        logger.info(f"Deleted existing test suite for {target_method} {target_path}")
                     
                     suite_id = str(uuid.uuid4())
                     test_suite = TestSuite(
@@ -630,7 +607,6 @@ class ChainStore:
                     suites_to_save.append(test_suite)
 
                 session.commit()
-                logger.info(f"Merged and saved {len(new_test_suites)} new/updated test suites for service {id}")
                 
         except Exception as e:
             logger.error(f"Error merging and saving test suites for service {id}: {e}", exc_info=True)
@@ -654,7 +630,6 @@ class ChainStore:
             db_service = session.exec(service_query).first()
 
             if not db_service:
-                logger.error(f"Service not found: {id}")
                 return None
             
             for suite in db_service.test_suites:

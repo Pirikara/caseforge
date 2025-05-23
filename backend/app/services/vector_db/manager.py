@@ -384,7 +384,6 @@ class VectorDBManager(abc.ABC):
             documents: 追加するドキュメント
         """
         try:
-            logger.info(f"Adding {len(documents)} documents to vector database")
             
             if self.use_cache:
                 self.document_cache.clear()
@@ -394,7 +393,6 @@ class VectorDBManager(abc.ABC):
             if self.persist_directory:
                 self._save()
             
-            logger.info(f"Successfully added {len(documents)} documents to vector database")
         except Exception as e:
             logger.error(f"Error adding documents to vector database: {e}", exc_info=True)
             raise VectorDBException(f"ドキュメント追加中にエラーが発生しました: {e}", details={
@@ -421,13 +419,11 @@ class VectorDBManager(abc.ABC):
             類似度の高いドキュメントのリスト
         """
         try:
-            logger.info(f"Performing similarity search for query: {query[:30]}...")
             
             if self.use_cache:
                 cache_key = self._get_cache_key_for_query(query, k, filter)
                 cached_results = self.document_cache.get(cache_key)
                 if cached_results:
-                    logger.info(f"Using cached results for query: {query[:30]}...")
                     return cached_results
             
             results = self._similarity_search(query, k, filter)
@@ -435,7 +431,6 @@ class VectorDBManager(abc.ABC):
             if self.use_cache:
                 self.document_cache.set(cache_key, results)
             
-            logger.info(f"Successfully performed similarity search, found {len(results)} documents")
             return results
         except Exception as e:
             logger.error(f"Error performing similarity search: {e}", exc_info=True)
@@ -464,10 +459,8 @@ class VectorDBManager(abc.ABC):
             類似度の高いドキュメントとスコアのタプルのリスト
         """
         try:
-            logger.info(f"Performing similarity search with score for query: {query[:30]}...")            
             results = self._similarity_search_with_score(query, k, filter)
             
-            logger.info(f"Successfully performed similarity search with score, found {len(results)} documents")
             return results
         except Exception as e:
             logger.error(f"Error performing similarity search with score: {e}", exc_info=True)
@@ -486,7 +479,6 @@ class VectorDBManager(abc.ABC):
             documents: 追加するドキュメント
         """
         try:
-            logger.info(f"Async adding {len(documents)} documents to vector database")
             if self.use_cache:
                 self.document_cache.clear()
             
@@ -495,7 +487,6 @@ class VectorDBManager(abc.ABC):
             if self.persist_directory:
                 await self._asave()
             
-            logger.info(f"Successfully async added {len(documents)} documents to vector database")
         except Exception as e:
             logger.error(f"Error async adding documents to vector database: {e}", exc_info=True)
             raise VectorDBException(f"ドキュメント非同期追加中にエラーが発生しました: {e}", details={
@@ -522,12 +513,10 @@ class VectorDBManager(abc.ABC):
             類似度の高いドキュメントのリスト
         """
         try:
-            logger.info(f"Async performing similarity search for query: {query[:30]}...")
             if self.use_cache:
                 cache_key = self._get_cache_key_for_query(query, k, filter)
                 cached_results = self.document_cache.get(cache_key)
                 if cached_results:
-                    logger.info(f"Using cached results for query: {query[:30]}...")
                     return cached_results
             
             results = await self._asimilarity_search(query, k, filter)
@@ -535,7 +524,6 @@ class VectorDBManager(abc.ABC):
             if self.use_cache:
                 self.document_cache.set(cache_key, results)
             
-            logger.info(f"Successfully async performed similarity search, found {len(results)} documents")
             return results
         except Exception as e:
             logger.error(f"Error async performing similarity search: {e}", exc_info=True)
@@ -564,10 +552,8 @@ class VectorDBManager(abc.ABC):
             類似度の高いドキュメントとスコアのタプルのリスト
         """
         try:
-            logger.info(f"Async performing similarity search with score for query: {query[:30]}...")            
             results = await self._asimilarity_search_with_score(query, k, filter)
             
-            logger.info(f"Successfully async performed similarity search with score, found {len(results)} documents")
             return results
         except Exception as e:
             logger.error(f"Error async performing similarity search with score: {e}", exc_info=True)
@@ -580,7 +566,6 @@ class VectorDBManager(abc.ABC):
         """キャッシュをクリア"""
         if self.use_cache:
             self.document_cache.clear()
-            logger.info("Document cache cleared")
         for file in os.listdir(str(self.cache_dir)):
             if file.endswith(".pkl"):
                 file_path = path_manager.join_path(self.cache_dir, file)
@@ -673,20 +658,14 @@ class VectorDBManagerFactory:
             ベクトルDBマネージャー
         """
         db_type = os.environ.get("VECTOR_DB_TYPE", "pgvector")
-        logger.info(f"📌 VECTOR_DB_TYPE = {db_type}")
         
         data_dir = os.environ.get("DATA_DIR", "/app/data")
         persist_directory = path_manager.join_path(data_dir, db_type, service_id) if service_id else None
-        logger.info(f"📂 persist_directory = {persist_directory}")
         
         collection_name = str(service_id) if service_id is not None else "default"
-        logger.info(f"📁 collection_name = {collection_name}")
 
-        logger.info("🧠 Creating embedding model...")
         embedding_model = EmbeddingModelFactory.create_default()
-        logger.info("✅ Embedding model created")
 
-        logger.info("🧱 Creating vector DB manager...")
         
         if db_type == "pgvector":
             return PGVectorManager(
@@ -775,7 +754,6 @@ class PGVectorManager(VectorDBManager):
         # PGVectorはデータベース自体がベクトルDBとして機能するため、特別なセットアップは不要
         # テーブルの存在確認や作成は__init__で行う
         # 例: CREATE INDEX ON schema_chunk USING ivfflat(embedding vector_l2_ops) WITH (lists = 100);
-        logger.info(f"PGVectorManager setup complete for service_id: {self.service_id}")
         pass
 
     def _add_documents(self, documents: List[Document]) -> None:
@@ -785,7 +763,6 @@ class PGVectorManager(VectorDBManager):
         Args:
             documents: 追加するドキュメント
         """
-        logger.info(f"Adding {len(documents)} documents to PGVector for service_id: {self.service_id}")
         schema_chunks = []
         for doc in documents:
             # Documentのmetadataからpathとmethodを取得することを想定
@@ -818,7 +795,6 @@ class PGVectorManager(VectorDBManager):
             try:
                 session.add_all(schema_chunks)
                 session.commit()
-                logger.info(f"Successfully added {len(schema_chunks)} schema chunks to PGVector.")
             except Exception as e:
                 session.rollback()
                 logger.error(f"Error adding schema chunks to database: {e}", exc_info=True)
@@ -844,7 +820,6 @@ class PGVectorManager(VectorDBManager):
         Returns:
             類似度の高いドキュメントのリスト
         """
-        logger.info(f"Performing PGVector similarity search for query: {query[:30]}... with k={k} and filter={filter}")
         try:
             # クエリのembeddingを生成
             query_embedding = self.embedding_function.embed_query(query)
@@ -873,7 +848,6 @@ class PGVectorManager(VectorDBManager):
                     }
                     documents.append(Document(page_content=chunk.content, metadata=metadata))
 
-                logger.info(f"PGVector similarity search found {len(documents)} documents.")
                 return documents
 
         except Exception as e:
@@ -902,7 +876,6 @@ class PGVectorManager(VectorDBManager):
         Returns:
             類似度の高いドキュメントとスコアのタプルのリスト
         """
-        logger.info(f"Performing PGVector similarity search with score for query: {query[:30]}... with k={k} and filter={filter}")
         try:
             # クエリのembeddingを生成
             query_embedding = self.embedding_function.embed_query(query)
@@ -929,7 +902,6 @@ class PGVectorManager(VectorDBManager):
                     }
                     documents_with_score.append((Document(page_content=chunk.content, metadata=metadata), score))
 
-                logger.info(f"PGVector similarity search with score found {len(documents_with_score)} documents.")
                 return documents_with_score
 
         except Exception as e:
@@ -946,14 +918,12 @@ class PGVectorManager(VectorDBManager):
         """
         PGVectorはデータベースに永続化されるため、特別な保存処理は不要
         """
-        logger.info("PGVector does not require explicit save operation.")
         pass
 
     async def _asave(self) -> None:
         """
         PGVectorはデータベースに非同期で永続化されるため、特別な保存処理は不要
         """
-        logger.info("PGVector does not require explicit asynchronous save operation.")
         pass
 
     async def _aadd_documents(self, documents: List[Document]) -> None:

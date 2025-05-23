@@ -98,7 +98,6 @@ async def get_schema(id: int, service_path: Path = Depends(get_service_or_404)):
     Returns:
         スキーマの内容
     """
-    logger.info(f"Getting schema for service {id}")
     try:
         schema_files = list(service_path.glob("*.yaml")) + list(service_path.glob("*.yml")) + list(service_path.glob("*.json"))
         if not schema_files:
@@ -120,14 +119,12 @@ async def get_schema(id: int, service_path: Path = Depends(get_service_or_404)):
 
 @router.post("/{id}/schema")
 async def upload_schema(id: int, file: UploadFile = File(...)):
-    logger.info(f"Uploading schema for service {id}: {file.filename}")
     try:
         if file.content_type not in ["application/json", "application/x-yaml", "text/yaml"]:
             logger.warning(f"Invalid content type for schema upload: {file.content_type}")
             raise HTTPException(status_code=400, detail="Invalid content type")
         contents = await file.read()
         await save_and_index_schema(str(id), contents, file.filename)
-        logger.info(f"Schema uploaded and indexed successfully for service {id}")
         return {"message": "Schema uploaded and indexed successfully."}
     except Exception as e:
         logger.error(f"Error uploading schema for service {id}: {e}")
@@ -155,15 +152,12 @@ async def generate_tests(
     Returns:
         dict: 生成タスクの情報
     """
-    logger.info(f"Triggering test suite generation for service {id}")
     
     try:
         if endpoint_ids:
-            logger.info(f"Generating test suites for selected endpoints: {endpoint_ids} with error types: {error_types}")
             task_id = generate_test_suites_for_endpoints_task.delay(str(id), endpoint_ids, error_types).id
             task_type = "endpoints"
         else:
-            logger.info(f"Generating test suites from entire schema with error types: {error_types}.")
             task_id = generate_test_suites_task.delay(str(id), error_types).id
             task_type = "full_schema"
             
@@ -171,7 +165,6 @@ async def generate_tests(
             logger.error(f"Failed to trigger test suite generation task for service {id}")
             raise HTTPException(status_code=500, detail="Failed to start test suite generation task")
             
-        logger.info(f"Test suite generation task ({task_type}) started with ID: {task_id}")
         return {"message": f"Test suite generation ({task_type}) started", "task_id": task_id, "status": "generating"}
         
     except HTTPException:
@@ -186,7 +179,6 @@ async def get_test_suites(
     session: Session = Depends(get_session),
     service_path: Path = Depends(get_service_or_404)
 ):
-    logger.info(f"Fetching test suites for service {id}")
     try:
         chain_store = ChainStore()
         test_suites = chain_store.list_test_suites(session, str(id))
@@ -202,7 +194,6 @@ async def get_test_suite_detail(
     session: Session = Depends(get_session),
     service_path: Path = Depends(get_service_or_404)
 ):
-    logger.info(f"Fetching test suite details for service {id}, suite {suite_id}")
     try:
         chain_store = ChainStore()
         test_suite = chain_store.get_test_suite(session, str(id), suite_id)
@@ -225,7 +216,6 @@ async def delete_test_suite(
     """
     テストスイートを削除するAPIエンドポイント
     """
-    logger.info(f"Deleting test suite: id={id}, suite_id={suite_id}")
     try:
         with Session(engine) as session:
             from app.models.test.suite import TestSuite
@@ -242,7 +232,6 @@ async def delete_test_suite(
 
             session.delete(db_test_suite)
             session.commit()
-            logger.info(f"Test suite {suite_id} for service {id} and related data deleted from database.")
 
         # ChainStore にファイルシステム上のテストスイートデータ削除機能があれば呼び出す
         # ChainStore の実装を確認する必要があるが、一旦スキップ
@@ -271,7 +260,6 @@ async def get_test_cases(
     Returns:
         テストケースのリスト
     """
-    logger.info(f"Getting test cases for service {id}")
     try:
         chain_store = ChainStore()
         test_suites = chain_store.list_test_suites(str(id))
@@ -292,10 +280,8 @@ async def run_test_suites_endpoint(
     suite_id: str = None,
     service_path: Path = Depends(get_service_or_404)
 ):
-    logger.info(f"Running test suites for service {id}")
     try:
         results = await run_test_suites(str(id), suite_id)
-        logger.info(f"Test suite run completed for service {id}")
         
         return {
             "message": "Test suite run complete",
@@ -312,7 +298,6 @@ async def get_run_history(
     limit: int = 10,
     service_path: Path = Depends(get_service_or_404)
 ):
-    logger.info(f"Fetching run history for service {id}")
     try:
         return list_test_runs(str(id), limit)
     except Exception as e:
@@ -325,7 +310,6 @@ async def get_run_detail(
     run_id: str,
     service_path: Path = Depends(get_service_or_404)
 ):
-    logger.info(f"Fetching run details for service {id}, run {run_id}")
     try:
         result = get_test_run(str(id), run_id)
         if result is None:
@@ -349,7 +333,6 @@ async def get_recent_test_runs(limit: int = 5):
     Returns:
         最近のテスト実行と統計情報
     """
-    logger.info(f"Fetching recent test runs with limit {limit}")
     try:
         result = get_recent_runs(limit)
         return result
@@ -359,7 +342,6 @@ async def get_recent_test_runs(limit: int = 5):
 
 @router.get("/")
 async def list_services():
-    logger.info("Listing all services")
     try:
         from app.services.schema import list_services
         return await list_services()
@@ -385,12 +367,10 @@ async def create_service(service: ServiceCreate):
         
         # The result now contains the integer ID from the database
         created_service_id = result.get("id")
-        logger.info(f"Created new service with ID: {created_service_id}")
         
         # Create the filesystem directory using the new integer ID
         # ファイルシステム上のディレクトリは int 型の ID を文字列に変換して使用
         path_manager.get_schema_dir(str(created_service_id)).mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created service directory for ID: {created_service_id}")
         
         return {"status": "created", "id": created_service_id, "name": service.name, "description": service.description}
     except HTTPException:
@@ -422,7 +402,6 @@ async def update_service(id: int, updated_service_data: dict = Body(...)):
             session.add(db_service)
             session.commit()
             session.refresh(db_service)
-            logger.info(f"Service {id} updated successfully.")
 
             return {
                 "id": db_service.id,
@@ -451,11 +430,9 @@ async def delete_service(id: int, service_path: Path = Depends(get_service_or_40
 
             session.delete(db_service)
             session.commit()
-            logger.info(f"Service {id} and related data deleted from database.")
 
         import shutil
         shutil.rmtree(service_path)
-        logger.info(f"Service directory {service_path} deleted from file system.")
 
         return {"message": f"Service {id} deleted successfully."}
     except HTTPException:
@@ -472,14 +449,12 @@ async def import_endpoints(id: int, service_path: Path = Depends(get_service_or_
         id: サービスID
         service_path: サービスのパス
     """
-    logger.info(f"Importing endpoints for service {id}")
     try:
         schema_files = list(service_path.glob("*.yaml")) + list(service_path.glob("*.yml")) + list(service_path.glob("*.json"))
         if not schema_files:
             raise HTTPException(status_code=400, detail="No schema files found for this service. Please upload a schema first.")
 
         latest_schema = max(schema_files, key=lambda x: x.stat().st_mtime)
-        logger.info(f"Using latest schema file for import: {latest_schema.name}")
 
         content = get_schema_content(str(id), latest_schema.name)
         parser = EndpointParser(content)
@@ -530,8 +505,6 @@ async def import_endpoints(id: int, service_path: Path = Depends(get_service_or_
 
             for ep in updated_endpoints:
                 session.refresh(ep)
-
-            logger.info(f"Successfully imported and saved {len(updated_endpoints)} endpoints for service {service_id}")
 
             if updated_endpoints:
                 try:
@@ -600,7 +573,6 @@ async def generate_test_suite_for_endpoints(
         if not task_id:
             raise HTTPException(status_code=500, detail="Failed to start test suite generation task")
 
-        logger.info(f"Test suite generation task for endpoints started with ID: {task_id}")
         return {"message": "Test suite generation for endpoints started", "task_id": task_id, "status": "generating"}
 
     except HTTPException:
@@ -708,7 +680,6 @@ async def create_test_case(
             session.add(test_case)
             session.commit()
             session.refresh(test_case)
-            logger.info(f"Test case {test_case.id} created successfully for suite {suite_id}.")
 
             from app.schemas.test_schemas import TestCase
             return TestCase.from_orm(test_case)
@@ -753,7 +724,6 @@ async def update_test_case(
             session.add(db_test_case)
             session.commit()
             session.refresh(db_test_case)
-            logger.info(f"Test case {case_id} updated successfully.")
 
             from app.schemas.test_schemas import TestCase
             return TestCase.from_orm(db_test_case)
@@ -897,7 +867,6 @@ async def create_test_step(
             session.add(test_step)
             session.commit()
             session.refresh(test_step)
-            logger.info(f"Test step {test_step.id} created successfully for case {case_id}.")
 
             from app.schemas.test_schemas import TestStep
             return TestStep.from_orm(test_step)
@@ -942,7 +911,6 @@ async def update_test_step(
             session.add(db_test_step)
             session.commit()
             session.refresh(db_test_step)
-            logger.info(f"Test step {step_id} updated successfully.")
 
             from app.schemas.test_schemas import TestStep
             return TestStep.from_orm(db_test_step)

@@ -12,10 +12,8 @@ class EmbeddingFunctionForCaseforge(Embeddings):
         簡易的な埋め込み関数を初期化
         """
         try:
-            logger.info("Using simplified embedding function from new implementation")
             from app.services.vector_db.embeddings import EmbeddingModelFactory
             self.model = EmbeddingModelFactory.create(model_type="simplified")
-            logger.info("Successfully initialized simplified embedding function")
         except Exception as e:
             logger.error(f"Error initializing simplified embedding function: {e}", exc_info=True)
             raise

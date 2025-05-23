@@ -27,7 +27,6 @@ def _resolve_references(schema: Dict, full_schema: Dict, resolved_refs: set = No
     
     if "$ref" in resolved:
         ref_path = resolved["$ref"]
-        logger.debug(f"Resolving reference: {ref_path}")
         
         if ref_path in resolved_refs:
             logger.warning(f"Circular reference detected: {ref_path}")
@@ -108,7 +107,6 @@ def parse_openapi_schema(schema_content: Optional[str] = None, file_path: Option
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 schema_content = f.read()
-            logger.info(f"Schema file loaded: {file_path}")
         except Exception as e:
             logger.error(f"Error loading schema file {file_path}: {e}")
             raise
@@ -116,18 +114,14 @@ def parse_openapi_schema(schema_content: Optional[str] = None, file_path: Option
     if schema_content:
         try:
             schema = yaml.safe_load(schema_content)
-            logger.info("Schema content loaded as YAML")
         except Exception as e:
-            logger.info(f"Failed to load as YAML: {e}, trying JSON")
             try:
                 schema = json.loads(schema_content)
-                logger.info("Schema content loaded as JSON")
             except Exception as e:
                 logger.error(f"Failed to parse schema content: {e}")
                 raise ValueError(f"Invalid schema format: {e}")
 
     if not isinstance(schema, dict):
-        logger.error(f"Parsed schema is not a dictionary: {type(schema)}")
         raise ValueError("Parsed schema must be a dictionary")
 
     if "openapi" not in schema:
@@ -135,7 +129,7 @@ def parse_openapi_schema(schema_content: Optional[str] = None, file_path: Option
 
     if "paths" not in schema:
         logger.warning("Schema does not contain 'paths' field")
-        schema["paths"] = {} # Ensure paths key exists
+        schema["paths"] = {}
 
     resolved_schema = _resolve_references(copy.deepcopy(schema), schema)
 
@@ -163,17 +157,14 @@ class EndpointParser:
         """
         endpoints = []
         
-        logger.info(f"Parsing endpoints for service_id: {service_id}")
         
-        paths = self.resolved_schema.get("paths", {}) # Use resolved_schema
-        logger.info(f"Found {len(paths)} paths in resolved schema")
+        paths = self.resolved_schema.get("paths", {})
         
         if not paths:
             logger.warning("No paths found in resolved schema")
             return []
         
         for path, methods in paths.items():
-            logger.debug(f"Processing path: {path}")
             
             if not isinstance(methods, dict):
                 logger.warning(f"Path '{path}' does not contain methods dictionary: {type(methods)}")
@@ -181,29 +172,16 @@ class EndpointParser:
             
             for method_name, operation in methods.items():
                 if method_name.upper() not in {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}:
-                    logger.debug(f"Skipping non-HTTP method: {method_name}")
                     continue
                 
-                logger.debug(f"Processing method: {method_name} for path: {path}")
                 
                 try:
-                    request_body = operation.get("requestBody") # requestBody is already resolved
-                    request_headers = self._extract_parameters(operation, "header") # Need to adjust _extract_parameters to use resolved schema
-                    request_query_params = self._extract_parameters(operation, "query") # Need to adjust _extract_parameters to use resolved schema
-                    responses = operation.get("responses") # responses are already resolved
+                    request_body = operation.get("requestBody")
+                    request_headers = self._extract_parameters(operation, "header")
+                    request_query_params = self._extract_parameters(operation, "query")
+                    responses = operation.get("responses")
                     
-                    resolved_responses = responses # Use already resolved responses
-
-                    logger.info(f"パース結果 - {path} {method_name.upper()}")
-                    logger.info(f"  - request_body: {request_body is not None}")
-                    if request_body:
-                         logger.info(f"    request_body schema: {json.dumps(request_body.get('content', {}).get('application/json', {}).get('schema'), indent=2)}")
-                    logger.info(f"  - request_headers: {request_headers}")
-                    logger.info(f"  - request_query_params: {request_query_params}")
-                    logger.info(f"  - responses: {resolved_responses is not None}")
-                    if resolved_responses:
-                         for status, response in resolved_responses.items():
-                              logger.info(f"    response {status} schema: {json.dumps(response.get('content', {}).get('application/json', {}).get('schema'), indent=2)}")
+                    resolved_responses = responses
                     
                     endpoint_data = {
                         "service_id": service_id,
@@ -211,19 +189,17 @@ class EndpointParser:
                         "method": method_name.upper(),
                         "summary": operation.get("summary"),
                         "description": operation.get("description"),
-                        "request_body": self._resolve_request_body_schema(request_body), # Resolve request body schema
+                        "request_body": self._resolve_request_body_schema(request_body),
                         "request_headers": request_headers,
                         "request_query_params": request_query_params,
-                        "responses": self._resolve_response_schemas(resolved_responses) # Resolve response schemas
+                        "responses": self._resolve_response_schemas(resolved_responses)
                     }
                     
                     endpoints.append(endpoint_data)
-                    logger.debug(f"Added endpoint: {path} {method_name.upper()}")
                 except Exception as e:
                     logger.error(f"Error processing endpoint {path} {method_name}: {e}", exc_info=True)
                     continue
         
-        logger.info(f"Parsed {len(endpoints)} endpoints from schema")
         return endpoints
     
     def _resolve_request_body_schema(self, request_body: Optional[Dict]) -> Optional[Dict]:
@@ -237,10 +213,8 @@ class EndpointParser:
         if "application/json" in content:
             schema = content["application/json"].get("schema")
             if schema:
-                # Resolve the schema part using the resolved full schema
                 resolved_request_body["content"]["application/json"]["schema"] = _resolve_references(schema, self.resolved_schema)
         
-        # Resolve schemas for other content types if necessary
         for media_type, media_content in content.items():
              if media_type != "application/json" and "schema" in media_content:
                   resolved_request_body["content"][media_type]["schema"] = _resolve_references(media_content["schema"], self.resolved_schema)
@@ -258,7 +232,6 @@ class EndpointParser:
             if "content" in response:
                 for media_type, content in response["content"].items():
                     if "schema" in content:
-                        # Resolve the schema part using the resolved full schema
                         resolved_responses[status_code]["content"][media_type]["schema"] = _resolve_references(content["schema"], self.resolved_schema)
         
         return resolved_responses
@@ -267,7 +240,7 @@ class EndpointParser:
         """リクエストボディを抽出する (スキーマ解決は_resolve_request_body_schemaで行う)"""
         if "requestBody" not in operation:
             return None
-        return operation["requestBody"] # Return the raw requestBody object
+        return operation["requestBody"]
 
     def _extract_parameters(self, operation: Dict, param_in: str) -> Dict:
         """指定したinタイプのパラメータを抽出する (スキーマ解決は不要、resolved_schemaから取得済み)"""
@@ -280,7 +253,6 @@ class EndpointParser:
             if param.get("in") == param_in:
                 name = param.get("name")
                 if name:
-                    # Parameter schema is already resolved in self.resolved_schema, return directly
                     param_schema = param.get("schema", {})
                     result[name] = {
                         "required": param.get("required", False),

@@ -140,9 +140,7 @@ class EmbeddingModel(abc.ABC):
             埋め込みベクトルのリスト
         """
         try:
-            logger.info(f"Embedding {len(texts)} documents with {self.model_name}")
             embeddings = self._embed_documents(texts)
-            logger.info(f"Successfully embedded {len(texts)} documents")
             return embeddings
         except Exception as e:
             logger.error(f"Error embedding documents: {e}", exc_info=True)
@@ -164,9 +162,7 @@ class EmbeddingModel(abc.ABC):
             埋め込みベクトル
         """
         try:
-            logger.info(f"Embedding query with {self.model_name}: {text[:30]}...")
             embedding = self._embed_query(text)
-            logger.info("Successfully embedded query")
             return embedding
         except Exception as e:
             logger.error(f"Error embedding query: {e}", exc_info=True)
@@ -188,9 +184,7 @@ class EmbeddingModel(abc.ABC):
             埋め込みベクトルのリスト
         """
         try:
-            logger.info(f"Async embedding {len(texts)} documents with {self.model_name}")
             embeddings = await self._aembed_documents(texts)
-            logger.info(f"Successfully async embedded {len(texts)} documents")
             return embeddings
         except Exception as e:
             logger.error(f"Error async embedding documents: {e}", exc_info=True)
@@ -212,9 +206,7 @@ class EmbeddingModel(abc.ABC):
             埋め込みベクトル
         """
         try:
-            logger.info(f"Async embedding query with {self.model_name}: {text[:30]}...")
             embedding = await self._aembed_query(text)
-            logger.info("Successfully async embedded query")
             return embedding
         except Exception as e:
             logger.error(f"Error async embedding query: {e}", exc_info=True)
@@ -234,7 +226,6 @@ class HuggingFaceEmbeddingModel(EmbeddingModel):
                 model_name=self.model_name,
                 **self.extra_params
             )
-            logger.info(f"Successfully initialized HuggingFace embedding model: {self.model_name}")
         except Exception as e:
             logger.error(f"Error initializing HuggingFace embedding model: {e}", exc_info=True)
             self.model = None
@@ -312,7 +303,6 @@ class SimplifiedEmbeddingModel(EmbeddingModel):
     def _setup_model(self) -> None:
         """簡易的な埋め込みモデルの設定"""
         self.model = None
-        logger.info("Successfully initialized simplified embedding model")
     
     def _embed_documents(self, texts: List[str]) -> List[List[float]]:
         """
@@ -325,7 +315,6 @@ class SimplifiedEmbeddingModel(EmbeddingModel):
             埋め込みベクトルのリスト
         """
         try:
-            logger.info(f"Creating simplified embeddings for {len(texts)} documents")
             
             result = []
             for text in texts:
@@ -339,7 +328,6 @@ class SimplifiedEmbeddingModel(EmbeddingModel):
                 
                 result.append(vector)
             
-            logger.info("Successfully created simplified embeddings")
             return result
         except Exception as e:
             logger.error(f"Error creating simplified embeddings: {e}", exc_info=True)
@@ -356,9 +344,7 @@ class SimplifiedEmbeddingModel(EmbeddingModel):
             埋め込みベクトル
         """
         try:
-            logger.info(f"Creating simplified embedding for query: {text[:30]}...")
             result = self._embed_documents([text])[0]
-            logger.info("Successfully created simplified query embedding")
             return result
         except Exception as e:
             logger.error(f"Error creating simplified query embedding: {e}", exc_info=True)

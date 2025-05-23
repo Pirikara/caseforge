@@ -24,7 +24,6 @@ async def save_and_index_schema(id: int, content: bytes, filename: str, session:
         session = Session(engine)
         
     try:
-        logger.info(f"Step 1: Saving schema file for service {id}")
         schema_dir = path_manager.get_schema_dir(str(id))
         path_manager.ensure_dir(schema_dir)
         save_path = path_manager.join_path(schema_dir, filename)
@@ -32,16 +31,14 @@ async def save_and_index_schema(id: int, content: bytes, filename: str, session:
         with open(save_path, "wb") as f:
             f.write(content)
         
-        logger.info(f"Successfully saved schema file for service {id}: {filename}")
         
-        logger.info(f"Step 2: Saving schema to database for service {id}")
         service_query = select(Service).where(Service.id == id)
         db_service = session.exec(service_query).first()
         
         if not db_service:
             # This case should ideally not happen if service is created via API
             # but adding for robustness.
-            db_service = Service(id=id, name=f"Service {id}") # Assuming name can be generated
+            db_service = Service(id=id, name=f"Service {id}")
             session.add(db_service)
             session.commit()
             session.refresh(db_service)
@@ -56,13 +53,10 @@ async def save_and_index_schema(id: int, content: bytes, filename: str, session:
         )
         session.add(schema)
         session.commit()
-        logger.info(f"Successfully saved schema to database for service {id}")
         
-        logger.info(f"Step 3: Parsing endpoints and saving to database for service {id}")
         try:
             parser = EndpointParser(content.decode('utf-8'))
             endpoints_data = parser.parse_endpoints(db_service.id)
-            logger.info(f"Parsed {len(endpoints_data)} endpoints from schema")
 
             existing_endpoints = session.exec(select(Endpoint).where(Endpoint.service_id == db_service.id)).all()
             existing_endpoints_map = {(ep.path, ep.method): ep for ep in existing_endpoints}
@@ -79,7 +73,6 @@ async def save_and_index_schema(id: int, content: bytes, filename: str, session:
                     db_endpoint.request_query_params = json.dumps(ep_data.get("request_query_params")) if ep_data.get("request_query_params") is not None else None
                     db_endpoint.responses = json.dumps(ep_data.get("responses")) if ep_data.get("responses") is not None else None
                     session.add(db_endpoint)
-                    logger.debug(f"Updated existing endpoint: {ep_data['method']} {ep_data['path']}")
                 else:
                     new_endpoint = Endpoint(
                         service_id=db_service.id,
@@ -93,11 +86,9 @@ async def save_and_index_schema(id: int, content: bytes, filename: str, session:
                         responses = json.dumps(ep_data.get("responses")) if ep_data.get("responses") is not None else None
                     )
                     endpoints_to_add.append(new_endpoint)
-                    logger.debug(f"Adding new endpoint: {ep_data['method']} {ep_data['path']}")
 
             if endpoints_to_add:
                 session.add_all(endpoints_to_add)
-                logger.info(f"Added {len(endpoints_to_add)} new endpoints to database")
 
             # スキーマから削除されたエンドポイントをデータベースから削除（オプション、今回はスキップ）
             # current_endpoint_keys = set((ep_data["path"], ep_data["method"]) for ep_data in endpoints_data)
@@ -107,16 +98,13 @@ async def save_and_index_schema(id: int, content: bytes, filename: str, session:
             #         logger.debug(f"Deleting removed endpoint: {db_endpoint.method} {db_endpoint.path}")
 
             session.commit()
-            logger.info(f"Successfully saved/updated endpoint information in database for service {id}")
 
         except Exception as parse_save_error:
             logger.error(f"Error parsing or saving endpoints for service {id}: {parse_save_error}", exc_info=True)
             raise parse_save_error
 
-        logger.info(f"Step 4: Creating RAG index for service {id}")
         try:
             index_schema(str(id), save_path)
-            logger.info(f"Successfully indexed schema for service {id}")
         except Exception as index_error:
             logger.error(f"Error indexing schema for service {id}: {index_error}", exc_info=True)
             logger.error("Schema indexing failed. Stopping further operations.")
@@ -127,7 +115,6 @@ async def save_and_index_schema(id: int, content: bytes, filename: str, session:
         logger.error(f"Error saving and indexing schema for service {id}: {e}", exc_info=True)
         try:
             session.rollback()
-            logger.info("Session rolled back successfully")
         except Exception as rollback_error:
             logger.error(f"Error rolling back session: {rollback_error}")
         raise
@@ -144,16 +131,10 @@ async def list_services(session: Optional[Session] = None):
     """
     if session is None:
         session = Session(engine)
-        logger.debug(f"Created new database session for listing services")
         
     try:
-        logger.debug(f"Executing query to get all services")
         query = select(Service)
         services = session.exec(query).all()
-        logger.info(f"Found {len(services)} services in database")
-        
-        for p in services:
-            logger.debug(f"Service: id={p.id}, name={p.name}")
         
         if os.environ.get("TESTING") == "1" and len(services) > 1:
             # Assuming test_service will now be identified by its ID in tests
@@ -161,7 +142,6 @@ async def list_services(session: Optional[Session] = None):
             # For now, keeping the filter but it might not work as intended
             test_services = [p for p in services if p.name == "test_service"] # Filtering by name as a temporary measure
             if test_services:
-                logger.info(f"Test environment: returning only services with name 'test_service'")
                 services = test_services
         
         result = []
@@ -183,12 +163,10 @@ async def list_services(session: Optional[Session] = None):
     except Exception as e:
         logger.error(f"Error listing services: {e}", exc_info=True)
         try:
-            logger.info("Attempting to list services from filesystem as fallback")
             schema_dir = path_manager.get_schema_dir()
             if path_manager.exists(schema_dir) and path_manager.is_dir(schema_dir):
                 # Assuming directory names are now integer IDs
                 services = [d.name for d in schema_dir.iterdir() if d.is_dir() and d.name.isdigit()]
-                logger.info(f"Found {len(services)} services in filesystem")
                 now = datetime.now().isoformat()
                 return [{"id": int(p), "name": p, "description": "", "created_at": now, "has_schema": False} for p in services]
         except Exception as fallback_error:
@@ -216,7 +194,6 @@ async def create_service(name: str = None, description: str = None, session: Opt
              existing_service_query = select(Service).where(Service.name == name)
              existing_service_by_name = session.exec(existing_service_query).first()
              if existing_service_by_name:
-                 logger.debug(f"Service with name '{name}' already exists.")
                  return {"status": "error", "message": f"Service with name '{name}' already exists"}
 
         service = Service(
@@ -226,13 +203,11 @@ async def create_service(name: str = None, description: str = None, session: Opt
         session.add(service)
         session.commit()
         session.refresh(service)
-        logger.info(f"Created new service in database with ID: {service.id}")
         
         # Create the filesystem directory using the new integer ID
         path = path_manager.get_schema_dir(str(service.id))
         if not path_manager.exists(path):
             path_manager.ensure_dir(path)
-            logger.info(f"Created new service directory for ID: {service.id}")
 
         return {"status": "created", "id": service.id, "name": service.name, "description": service.description}
     except Exception as e:
@@ -260,7 +235,6 @@ def get_schema_content(id: int, filename: str) -> str:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             
-        logger.debug(f"Read schema file: {file_path}")
         return content
     except Exception as e:
         logger.error(f"Error reading schema file {filename} for service {id}: {e}")

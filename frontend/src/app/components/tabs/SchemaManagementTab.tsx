@@ -100,7 +100,7 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: number }) => {
         const importData = await importResponse.json();
         
         toast.success('エンドポイントがインポートされました', {
-          description: `${importData.imported_count}件のエンドポイントをインポートしました。`,
+          description: `${importData.length}件のエンドポイントをインポートしました。`,
         });
       } catch (importError) {
         toast.error('エンドポイントのインポートに失敗しました', {

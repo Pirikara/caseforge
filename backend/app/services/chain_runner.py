@@ -167,7 +167,6 @@ class ChainRunner:
             if body:
                 body = await self.variable_manager.replace_variables_in_object_async(body)
             
-            logger.info(f"Executing request: {step['method']} {path} with headers={headers}, params={params}, body={body}")
             
             from app.utils.retry import async_retry, RetryStrategy
             
@@ -253,7 +252,6 @@ class ChainRunner:
                     matches = jsonpath_expr.find(response_body)
                     if matches:
                         extracted[key] = matches[0].value
-                        logger.debug(f"Extracted value for {key}: {extracted[key]}")
             except Exception as e:
                 logger.error(f"Error extracting value for {key} with path {path}: {e}")
         
@@ -290,7 +288,6 @@ async def run_test_suites(service_id: int, suite_id: Optional[str] = None) -> Di
         if not test_suites:
             logger.warning(f"No test suites found for service {service_id}")
             if os.environ.get("TESTING") == "1":
-                logger.info(f"Using test data for service {service_id}")
                 test_suites = [SAMPLE_TEST_SUITE]
             else:
                 return {"status": "error", "message": "No test suites found"}
@@ -309,7 +306,6 @@ async def run_test_suites(service_id: int, suite_id: Optional[str] = None) -> Di
                 suite_id = test_suite_data.get("id")
                 if not suite_id and os.environ.get("TESTING") == "1":
                     suite_id = "test-suite-1"
-                    logger.info(f"Using test suite ID: {suite_id}")
                 elif not suite_id:
                     logger.error(f"TestSuite ID not found in test suite data")
                     continue
@@ -320,7 +316,6 @@ async def run_test_suites(service_id: int, suite_id: Optional[str] = None) -> Di
                 if not db_test_suite:
                     logger.error(f"TestSuite not found in database: {suite_id}")
                     if os.environ.get("TESTING") == "1":
-                        logger.info(f"Creating test suite in database for {suite_id}")
                         db_test_suite = TestSuite(
                             id=suite_id,
                             service_id=db_service.id,

@@ -62,7 +62,5 @@ class OpenAPISchemaChunker:
                     "method": method.upper(),
                 }
                 documents.append(Document(page_content=page_content, metadata=metadata))
-                logger.debug(f"Created document for {method.upper()} {path}")
 
-        logger.info(f"Finished chunking schema. Created {len(documents)} documents.")
         return documents

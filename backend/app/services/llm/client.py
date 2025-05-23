@@ -160,9 +160,7 @@ class LLMClient(abc.ABC):
             LLMからのレスポンス
         """
         try:
-            logger.info(f"Calling LLM {self.model_name} with {len(messages)} messages")
             response = self._call_llm(messages, **kwargs)
-            logger.info(f"LLM response received: {response[:100]}...")
             return response
         except Exception as e:
             logger.error(f"Error calling LLM: {e}", exc_info=True)
@@ -185,9 +183,7 @@ class LLMClient(abc.ABC):
             LLMからのレスポンス
         """
         try:
-            logger.info(f"Async calling LLM {self.model_name} with {len(messages)} messages")
             response = await self._acall_llm(messages, **kwargs)
-            logger.info(f"LLM response received: {response[:100]}...")
             return response
         except Exception as e:
             logger.error(f"Error async calling LLM: {e}", exc_info=True)
@@ -249,7 +245,6 @@ class LLMClient(abc.ABC):
             json_blocks = regex.findall(r"```json\s*(\{(?:[^{}]|(?R))*\})\s*```", response, regex.DOTALL)
             for block in json_blocks:
                 try:
-                    logger.debug("Trying to parse JSON from code block.")
                     return json.loads(block)
                 except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse block from ```json``` code block: {e}")
@@ -259,7 +254,6 @@ class LLMClient(abc.ABC):
             if brace_match:
                 json_str = brace_match.group(1)
                 try:
-                    logger.debug("Trying to parse JSON from top-level braces.")
                     return json.loads(json_str)
                 except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse top-level braces JSON: {e}")
@@ -269,7 +263,6 @@ class LLMClient(abc.ABC):
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
-            logger.debug(f"Raw response: {response}")
             raise LLMResponseFormatException("LLMレスポンスをJSONとしてパースできませんでした", details={
                 "response": response,
                 "error": str(e)
@@ -293,14 +286,12 @@ class LLMClient(abc.ABC):
             json_match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
-                logger.debug(f"Extracted JSON string: {json_str}")
                 return json.loads(json_str)
             else:
                 logger.warning("JSON code block not found in LLM response, attempting to parse entire response as JSON.")
                 return json.loads(response)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {e}")
-            logger.debug(f"Raw response: {response}")
             raise LLMResponseFormatException("LLMレスポンスをJSONとしてパースできませんでした", details={
                 "response": response,
                 "error": str(e)

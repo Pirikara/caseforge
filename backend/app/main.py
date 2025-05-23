@@ -8,11 +8,8 @@ from app.models import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing database...")
     init_db()
-    logger.info("Database initialized")
     yield
-    logger.info("Shutting down...")
 
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 
@@ -28,7 +25,5 @@ app.include_router(services.router)
 
 @app.get("/health")
 def health():
-    logger.debug("Health check endpoint called")
     return {"status": "ok"}
 
-logger.info(f"Application {settings.APP_NAME} started")

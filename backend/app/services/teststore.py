@@ -19,7 +19,6 @@ def save_testcases(id: int, cases: List[Dict[str, Any]]) -> None:
         tests_file = path_manager.join_path(tests_dir, "tests.json")
         with open(tests_file, "w") as f:
             json.dump(cases, f, indent=2)
-        logger.info(f"Saved {len(cases)} test cases for service {id}")
     except Exception as e:
         logger.error(f"Error saving test cases for service {id}: {e}")
         raise
@@ -37,11 +36,9 @@ def list_testcases(id: int) -> List[Dict[str, Any]]:
     try:
         path = path_manager.join_path(path_manager.get_tests_dir(str(id)), "tests.json")
         if not path_manager.exists(path):
-            logger.debug(f"No test cases found for service {id}")
             return []
         with open(path, "r") as f:
             cases = json.load(f)
-            logger.debug(f"Loaded {len(cases)} test cases for service {id}")
             return cases
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in test cases file for service {id}: {e}")

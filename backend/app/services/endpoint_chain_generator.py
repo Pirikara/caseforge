@@ -40,7 +40,6 @@ class EndpointChainGenerator:
         from app.services.llm.client import LLMClientFactory, LLMProviderType, Message, MessageRole, LLMException, LLMResponseFormatException
         from app.services.llm.prompts import get_prompt_template
         
-        logger.info(f"Using LLM model: {model_name}")
         
         try:
             llm_client = LLMClientFactory.create(
@@ -48,14 +47,12 @@ class EndpointChainGenerator:
                 model_name=model_name,
                 temperature=0.2,
             )
-            logger.info("LLM client initialized successfully")
         except Exception as e:
             logger.error(f"Error initializing LLM client: {e}", exc_info=True)
             raise
         
         try:
             prompt_template = get_prompt_template("endpoint_test_generation")
-            logger.info("Using endpoint_test_generation prompt template from registry")
         except KeyError:
             logger.warning("endpoint_test_generation prompt template not found, using hardcoded prompt")
             prompt_template_str = """You are an expert in API testing. Based on the following target endpoint and related OpenAPI schema information, generate a complete test suite (TestSuite) in strict JSON format.
@@ -124,10 +121,8 @@ Return only a single valid JSON object matching the following format. **Do not i
         error_types_instruction = "以下の異常系の種類（missing_field, invalid_input, unauthorized, not_found など）"
         if self.error_types and len(self.error_types) > 0:
             error_types_instruction = f"以下の異常系の種類（{', '.join(self.error_types)}）"
-            logger.info(f"Generating tests with specific error types: {self.error_types}")
         
         for target_endpoint in self.endpoints:
-            logger.info(f"Generating chain for endpoint: {target_endpoint.method} {target_endpoint.path}")
             
             try:
                 target_endpoint_info = self._build_endpoint_context(target_endpoint)
@@ -140,7 +135,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                     "error_types_instruction": error_types_instruction
                 }
                 
-                logger.info(f"Invoking LLM for endpoint {target_endpoint.method} {target_endpoint.path}")
                 try:
                     if 'prompt_template' in locals():
                         suite_data = llm_client.call_with_json_response(
@@ -153,14 +147,11 @@ Return only a single valid JSON object matching the following format. **Do not i
                                     prompt_template_str.format(**context))]
                         )
                     
-                    logger.info(f"LLM response received for {target_endpoint.method} {target_endpoint.path}")
                 
                 except (LLMException, LLMResponseFormatException) as llm_error:
                     logger.error(f"Error invoking LLM for endpoint {target_endpoint.method} {target_endpoint.path}: {llm_error}", exc_info=True)
-                    logger.info(f"Generating fallback test chain for {target_endpoint.method} {target_endpoint.path}")
                     chain = self._generate_fallback_chain(target_endpoint)
                     generated_chains.append(chain)
-                    logger.info(f"Added fallback chain for {target_endpoint.method} {target_endpoint.path}")
                     continue
                 
                 try:
@@ -200,7 +191,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                         logger.warning(f"target_path not found in LLM response, using endpoint path: {target_endpoint.path}")
 
                     generated_chains.append(suite_data)
-                    logger.info(f"Successfully generated test suite for {target_endpoint.method} {target_endpoint.path} with {len(suite_data.get('test_cases', []))} test cases")
 
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse LLM response as JSON for {target_endpoint.method} {target_endpoint.path}: {e}")
@@ -210,7 +200,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                         if json_match:
                             json_str = json_match.group(1)
                             suite_data = json.loads(json_str)
-                            logger.error(f"Raw response json: {suite_data}")
 
                             if not isinstance(suite_data, dict) or \
                                 "name" not in suite_data or \
@@ -239,7 +228,6 @@ Return only a single valid JSON object matching the following format. **Do not i
                                         raise ValueError("Extracted JSON contains invalid TestStep structure")
 
                             generated_chains.append(suite_data)
-                            logger.info(f"Successfully extracted and parsed JSON from markdown code block for {target_endpoint.method} {target_endpoint.path}")
                         else:
                             logger.error(f"Could not find JSON code block in response for {target_endpoint.method} {target_endpoint.path}")
                     except Exception as extract_error:
@@ -335,11 +323,9 @@ Return only a single valid JSON object matching the following format. **Do not i
             関連スキーマ情報のテキスト表現
         """
         try:
-            logger.info(f"Attempting RAG search for endpoint: {target_endpoint.method} {target_endpoint.path} using PGVector")
 
             # PGVectorManagerのインスタンスを取得 (service_idを指定)
             vectordb_manager = VectorDBManagerFactory.create_default(service_id=self.service_id, db_type="pgvector")
-            logger.info(f"PGVectorManager instance created for service_id: {self.service_id}.")
 
             query = f"{target_endpoint.method.upper()} {target_endpoint.path} {target_endpoint.summary or ''} {target_endpoint.description or ''}"
             if target_endpoint.request_body:
@@ -353,7 +339,6 @@ Return only a single valid JSON object matching the following format. **Do not i
 
             # similarity_searchを実行
             docs: List[Document] = vectordb_manager.similarity_search(query, k=5)
-            logger.info(f"PGVector similarity search returned {len(docs)} documents.")
 
             relevant_info_parts = []
             for i, doc in enumerate(docs):
@@ -365,12 +350,10 @@ Return only a single valid JSON object matching the following format. **Do not i
             if not relevant_info.strip():
                 logger.warning("No relevant schema information found via PGVector search.")
                 if self.schema:
-                    logger.info(f"Falling back to direct schema extraction for endpoint {target_endpoint.method} {target_endpoint.path}")
                     return self._extract_schema_info_directly(target_endpoint)
                 else:
                     return "No relevant schema information found."
 
-            logger.info(f"Successfully retrieved relevant schema information for {target_endpoint.method} {target_endpoint.path} using PGVector.")
             return f"""
 # Relevant Schema Information for {target_endpoint.method.upper()} {target_endpoint.path}
 
@@ -381,7 +364,6 @@ Return only a single valid JSON object matching the following format. **Do not i
             logger.error(f"Error during RAG search for endpoint {target_endpoint.method} {target_endpoint.path} using PGVector: {e}", exc_info=True)
             
             if self.schema:
-                logger.info(f"Falling back to direct schema extraction for endpoint {target_endpoint.method} {target_endpoint.path}")
                 return self._extract_schema_info_directly(target_endpoint)
             else:
                 return "Error retrieving relevant schema information."
