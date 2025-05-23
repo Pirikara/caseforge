@@ -2,15 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import Image from 'next/image'; // Imageコンポーネメントをインポート
+import Image from 'next/image';
 import { PlusIcon, CheckCircleIcon, XCircleIcon, ClockIcon, HomeIcon, BoxIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useTheme } from 'next-themes';
 import { MoonIcon, SunIcon } from 'lucide-react';
-
-// SVGロゴをインポート
 
 interface Service {
   id: string;
@@ -21,7 +19,7 @@ interface Service {
 
 interface TestRun {
   run_id: string;
-  service_id: string;
+  service_id: number;
   service_name?: string;
   status: 'running' | 'completed' | 'failed';
   start_time: string;
@@ -49,7 +47,6 @@ function useRecentTestRuns() {
         const data = await response.json();
         setRecentRuns(data);
       } catch (err) {
-        console.error('最近のテスト実行の取得に失敗しました:', err);
         setError(err instanceof Error ? err : new Error('不明なエラー'));
       } finally {
         setIsLoading(false);
@@ -69,7 +66,6 @@ export function Sidebar({ className, showLogo = true }: { className?: string; sh
 
   return (
     <aside className={`w-64 border-r border-border bg-background fixed top-0 left-0 h-full overflow-y-auto flex flex-col ${className}`}>
-      {/* ロゴ (上部固定) */}
       {showLogo && (
         <div className="flex items-center h-16 border-b border-border px-4">
           <Link href="/">
@@ -82,7 +78,6 @@ export function Sidebar({ className, showLogo = true }: { className?: string; sh
         </div>
       )}
 
-      {/* メインメニュー */}
       <nav className="p-4 space-y-1">
         <Link href="/" className="flex items-center p-2 rounded hover:bg-accent hover:text-accent-foreground">
           <HomeIcon className="w-6 mr-2" /> ダッシュボード
@@ -92,11 +87,9 @@ export function Sidebar({ className, showLogo = true }: { className?: string; sh
         </Link>
       </nav>
 
-      {/* セクション区切り */}
       <div className="border-b border-border mx-4 my-2"></div>
 
-      {/* 最近使ったサービス一覧 */}
-      <div className="p-4 flex-grow overflow-y-auto"> {/* flex-growを追加 */}
+      <div className="p-4 flex-grow overflow-y-auto">
         <h3 className="text-sm font-semibold mb-2 text-muted-foreground">最近使ったサービス</h3>
         {servicesLoading ? (
           <div>読み込み中...</div>
@@ -104,7 +97,6 @@ export function Sidebar({ className, showLogo = true }: { className?: string; sh
           <div>エラーが発生しました</div>
         ) : (
           <ul className="space-y-1">
-            {/* 最大5件表示 */}
             {services?.slice(0, 5).map((service) => (
               <li key={service.id}>
                 <Link
@@ -115,7 +107,6 @@ export function Sidebar({ className, showLogo = true }: { className?: string; sh
                 </Link>
               </li>
             ))}
-            {/* サービスが5件より多い場合に「すべて表示」リンクを表示 */}
             {services && services.length > 5 && (
               <li>
                 <Link
@@ -130,13 +121,12 @@ export function Sidebar({ className, showLogo = true }: { className?: string; sh
         )}
       </div>
 
-      {/* 下部固定（ダークモード切替） */}
-      <div className="p-4 border-t border-border flex justify-start items-center"> {/* items-centerを追加 */}
+      <div className="p-4 border-t border-border flex justify-start items-center">
         <Button
           variant="ghost"
-          size="sm" // サイズをsmに変更
+          size="sm"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="w-full flex justify-start items-center" // 幅をいっぱいにし、左揃え
+          className="w-full flex justify-start items-center"
         >
           {theme === 'dark' ? (
             <>

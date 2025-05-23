@@ -38,20 +38,20 @@ export async function fetcher<T = any>(
 /**
  * サービス情報を更新する関数
  */
-export async function updateService(serviceId: string, data: any) {
+export async function updateService(serviceId: number, data: any) {
   return fetcher(`/api/services/${serviceId}`, 'PATCH', data);
 }
 
 /**
  * テストケースを更新する関数
  */
-export async function updateTestCase(serviceId: string, caseId: string, data: any) {
+export async function updateTestCase(serviceId: number, caseId: string, data: any) {
   return fetcher(`/api/services/${serviceId}/test-cases/${caseId}`, 'PATCH', data);
 }
 
 /**
  * テストステップを更新する関数
  */
-export async function updateTestStep(serviceId: string, caseId: string, stepId: string, data: any) {
+export async function updateTestStep(serviceId: number, caseId: string, stepId: string, data: any) {
   return fetcher(`/api/services/${serviceId}/test-cases/${caseId}/steps/${stepId}`, 'PATCH', data);
 }

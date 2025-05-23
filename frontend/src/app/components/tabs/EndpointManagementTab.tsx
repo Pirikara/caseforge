@@ -26,7 +26,7 @@ import {
   SheetClose,
 } from '@/components/ui/sheet';
 
-export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
+export const EndpointManagementTab = ({ serviceId }: { serviceId: number }) => {
   const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
   const { endpoints, isLoading, mutate } = useEndpoints(serviceId);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -89,33 +89,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
       );
     }
   }, [endpoints]);
-
-  React.useEffect(() => {
-    if (selectedEndpoint) {
-      console.log('選択されたエンドポイント詳細:', {
-        id: selectedEndpoint.id,
-        path: selectedEndpoint.path,
-        method: selectedEndpoint.method,
-        request_body: selectedEndpoint.request_body !== undefined ? 'あり' : 'なし',
-        request_body_type: selectedEndpoint.request_body !== undefined ? typeof selectedEndpoint.request_body : 'undefined',
-        request_body_value: selectedEndpoint.request_body !== undefined ?
-          JSON.stringify(selectedEndpoint.request_body).substring(0, 100) + '...' : 'undefined',
-        request_headers: selectedEndpoint.request_headers !== undefined ? 'あり' : 'なし',
-        request_headers_type: selectedEndpoint.request_headers !== undefined ? typeof selectedEndpoint.request_headers : 'undefined',
-        request_headers_keys: selectedEndpoint.request_headers !== undefined ?
-          Object.keys(selectedEndpoint.request_headers || {}).length : 'undefined',
-        request_query_params: selectedEndpoint.request_query_params !== undefined ? 'あり' : 'なし',
-        request_query_params_type: selectedEndpoint.request_query_params !== undefined ?
-          typeof selectedEndpoint.request_query_params : 'undefined',
-        request_query_params_keys: selectedEndpoint.request_query_params !== undefined ?
-          Object.keys(selectedEndpoint.request_query_params || {}).length : 'undefined',
-        responses: selectedEndpoint.responses !== undefined ? 'あり' : 'なし',
-        responses_type: selectedEndpoint.responses !== undefined ? typeof selectedEndpoint.responses : 'undefined',
-        responses_keys: selectedEndpoint.responses !== undefined ?
-          Object.keys(selectedEndpoint.responses || {}).length : 'undefined'
-      });
-    }
-  }, [selectedEndpoint]);
   
   const handleGenerateChain = async () => {
     if (selectedEndpoints.length === 0) {
@@ -137,13 +110,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
         }),
       });
       
-      console.log('テストチェーン生成APIレスポンス:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries([...response.headers.entries()])
-      });
-      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'テストチェーン生成に失敗しました');
@@ -158,9 +124,7 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
       document.querySelector('[data-value="test-chains"]')?.dispatchEvent(
         new MouseEvent('click', { bubbles: true })
       );
-    } catch (error) {
-      console.error('テストチェーン生成エラー:', error);
-      
+    } catch (error) {      
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });
@@ -200,13 +164,12 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
             </div>
           </div>
 
-          {/* 異常系テスト生成オプション */}
           <Card>
             <CardHeader className="pb-1">
               <CardTitle className="text-lg">生成する異常系テストの種類</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm"> {/* 縦並びのためのスタイルとtext-sm */}
+              <div className="space-y-2 text-sm">
                 {errorTypes.map((type) => (
                   <div key={type.value} className="flex items-center space-x-2">
                     <Checkbox
@@ -298,7 +261,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
         </CardContent>
       </Card>
 
-      {/* エンドポイント詳細表示用のサイドパネル */}
       <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader className="mb-6 pb-4 border-b">
@@ -328,7 +290,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
 
           {selectedEndpoint && (
             <div className="space-y-8">
-              {/* 概要と説明 */}
               {(selectedEndpoint.summary || selectedEndpoint.description) && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 text-primary">概要</h3>
@@ -337,7 +298,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
                 </div>
               )}
 
-              {/* リクエストパラメータ */}
               {selectedEndpoint.request_query_params !== undefined && typeof selectedEndpoint.request_query_params === 'object' && Object.keys(selectedEndpoint.request_query_params || {}).length > 0 && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-primary">
@@ -377,7 +337,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
                 </div>
               )}
 
-              {/* リクエストヘッダー */}
               {selectedEndpoint.request_headers !== undefined && typeof selectedEndpoint.request_headers === 'object' && Object.keys(selectedEndpoint.request_headers || {}).length > 0 && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-primary">
@@ -416,7 +375,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
                 </div>
               )}
 
-              {/* リクエストボディ */}
               {selectedEndpoint.request_body !== undefined && typeof selectedEndpoint.request_body === 'object' && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-primary">
@@ -434,7 +392,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
                 </div>
               )}
 
-              {/* レスポンス */}
               {selectedEndpoint.responses !== undefined && typeof selectedEndpoint.responses === 'object' && Object.keys(selectedEndpoint.responses || {}).length > 0 && (
                 <div className="bg-card rounded-lg p-4 shadow-sm">
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-primary">

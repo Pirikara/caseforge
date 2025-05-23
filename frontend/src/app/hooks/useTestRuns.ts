@@ -5,7 +5,7 @@ export interface TestRun {
   id: string;
   run_id: string;
   suite_id: string;
-  service_id: string;
+  service_id: number;
   status: 'running' | 'completed' | 'failed';
   start_time: string;
   end_time?: string;
@@ -71,9 +71,9 @@ export interface TestSuite {
   test_cases?: TestCase[];
 }
 
-export function useTestRuns(serviceId: string) {
+export function useTestRuns(serviceId: number) {
   const { data, error, isLoading, mutate } = useSWR<TestRun[]>(
-    serviceId ? `/api/services/${serviceId}/runs` : null,
+    serviceId ? `/api/services/${serviceId.toString()}/runs` : null,
     fetcher
   );
   
@@ -85,9 +85,9 @@ export function useTestRuns(serviceId: string) {
   };
 }
 
-export function useTestRunDetail(serviceId: string, runId: string | null) {
+export function useTestRunDetail(serviceId: number, runId: string | null) {
   const { data, error, isLoading, mutate } = useSWR<TestRun>(
-    serviceId && runId ? `/api/services/${serviceId}/runs/${runId}` : null,
+    serviceId && runId ? `/api/services/${serviceId.toString()}/runs/${runId}` : null,
     fetcher
   );
 

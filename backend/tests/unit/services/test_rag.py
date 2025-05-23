@@ -1,11 +1,10 @@
 import pytest
 from app.services.rag.chunker import OpenAPISchemaChunker
 from app.services.rag.indexer import index_schema
-from tests.unit.services.mock_modules import MockDocument, MockFAISS
+from tests.unit.services.mock_modules import MockDocument
 from unittest.mock import patch, MagicMock
 
 Document = MockDocument
-FAISS = MockFAISS
 
 @pytest.fixture
 def dummy_openapi_schema(tmp_path):
@@ -101,10 +100,8 @@ def test_openapi_schema_chunker_loads_schema(dummy_openapi_schema):
 def test_openapi_schema_chunker_resolves_references(dummy_openapi_schema):
     """OpenAPISchemaChunkerが$refを正しく解決するかテスト"""
     chunker = OpenAPISchemaChunker(dummy_openapi_schema)
-    # Access the resolved schema directly from the chunker instance
     resolved_schema = chunker.resolved_schema
 
-    # Assert that resolved_schema exists and is a dictionary
     assert resolved_schema is not None
     assert isinstance(resolved_schema, dict)
 
@@ -134,7 +131,7 @@ def test_openapi_schema_chunker_generates_documents(dummy_openapi_schema):
 @patch('app.services.vector_db.manager.VectorDBManagerFactory')
 def test_index_schema_success(mock_factory_cls, mock_chunker_cls, dummy_openapi_schema):
     """index_schema関数がスキーマを正しくインデックス化し、保存するかテスト"""
-    service_id = "test_service"
+    service_id = 1
     schema_path = dummy_openapi_schema
 
     mock_chunker_instance = MagicMock()
@@ -148,11 +145,13 @@ def test_index_schema_success(mock_factory_cls, mock_chunker_cls, dummy_openapi_
 
     mock_vector_db_manager = MagicMock()
     mock_factory_cls.create_default.return_value = mock_vector_db_manager
+    mock_vector_db_manager.collection_name = str(service_id)
 
     index_schema(service_id, schema_path)
 
     mock_chunker_cls.assert_called_once_with(schema_path)
     mock_factory_cls.create_default.assert_called_once_with(service_id)
+    assert mock_vector_db_manager.collection_name == str(service_id)
     mock_vector_db_manager.add_documents.assert_called_once()
 
 @patch('app.services.rag.indexer.OpenAPISchemaChunker')
@@ -160,7 +159,7 @@ def test_index_schema_success(mock_factory_cls, mock_chunker_cls, dummy_openapi_
 @patch('app.services.rag.indexer.logger')
 def test_index_schema_save_error(mock_logger, mock_factory_cls, mock_chunker_cls, dummy_openapi_schema):
     """index_schema関数でベクトルDB保存エラーが発生した場合のテスト"""
-    service_id = "test_service"
+    service_id = 2
     schema_path = dummy_openapi_schema
 
     mock_chunker_instance = MagicMock()
@@ -180,7 +179,7 @@ def test_index_schema_save_error(mock_logger, mock_factory_cls, mock_chunker_cls
 @patch('app.services.rag.indexer.logger')
 def test_index_schema_symlink_error(mock_logger, mock_factory_cls, mock_chunker_cls, dummy_openapi_schema):
     """index_schema関数でシンボリックリンク作成エラーが発生した場合のテスト"""
-    service_id = "test_service"
+    service_id = 3 # Changed from string to int
     schema_path = dummy_openapi_schema
 
     mock_chunker_instance = MagicMock()
@@ -188,8 +187,6 @@ def test_index_schema_symlink_error(mock_logger, mock_factory_cls, mock_chunker_
     mock_chunker_instance.get_documents.return_value = [MockDocument(page_content="chunk", metadata={})]
     mock_vector_db_manager = MagicMock()
     mock_factory_cls.create_default.return_value = mock_vector_db_manager
-    mock_vector_db_manager.vectordb = MagicMock(spec=FAISS)
-    mock_vector_db_manager.persist_directory = "/tmp/data/faiss/test_service"
     
     def side_effect(*args, **kwargs):
         raise Exception("Symlink error")
@@ -205,7 +202,7 @@ def test_index_schema_symlink_error(mock_logger, mock_factory_cls, mock_chunker_
 @patch('app.services.rag.indexer.logger')
 def test_index_schema_timeout(mock_logger, mock_factory_cls, mock_chunker_cls, dummy_openapi_schema):
     """index_schema関数でタイムアウトが発生した場合のテスト"""
-    service_id = "test_service"
+    service_id = 4
     schema_path = dummy_openapi_schema
 
     mock_chunker_instance = MagicMock()

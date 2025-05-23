@@ -102,7 +102,7 @@ export default function NewTestStepPage() {
                   <FormItem>
                     <FormLabel>順序</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="例: 1" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} /> {/* 数値として扱う */}
+                      <Input type="number" placeholder="例: 1" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -141,7 +141,7 @@ export default function NewTestStepPage() {
                   <FormItem>
                     <FormLabel>期待するステータスコード</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="例: 200" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} /> {/* 数値として扱う */}
+                      <Input type="number" placeholder="例: 200" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} /> 
                     </FormControl>
                     <FormMessage />
                   </FormItem>

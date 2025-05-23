@@ -43,14 +43,14 @@ import {
   XIcon,
   Trash2Icon
 } from 'lucide-react';
-import { useTestSuites, useTestSuiteDetail, TestSuite } from '@/hooks/useTestChains'; // TestSuite 型をインポート
-import { useTestRuns, TestRun, TestCase, TestStep } from '@/hooks/useTestRuns'; // TestRun, TestCase, TestStep 型をインポート
+import { useTestSuites, useTestSuiteDetail, TestSuite } from '@/hooks/useTestChains';
+import { useTestRuns, TestRun, TestCase, TestStep } from '@/hooks/useTestRuns';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-export const TestChainManagementTab = ({ serviceId, service }: { serviceId: string, service: any }) => {
+export const TestChainManagementTab = ({ serviceId, service }: { serviceId: number, service: any }) => {
   const router = useRouter();
   const { testSuites, isLoading: isLoadingTestSuites, deleteTestSuite } = useTestSuites(serviceId);
   const { testRuns, isLoading: isLoadingTestRuns } = useTestRuns(serviceId);
@@ -133,8 +133,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
 
       router.push(`/services/${serviceId}/runs/${data.run_id}`);
     } catch (error) {
-      console.error('テスト実行エラー:', error);
-
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });
@@ -155,13 +153,12 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col md:flex-row gap-4 items-end">
-            {/* テストスイート一覧へのリンクを追加 */}
             <Button variant="outline" size="sm" asChild>
               <Link href={`/services/${serviceId}/test-suites`}>
                 テストスイート一覧
               </Link>
             </Button>
-            <div className="relative flex-1"> {/* 検索バー */}
+            <div className="relative flex-1">
               <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
@@ -171,7 +168,7 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2"> {/* すべて選択チェックボックス */}
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="select-all"
                 checked={filteredSuites.length > 0 && selectedSuites.length === filteredSuites.length}
@@ -179,64 +176,7 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
               />
               <label htmlFor="select-all" className="text-sm">すべて選択</label>
             </div>
-            {/* テストチェーン生成ボタンは削除 */}
-            {/* <Button onClick={handleGenerateTests} disabled={isGenerating}>
-              <FileTextIcon className="h-4 w-4 mr-2" />
-              {isGenerating ? 'テスト生成中...' : 'テストチェーン生成'}
-            </Button> */}
           </div>
-
-          {/* テスト生成ステータス表示は削除 */}
-          {/* {generationStatus === 'generating' && (
-            <div className="text-center p-6 space-y-4 mb-4 bg-muted rounded-lg">
-              <div className="flex justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              </div>
-              <p className="font-medium">テストチェーン生成中...</p>
-              <p className="text-sm text-muted-foreground">
-                OpenAPIスキーマを解析して依存関係を抽出し、テストチェーンを生成しています。
-                <br />
-                この処理には数分かかる場合があります。
-              </p>
-            </div>
-          )} */}
-
-          {/* {generationStatus === 'completed' && (
-            <div className="text-center p-6 space-y-4 mb-4 bg-green-50 dark:bg-green-950 rounded-lg">
-              <div className="flex justify-center">
-                <CheckCircleIcon className="h-12 w-12 text-green-500" />
-              </div>
-              <p className="font-medium">テストチェーン生成が完了しました</p>
-              <p className="text-sm">
-                {generatedCount}件のテストチェーンが生成されました。
-              </p>
-            </div>
-          )} */}
-
-          {/* {generationStatus === 'failed' && (
-            <div className="text-center p-6 space-y-4 mb-4 bg-red-50 dark:bg-red-950 rounded-lg">
-              <div className="flex justify-center">
-                <XCircleIcon className="h-12 w-12 text-red-500" />
-              </div>
-              <p className="font-medium">テストチェーン生成に失敗しました</p>
-              <p className="text-sm text-muted-foreground">
-                エラーが発生したため、テストチェーン生成を完了できませんでした。
-                <br />
-                {errorMessage ? (
-                  <span className="font-mono text-red-600 block mt-2 p-2 bg-red-100 dark:bg-red-900 rounded">
-                    エラー: {errorMessage}
-                  </span>
-                ) : (
-                  'もう一度お試しいただくか、スキーマを確認してください。'
-                )}
-              </p>
-              <div className="flex flex-col gap-2 items-center">
-                <Button onClick={handleGenerateTests}>
-                  再試行
-                </Button>
-              </div>
-            </div>
-          )} */}
 
           {isLoadingTestSuites ? (
             <div className="text-center py-6 md:py-8">読み込み中...</div>
@@ -245,7 +185,7 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]"></TableHead> {/* チェックボックス用の列を追加 */}
+                    <TableHead className="w-[50px]"></TableHead>
                     <TableHead className="w-[300px]">スイート名</TableHead>
                     <TableHead className="w-[200px]">対象エンドポイント</TableHead>
                     <TableHead className="w-[100px]">ケース数</TableHead>
@@ -262,7 +202,7 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                         setIsDetailOpen(true);
                       }}
                     >
-                      <TableCell onClick={(e) => e.stopPropagation()}> {/* チェックボックス列 */}
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedSuites.includes(suite.id)}
                           onCheckedChange={() => toggleTestSuite(suite.id)}
@@ -288,7 +228,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                       </TableCell>
                       <TableCell>{suite.test_cases_count || 0} ケース</TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()} className="flex space-x-2">
-                        {/* 個別の実行ボタンは削除し、一括実行ボタンを使用 */}
                         <Button
                           variant="destructive"
                           size="sm"
@@ -316,7 +255,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
             </div>
           )}
 
-          {/* 選択したスイートの実行ボタン */}
           {filteredSuites.length > 0 && (
             <div className="flex justify-end">
               <Button
@@ -331,7 +269,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
         </CardContent>
       </Card>
 
-      {/* 最近のテスト実行 */}
       <Card>
         <CardHeader>
           <CardTitle>最近のテスト実行</CardTitle>
@@ -382,7 +319,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
       </Card>
 
 
-      {/* 削除確認ダイアログ */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -408,7 +344,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* テストスイート詳細表示用のサイドパネル */}
       <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader className="mb-6 pb-4 border-b">
@@ -436,7 +371,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
             </div>
           ) : testSuite ? (
             <div className="space-y-8">
-              {/* テストケース一覧 */}
               <div className="bg-card rounded-lg p-4 shadow-sm">
                 <h3 className="text-lg font-semibold mb-3 text-primary">テストケース</h3>
                 <div className="space-y-4">
@@ -444,7 +378,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                     <div key={index} className="border rounded-md p-4 hover:bg-muted/20 transition-colors">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          {/* テストケースの概要表示 */}
                           <span className={cn(
                             'px-2 py-1 rounded text-xs font-medium',
                             testCase.target_method === 'GET' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
@@ -468,7 +401,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                       )}
 
 
-                      {/* テストステップ一覧 */}
                       <div className="mt-3 space-y-3">
                         <h4 className="text-sm font-semibold mb-2">テストステップ:</h4>
                         {testCase.test_steps && testCase.test_steps.map((testStep: TestStep, stepIndex: number) => (
@@ -494,7 +426,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                               <p className="text-sm font-medium mb-2">{testStep.name}</p>
                             )}
 
-                            {/* リクエストヘッダー */}
                             {testStep.request_headers && Object.keys(testStep.request_headers).length > 0 && (
                               <div className="mb-2">
                                 <h4 className="text-sm font-medium mb-1">リクエストヘッダー:</h4>
@@ -506,7 +437,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                               </div>
                             )}
 
-                            {/* リクエストボディ */}
                             {testStep.request_body && (
                               <div className="mb-2">
                                 <h4 className="text-sm font-medium mb-1">リクエストボディ:</h4>
@@ -518,7 +448,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                               </div>
                             )}
 
-                            {/* リクエストパラメータ */}
                             {testStep.request_params && Object.keys(testStep.request_params).length > 0 && (
                               <div className="mb-2">
                                 <h4 className="text-sm font-medium mb-1">リクエストパラメータ:</h4>
@@ -530,7 +459,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                               </div>
                             )}
 
-                            {/* 期待されるステータスコード */}
                             {testStep.expected_status && (
                               <div className="mb-2">
                                 <h4 className="text-sm font-medium mb-1">期待されるステータスコード:</h4>
@@ -546,7 +474,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
                               </div>
                             )}
 
-                            {/* 抽出ルール */}
                             {testStep.extract_rules && Object.keys(testStep.extract_rules).length > 0 && (
                               <div className="mb-2">
                                 <h4 className="text-sm font-medium mb-1">抽出ルール:</h4>

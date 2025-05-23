@@ -62,7 +62,6 @@ export function TestExecutionStep() {
       });
       setTestResults(initialResults);
     } catch (error) {
-      console.error('テストケース取得エラー:', error);
       toast.error("テストケース取得エラー", {
         description: "テストケース一覧の取得中にエラーが発生しました",
       });
@@ -99,7 +98,6 @@ export function TestExecutionStep() {
       await pollTestResults(response.run_id);
       
     } catch (error) {
-      console.error('テスト実行エラー:', error);
       toast.error("テスト実行エラー", {
         description: "テストの実行中にエラーが発生しました",
       });
@@ -153,7 +151,6 @@ export function TestExecutionStep() {
       });
       
     } catch (error) {
-      console.error('テスト結果取得エラー:', error);
       toast.error("テスト結果取得エラー", {
         description: "テスト結果の取得中にエラーが発生しました",
       });
@@ -181,7 +178,6 @@ export function TestExecutionStep() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* テストスイート情報 */}
         <div className="rounded-md bg-muted p-3">
           <h4 className="text-sm font-medium mb-1">テストスイート情報</h4>
           <p className="text-sm">
@@ -192,7 +188,6 @@ export function TestExecutionStep() {
           </p>
         </div>
         
-        {/* 実行ボタン */}
         <Button 
           className="w-full" 
           onClick={handleRunTests}
@@ -211,7 +206,6 @@ export function TestExecutionStep() {
           )}
         </Button>
         
-        {/* テスト結果サマリー */}
         {runSummary && (
           <div className="rounded-md border p-4 space-y-3">
             <div className="flex justify-between items-center">
@@ -253,7 +247,6 @@ export function TestExecutionStep() {
           </div>
         )}
         
-        {/* テストケース一覧 */}
         <div className="border rounded-md divide-y">
           {testCases.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">

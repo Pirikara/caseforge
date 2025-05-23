@@ -6,16 +6,17 @@ from app.schemas.service import Endpoint as EndpointSchema
 from app.services.rag.embeddings import EmbeddingFunctionForCaseforge
 from app.config import settings
 from app.logging_config import logger
-from langchain_community.vectorstores import FAISS
 from app.utils.path_manager import path_manager
+from app.services.vector_db.manager import VectorDBManagerFactory
+from langchain_core.documents import Document
 
 class EndpointChainGenerator:
     """選択されたエンドポイントからテストチェーンを生成するクラス"""
     
-    def __init__(self, service_id: str, endpoints: List[Endpoint], schema: Dict = None, error_types: Optional[List[str]] = None): # error_types 引数を追加
+    def __init__(self, service_id: int, endpoints: List[Endpoint], schema: Dict = None, error_types: Optional[List[str]] = None): # error_types 引数を追加
         """
         Args:
-            service_id: サービスID
+            service_id: サービスID (int)
             endpoints: 選択されたエンドポイントのリスト
             schema: OpenAPIスキーマ（オプション）
         """
@@ -334,36 +335,11 @@ Return only a single valid JSON object matching the following format. **Do not i
             関連スキーマ情報のテキスト表現
         """
         try:
-            faiss_path = path_manager.get_faiss_dir(self.service_id, temp=False)
-            
-            if not path_manager.exists(faiss_path):
-                tmp_faiss_path = path_manager.get_faiss_dir(self.service_id, temp=True)
-                if path_manager.exists(tmp_faiss_path):
-                    logger.info(f"FAISS vector DB found in temporary directory: {tmp_faiss_path}")
-                    faiss_path = tmp_faiss_path
-                else:
-                    logger.warning(f"FAISS vector DB not found for service {self.service_id} at {faiss_path} or {tmp_faiss_path}. Cannot perform RAG search.")
-                    
-                    if self.schema:
-                        logger.info(f"Using schema directly for endpoint {target_endpoint.method} {target_endpoint.path}")
-                        return self._extract_schema_info_directly(target_endpoint)
-                    else:
-                        return "No relevant schema information found."
-            
-            logger.info(f"Loading FAISS vector DB from {faiss_path}")
-            embedding_fn = EmbeddingFunctionForCaseforge()
-            
-            try:
-                vectordb = FAISS.load_local(faiss_path, embedding_fn, allow_dangerous_deserialization=True)
-                logger.info(f"Successfully loaded FAISS vector DB from {faiss_path}")
-            except Exception as load_error:
-                logger.error(f"Error loading FAISS vector DB from {faiss_path}: {load_error}", exc_info=True)
-                
-                if self.schema:
-                    logger.info(f"Falling back to direct schema extraction due to FAISS load error")
-                    return self._extract_schema_info_directly(target_endpoint)
-                else:
-                    return "Error loading vector database. No relevant schema information found."
+            logger.info(f"Attempting RAG search for endpoint: {target_endpoint.method} {target_endpoint.path} using PGVector")
+
+            # PGVectorManagerのインスタンスを取得 (service_idを指定)
+            vectordb_manager = VectorDBManagerFactory.create_default(service_id=self.service_id, db_type="pgvector")
+            logger.info(f"PGVectorManager instance created for service_id: {self.service_id}.")
 
             query = f"{target_endpoint.method.upper()} {target_endpoint.path} {target_endpoint.summary or ''} {target_endpoint.description or ''}"
             if target_endpoint.request_body:
@@ -375,7 +351,9 @@ Return only a single valid JSON object matching the following format. **Do not i
             if target_endpoint.responses:
                  query += f" Responses: {json.dumps(target_endpoint.responses)}"
 
-            docs = vectordb.similarity_search(query, k=5)
+            # similarity_searchを実行
+            docs: List[Document] = vectordb_manager.similarity_search(query, k=5)
+            logger.info(f"PGVector similarity search returned {len(docs)} documents.")
 
             relevant_info_parts = []
             for i, doc in enumerate(docs):
@@ -385,8 +363,14 @@ Return only a single valid JSON object matching the following format. **Do not i
             relevant_info = "\n\n".join(relevant_info_parts)
 
             if not relevant_info.strip():
-                return "No relevant schema information found."
+                logger.warning("No relevant schema information found via PGVector search.")
+                if self.schema:
+                    logger.info(f"Falling back to direct schema extraction for endpoint {target_endpoint.method} {target_endpoint.path}")
+                    return self._extract_schema_info_directly(target_endpoint)
+                else:
+                    return "No relevant schema information found."
 
+            logger.info(f"Successfully retrieved relevant schema information for {target_endpoint.method} {target_endpoint.path} using PGVector.")
             return f"""
 # Relevant Schema Information for {target_endpoint.method.upper()} {target_endpoint.path}
 
@@ -394,7 +378,7 @@ Return only a single valid JSON object matching the following format. **Do not i
 """
 
         except Exception as e:
-            logger.error(f"Error during RAG search for endpoint {target_endpoint.method} {target_endpoint.path}: {e}", exc_info=True)
+            logger.error(f"Error during RAG search for endpoint {target_endpoint.method} {target_endpoint.path} using PGVector: {e}", exc_info=True)
             
             if self.schema:
                 logger.info(f"Falling back to direct schema extraction for endpoint {target_endpoint.method} {target_endpoint.path}")

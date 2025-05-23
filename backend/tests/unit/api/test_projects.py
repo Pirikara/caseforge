@@ -25,19 +25,18 @@ def test_create_service():
          patch("os.path.exists") as mock_exists, \
          patch("app.services.schema.create_service", new_callable=AsyncMock) as mock_db_create_service:
         mock_exists.return_value = False
-        mock_db_create_service.return_value = {"status": "created", "service_id": "new_service", "name": "New Service"}
+        mock_db_create_service.return_value = {"status": "created", "id": 1, "name": "New Service"}
 
         response = client.post(
             "/api/services/",
-            json={"service_id": "new_service", "name": "New Service"}
+            json={"name": "New Service"}
         )
 
         assert response.status_code == 200
         assert response.json()["status"] == "created"
-        assert response.json()["service_id"] == "new_service"
-
+        assert "id" in response.json()
+ 
         mock_db_create_service.assert_called_once_with(
-            service_id="new_service",
             name="New Service",
             description=None
         )
@@ -47,16 +46,30 @@ def test_upload_schema():
         mock_save.return_value = {"message": "Schema uploaded and indexed successfully."}
         
         files = {"file": ("test.json", '{"openapi": "3.0.0"}', "application/json")}
-        response = client.post("/api/services/test_service/schema", files=files)
+        response = client.post("/api/services/1/schema", files=files)
         
         assert response.status_code == 200
         assert response.json()["message"] == "Schema uploaded and indexed successfully."
 
 def test_generate_tests():
-    with patch("app.api.services.generate_test_suites_task") as mock_task:
+    with patch("app.api.services.generate_test_suites_task") as mock_task, \
+         patch("app.api.services.get_schema_files_or_400") as mock_get_schema_files:
+        
+        # get_schema_files_or_400 がダミーのファイルリストを返すようにモック
+        # get_schema_files_or_400 がダミーのPathオブジェクトのリストを返すようにモック
+        # Path オブジェクトのように振る舞うように exists() と name をモックする
+        mock_path = MagicMock()
+        mock_path.exists.return_value = True
+        mock_path.name = "dummy_schema.json"
+        # ダミーのスキーマファイル内容を返すように read_text をモック
+        mock_path.read_text.return_value = '{"openapi": "3.0.0", "info": {"title": "Dummy API", "version": "1.0.0"}, "paths": {}}'
+        # ダミーのスキーマファイル内容を返すように read_text をモック
+        mock_path.read_text.return_value = '{"openapi": "3.0.0", "info": {"title": "Dummy API", "version": "1.0.0"}, "paths": {}}'
+        mock_get_schema_files.return_value = [mock_path]
+        
         mock_task.delay.return_value = MagicMock(id="task-123")
         
-        response = client.post("/api/services/test_service/generate-tests")
+        response = client.post("/api/services/1/generate-tests")
         
         assert response.status_code == 200
         assert response.json()["message"] == "Test suite generation (full_schema) started"
@@ -71,7 +84,7 @@ def test_list_test_suites():
         ]
         mock_store.return_value = mock_store_instance
         
-        response = client.get("/api/services/test_service/test-suites")
+        response = client.get("/api/services/1/test-suites")
         
         assert response.status_code == 200
         assert len(response.json()) == 2
@@ -98,7 +111,7 @@ def test_get_test_suite_detail():
         }
         mock_store.return_value = mock_store_instance
         
-        response = client.get("/api/services/test_service/test-suites/suite-1")
+        response = client.get("/api/services/1/test-suites/suite-1")
         
         assert response.status_code == 200
         assert response.json()["id"] == "suite-1"
@@ -112,7 +125,7 @@ def test_run_test_suites():
             "task_id": "mock-task-id"
         }
         
-        response = client.post("/api/services/test_service/run-test-suites")
+        response = client.post("/api/services/1/run-test-suites")
         
         assert response.status_code == 200
         assert response.json()["status"] == "completed"
@@ -124,6 +137,7 @@ def test_get_test_run_history():
             {
                 "id": str(uuid.uuid4()),
                 "run_id": "run-1",
+                "service_id": 1,
                 "suite_id": "suite-1",
                 "suite_name": "Test Suite A",
                 "status": "completed",
@@ -136,6 +150,7 @@ def test_get_test_run_history():
             {
                 "id": str(uuid.uuid4()),
                 "run_id": "run-2",
+                "service_id": 1,
                 "suite_id": "suite-1",
                 "suite_name": "Test Suite A",
                 "status": "failed",
@@ -147,7 +162,7 @@ def test_get_test_run_history():
             }
         ]
         
-        response = client.get("/api/services/test_service/runs")
+        response = client.get("/api/services/1/runs")
         
         assert response.status_code == 200
         assert len(response.json()) == 2
@@ -199,7 +214,7 @@ def test_get_test_run_detail():
             ]
         }
         
-        response = client.get("/api/services/test_service/runs/run-1")
+        response = client.get("/api/services/1/runs/run-1")
         
         assert response.status_code == 200
         assert response.json()["run_id"] == "run-1"

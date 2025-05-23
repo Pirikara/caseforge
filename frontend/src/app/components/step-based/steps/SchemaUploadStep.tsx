@@ -54,11 +54,9 @@ export function SchemaUploadStep() {
     setIsUploading(true);
     
     try {
-      // FormDataの作成
       const formData = new FormData();
       formData.append('file', file);
       
-      // APIリクエスト
       const response = await fetch(`/api/services/${serviceId}/schema`, {
         method: 'POST',
         body: formData,
@@ -70,7 +68,6 @@ export function SchemaUploadStep() {
       
       const data = await response.json();
       
-      // スキーマ情報を共有データに保存
       updateSharedData('schemaId', data.id);
       updateSharedData('schemaVersion', data.version);
       
@@ -80,7 +77,6 @@ export function SchemaUploadStep() {
       });
       
     } catch (error) {
-      console.error('スキーマアップロードエラー:', error);
       toast.error("スキーマアップロードエラー", {
         description: "スキーマのアップロード中にエラーが発生しました",
       });
@@ -98,7 +94,6 @@ export function SchemaUploadStep() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* ファイル選択エリア */}
         <div className="flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg p-12 text-center">
           <input
             type="file"
@@ -147,7 +142,6 @@ export function SchemaUploadStep() {
           )}
         </div>
         
-        {/* 注意事項 */}
         <div className="flex items-start gap-2 text-sm text-muted-foreground">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <p>
@@ -156,7 +150,6 @@ export function SchemaUploadStep() {
           </p>
         </div>
         
-        {/* アップロードボタン */}
         <Button 
           className="w-full" 
           onClick={handleUploadSchema}

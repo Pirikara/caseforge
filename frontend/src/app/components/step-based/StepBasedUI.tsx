@@ -38,10 +38,8 @@ export function StepBasedUI({ className, children, onComplete }: StepBasedUIProp
   
   return (
     <div className={cn("space-y-6", className)}>
-      {/* ステップ進捗表示 */}
       <StepProgress />
       
-      {/* 現在のステップのコンテンツ */}
       <div className="min-h-[400px] p-4 border rounded-lg bg-card">
         {childrenArray[currentStep - 1] || (
           <div className="flex items-center justify-center h-full">
@@ -50,7 +48,6 @@ export function StepBasedUI({ className, children, onComplete }: StepBasedUIProp
         )}
       </div>
       
-      {/* ナビゲーションボタン */}
       <div className="flex justify-between pt-4">
         <Button
           variant="outline"

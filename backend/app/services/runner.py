@@ -8,18 +8,18 @@ from app.logging_config import logger
 from typing import List, Dict, Any
 from app.utils.path_manager import path_manager
 
-async def run_tests(service_id: str) -> list[dict]:
+async def run_tests(id: int) -> list[dict]:
     base_url = settings.TEST_TARGET_URL
     results = []
     
     try:
-        tests = list_testcases(service_id)
+        tests = list_testcases(id)
         if not tests:
-            logger.warning(f"No tests found for service {service_id}")
+            logger.warning(f"No tests found for service {id}")
             return []
             
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        log_path = path_manager.get_log_dir(service_id)
+        log_path = path_manager.get_log_dir(str(id))
         path_manager.ensure_dir(log_path)
     
         async with httpx.AsyncClient(base_url=base_url, timeout=10.0) as client:
@@ -74,52 +74,52 @@ async def run_tests(service_id: str) -> list[dict]:
             logger.error(f"Failed to save test results: {e}")
             
     except Exception as e:
-        logger.error(f"Error running tests for service {service_id}: {e}")
+        logger.error(f"Error running tests for service {id}: {e}")
         return [{"error": f"Failed to run tests: {str(e)}"}]
         
     return results
 
-def list_test_runs(service_id: str) -> list[str]:
+def list_test_runs(id: int) -> list[str]:
     """
     サービスのテスト実行履歴を取得する
     
     Args:
-        service_id: サービスID
+        id: サービスID
         
     Returns:
         テスト実行IDのリスト（日時の降順）
     """
     try:
-        path = path_manager.get_log_dir(service_id)
+        path = path_manager.get_log_dir(str(id))
         if not path_manager.exists(path):
-            logger.debug(f"No test runs found for service {service_id}")
+            logger.debug(f"No test runs found for service {id}")
             return []
         runs = sorted(os.listdir(str(path)), reverse=True)
-        logger.debug(f"Found {len(runs)} test runs for service {service_id}")
+        logger.debug(f"Found {len(runs)} test runs for service {id}")
         return runs
     except Exception as e:
-        logger.error(f"Error listing test runs for service {service_id}: {e}")
+        logger.error(f"Error listing test runs for service {id}: {e}")
         return []
 
-def get_run_result(service_id: str, run_id: str) -> list[dict] | None:
+def get_run_result(id: int, run_id: str) -> list[dict] | None:
     """
     特定のテスト実行結果を取得する
     
     Args:
-        service_id: サービスID
+        id: サービスID
         run_id: テスト実行ID
         
     Returns:
         テスト実行結果。ファイルが存在しない場合はNone。
     """
     try:
-        path = path_manager.get_log_dir(service_id, run_id)
+        path = path_manager.get_log_dir(str(id), run_id)
         if not path_manager.exists(path):
             logger.warning(f"Test run log not found: {path}")
             return None
         with open(path, "r") as f:
             result = json.load(f)
-            logger.debug(f"Loaded test results for service {service_id}, run {run_id}")
+            logger.debug(f"Loaded test results for service {id}, run {run_id}")
             return result
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in test run log {path}: {e}")

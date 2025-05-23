@@ -59,7 +59,7 @@ class TestSuiteUpdate(TestSuiteBase):
 
 class TestSuite(TestSuiteBase):
     id: str
-    service_id: str
+    service_id: int
     created_at: datetime
     test_cases: List[TestCase] = []
 
@@ -133,6 +133,7 @@ class TestCaseResultWithSteps(TestCaseResult):
 class TestRunSummary(BaseModel):
     id: str
     run_id: str
+    service_id: int
     suite_id: str
     suite_name: str
     status: str

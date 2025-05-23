@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation'; // useSearchParams をインポート
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,6 @@ import {
 import { toast } from 'sonner';
 import { fetcher } from '@/utils/fetcher';
 
-// フォームのスキーマ定義
 const formSchema = z.object({
   title: z.string().min(1, { message: 'テストケース名は必須です。' }),
   method: z.string().min(1, { message: 'メソッドは必須です。' }),
@@ -39,9 +38,9 @@ type FormValues = z.infer<typeof formSchema>;
 export default function NewTestCasePage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams(); // クエリパラメータを取得
+  const searchParams = useSearchParams();
   const serviceId = params.id as string;
-  const suiteId = searchParams.get('suiteId'); // suiteId をクエリパラメータから取得
+  const suiteId = searchParams.get('suiteId');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -49,7 +48,7 @@ export default function NewTestCasePage() {
       title: '',
       method: '',
       path: '',
-      expected_status: 200, // デフォルト値を設定
+      expected_status: 200,
       request_body: '',
       expected_response: '',
       purpose: '',
@@ -58,17 +57,14 @@ export default function NewTestCasePage() {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      // APIエンドポイントは仮
       const payload = {
         ...values,
-        suite_id: suiteId, // テストスイートIDを追加
-        // request_body と expected_response は文字列として扱うか、JSONに変換するか検討
+        suite_id: suiteId,
         request_body: values.request_body ? JSON.parse(values.request_body) : null,
         expected_response: values.expected_response ? JSON.parse(values.expected_response) : null,
       };
       await fetcher(`/api/services/${serviceId}/tests`, 'POST', payload);
       toast.success('テストケースが作成されました。');
-      // テストスイート詳細ページに戻るか、テストケース一覧に戻るか検討
       if (suiteId) {
         router.push(`/services/${serviceId}/test-suites/${suiteId}`);
       } else {
@@ -85,7 +81,6 @@ export default function NewTestCasePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-           {/* suiteId があればテストスイート詳細に戻る、なければテストケース一覧に戻る */}
           <Link href={suiteId ? `/services/${serviceId}/test-suites/${suiteId}` : `/services/${serviceId}/tests`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             {suiteId ? 'テストスイート詳細に戻る' : 'テストケース一覧に戻る'}
@@ -148,7 +143,7 @@ export default function NewTestCasePage() {
                   <FormItem>
                     <FormLabel>期待するステータスコード</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="例: 200" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} /> {/* 数値として扱う */}
+                      <Input type="number" placeholder="例: 200" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

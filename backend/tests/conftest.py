@@ -17,8 +17,20 @@ app.config.settings.LOG_DIR = f"{TEST_BASE_DIR}/test_runs"
 os.makedirs("/tmp/test_caseforge", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/schemas", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/schemas/test_service", exist_ok=True)
+# test_generate_tests で使用されるサービスID 1 のスキーマディレクトリを作成
+os.makedirs("/tmp/test_caseforge/schemas/1", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/generated_tests", exist_ok=True)
 os.makedirs("/tmp/test_caseforge/test_runs", exist_ok=True)
+
+# test_generate_tests で使用されるサービスID 1 のダミースキーマファイルを作成
+with open("/tmp/test_caseforge/schemas/1/dummy-schema.yaml", "w") as f:
+    f.write("""
+openapi: 3.0.0
+info:
+  title: Dummy API for Service 1
+  version: 1.0.0
+paths: {}
+""")
 
 with open("/tmp/test_caseforge/schemas/test_service/test-schema.yaml", "w") as f:
     f.write("""
@@ -89,7 +101,7 @@ def setup_database():
         session.exec(text("DELETE FROM service"))
         session.commit()
 
-        service = Service(service_id="test_service", name="Test Service")
+        service = Service(name="Test Service")
         session.add(service)
         session.commit()
     
@@ -158,10 +170,10 @@ paths:
 """)
 
     from sqlmodel import select
-    service = session.exec(select(Service).where(Service.service_id == service_id)).first()
+    service = session.exec(select(Service).where(Service.id == 1)).first()
     
     if not service:
-        service = Service(service_id=service_id, name="Test Service")
+        service = Service(name="Test Service")
         session.add(service)
         session.commit()
         session.refresh(service)
@@ -182,24 +194,6 @@ def test_schema_fixture(session, test_service):
     session.refresh(schema)
     return schema
 
-@pytest.fixture(name="mock_faiss")
-def mock_faiss_fixture(monkeypatch):
-    """FAISSのモック"""
-    class MockFAISS:
-        def __init__(self, *args, **kwargs):
-            pass
-            
-        @classmethod
-        def from_documents(cls, documents, embedding):
-            return cls()
-        
-        def similarity_search(self, query, k=1):
-            class MockDocument:
-                page_content = "test content"
-            return [MockDocument()]
-    
-    monkeypatch.setattr("langchain_community.vectorstores.FAISS", MockFAISS)
-    return MockFAISS
 
 @pytest.fixture(name="mock_llm")
 def mock_llm_fixture(monkeypatch):

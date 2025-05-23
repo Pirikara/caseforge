@@ -45,7 +45,6 @@ export function ServiceCreateStep() {
       });
       
     } catch (error) {
-      console.error('サービス作成エラー:', error);
       toast.error("サービス作成エラー", {
         description: "サービスの作成中にエラーが発生しました",
       });

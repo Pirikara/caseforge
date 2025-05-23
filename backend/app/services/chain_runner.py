@@ -259,12 +259,12 @@ class ChainRunner:
         
         return extracted
 
-async def run_test_suites(service_id: str, suite_id: Optional[str] = None) -> Dict:
+async def run_test_suites(service_id: int, suite_id: Optional[str] = None) -> Dict:
     """
     サービスのテストスイートを実行する
     
     Args:
-        service_id: サービスID
+        service_id: サービスID (int)
         suite_id: 特定のテストスイートIDを指定する場合
         
     Returns:
@@ -296,7 +296,7 @@ async def run_test_suites(service_id: str, suite_id: Optional[str] = None) -> Di
                 return {"status": "error", "message": "No test suites found"}
         
         with Session(engine) as session:
-            service_query = select(Service).where(Service.service_id == service_id)
+            service_query = select(Service).where(Service.id == service_id)
             db_service = session.exec(service_query).first()
             
             if not db_service:
@@ -372,7 +372,7 @@ async def run_test_suites(service_id: str, suite_id: Optional[str] = None) -> Di
                     )
                     session.add(test_case_result_obj)
                     session.flush()
-
+                    
                     for step_result_data in case_result_data.get("step_results", []):
                         step_query = select(TestStep).where(
                             TestStep.case_id == db_case.id,
@@ -406,7 +406,7 @@ async def run_test_suites(service_id: str, suite_id: Optional[str] = None) -> Di
                 session.commit()
             
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-            log_path = f"{settings.LOG_DIR}/{service_id}"
+            log_path = f"{settings.LOG_DIR}/{str(service_id)}"
             os.makedirs(log_path, exist_ok=True)
             
             with open(f"{log_path}/{timestamp}.json", "w") as f:
@@ -422,12 +422,12 @@ async def run_test_suites(service_id: str, suite_id: Optional[str] = None) -> Di
         logger.error(f"Error running test suites for service {service_id}: {e}", exc_info=True)
         return {"status": "error", "message": f"Failed to run test suites: {str(e)}"}
 
-def list_test_runs(service_id: str, limit: int = 10) -> List[Dict]:
+def list_test_runs(service_id: int, limit: int = 10) -> List[Dict]:
     """
     サービスのテスト実行履歴を取得する
     
     Args:
-        service_id: サービスID
+        service_id: サービスID (int)
         limit: 取得する実行数の上限
         
     Returns:
@@ -435,7 +435,7 @@ def list_test_runs(service_id: str, limit: int = 10) -> List[Dict]:
     """
     try:
         with Session(engine) as session:
-            service_query = select(Service).where(Service.service_id == service_id)
+            service_query = select(Service).where(Service.id == service_id)
             db_service = session.exec(service_query).first()
             
             if not db_service:
@@ -460,14 +460,14 @@ def list_test_runs(service_id: str, limit: int = 10) -> List[Dict]:
                     "success_rate": round(passed_cases / total_cases * 100) if total_cases > 0 else 0
                 }
                 test_runs.append(run_data)
-                        
+                         
             return test_runs
-                
+                 
     except Exception as e:
         logger.error(f"Error listing test runs for service {service_id}: {e}", exc_info=True)
         return []
 
-def get_test_run(service_id: str, run_id: str) -> Optional[Dict]:
+def get_test_run(service_id: int, run_id: str) -> Optional[Dict]:
     """
     指定されたサービスと実行IDのテスト実行結果を取得する
 
@@ -480,7 +480,7 @@ def get_test_run(service_id: str, run_id: str) -> Optional[Dict]:
     """
     try:
         with Session(engine) as session:
-            service_query = select(Service).where(Service.service_id == service_id)
+            service_query = select(Service).where(Service.id == service_id)
             db_service = session.exec(service_query).first()
 
             if not db_service:

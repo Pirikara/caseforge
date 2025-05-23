@@ -60,7 +60,7 @@ caseforge/
 │       ├── lib/           # ユーティリティ関数
 │       └── services/[id]/ # サービス関連ページ（テスト生成・実行等）
 │
-├── docker-compose.yml     # backend, frontend, redis, chroma, db を含む開発用サービス定義
+├── docker-compose.yml     # backend, frontend, redis, db を含む開発用サービス定義
 └── .env.example           # 環境変数テンプレート
 ```
 
@@ -71,7 +71,7 @@ caseforge/
 | レイヤ | 技術 |
 |--------|------|
 | フロントエンド | Next.js (App Router) / Tailwind CSS / SWR / Recharts / shadcn/ui / Zod / React Hook Form |
-| バックエンド | FastAPI / Celery / LangChain Core / LangChain OpenAI / LangChain Community / FAISS / SQLModel / Pydantic V2 / Pydantic Settings |
+| バックエンド | FastAPI / Celery / LangChain Core / LangChain OpenAI / LangChain Community / SQLModel / Pydantic V2 / Pydantic Settings |
 | インフラ | Docker Compose / Redis (Broker) / PostgreSQL |
 | テスト | Pytest / Pytest-asyncio |
 | 堅牢性 | 構造化例外処理 / タイムアウト処理 / リトライ機構 |
@@ -90,8 +90,7 @@ graph TD;
 
   subgraph Backend
     B -- Celery Task --> C[Worker]
-    C -- DB ORM --> D[PostgreSQL]
-    C -- Vector Search --> E[Vector DB]
+    C -- DB ORM & Vector Search --> D[PostgreSQL (pgvector)]
     
     F[Config] --> B
     F --> C
@@ -118,11 +117,7 @@ graph TD;
     D --- D5[TestRun]
     D --- D6[TestCaseResult]
     D --- D7[Endpoint]
-  end
-
-  subgraph "Vector Database"
-    E --- E1[FAISS]
-    E --- E2[Chroma]
+    D --- D8[SchemaChunk]
   end
 
   R[Redis Broker]
@@ -135,7 +130,7 @@ graph TD;
 ## 動作フロー概要
 
 1. ユーザーが OpenAPI schema をアップロード
-2. スキーマをデータベースに保存し、LangChain を通じてベクトル化してベクトルDBに保存（RAGの準備）
+2. スキーマをデータベースに保存し、LangChain を通じてベクトル化してPostgreSQL (pgvector) に保存（RAGの準備）
 3. ユーザーが「テストチェーン生成」を指示 → Celery 経由で非同期タスクを実行
 4. LLM を用いた RAG によりテストチェーンを生成し、データベースに保存
 5. テスト実行時、データベースからテストチェーンを読み込んで各 API を叩き、レスポンスを評価
@@ -152,16 +147,15 @@ sequenceDiagram
   participant UI as フロントエンド
   participant API as FastAPI
   participant Worker as Celery Worker
-  participant DB as PostgreSQL
-  participant Vector as Vector DB
+  participant DB as PostgreSQL (pgvector)
   participant LLM as LLM API
 
   User->>UI: テストスイート生成リクエスト
   UI->>API: POST /api/services/{id}/generate-tests
   API->>Worker: generate_test_suites_task
   Worker->>DB: サービス情報取得
-  Worker->>Vector: スキーマベクトル検索
-  Vector-->>Worker: 関連スキーマ情報
+  Worker->>DB: スキーマベクトル検索
+  DB-->>Worker: 関連スキーマ情報
   Worker->>LLM: テストスイート生成リクエスト
   LLM-->>Worker: 生成されたテストスイート
   Worker->>DB: テストスイート保存
@@ -356,7 +350,7 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
 
 - **LLM**：抽象化されたLLMクライアントにより、Claude / GPT / HuggingFace など、API呼び出し部分は差し替え可能
 - **RAG**：モジュール化されたRAG実装。chunker / embeddings / indexer のカスタムも容易
-- **ベクトルDB**：抽象化されたベクトルDBマネージャーにより、FAISS / ChromaDB など異なるベクトルDBを柔軟に切り替え可能
+- **ベクトルDB**：抽象化されたベクトルDBマネージャーにより、PostgreSQL (pgvector) など異なるベクトルDBを柔軟に切り替え可能
 - **テスト形式**：生成結果は JSON 形式で保存されるため、`pytest` や `Postman` 等と連携可能
 - **UI層**：API ファースト設計。将来的に GraphQL や gRPC への置換も視野
 - **環境変数管理**：Pydantic V2 Settings を使用した型安全な設定管理
@@ -378,7 +372,6 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
 erDiagram
   Service {
     integer id PK
-    string service_id
     string name
     string description
     string base_url
@@ -691,26 +684,25 @@ Caseforgeは、異なるベクトルデータベースに対して統一的な�
 
 ### ベクトルDBマネージャー
 
-- 抽象化されたインターフェースによる複数のベクトルDB対応（FAISS, ChromaDB）
+- 抽象化されたインターフェースによるベクトルDB対応（PostgreSQL (pgvector)）
 - 同期・非同期操作の両方に対応
 - タイムアウト処理とリトライ機構の組み込み
 - キャッシュ機能によるパフォーマンス最適化
 
 ```python
-# FAISSベクトルDBの使用
-vector_db = VectorDBManagerFactory.create("faiss", persist_directory="./data/faiss")
+# PostgreSQL (pgvector) ベクトルDBの使用
+# データベース接続は SQLModel で一元管理されるため、ここではマネージャーの取得のみ
+vector_db_manager = VectorDBManagerFactory.create("pgvector")
 
-# ChromaDBの使用
-vector_db = VectorDBManagerFactory.create("chroma", collection_name="documents")
+# ドキュメントの追加 (SchemaChunk モデルを使用)
+# documents は SchemaChunk のリストを想定
+vector_db_manager.add_documents(documents)
 
-# ドキュメントの追加
-vector_db.add_documents(documents)
-
-# 類似度検索
-results = vector_db.similarity_search("What is the capital of France?", k=5)
+# 類似度検索 (クエリと類似度閾値を指定)
+results = vector_db_manager.similarity_search("What is the capital of France?", k=5, threshold=0.8)
 
 # 非同期での類似度検索
-results = await vector_db.asimilarity_search("What is the capital of France?", k=5)
+results = await vector_db_manager.asimilarity_search("What is the capital of France?", k=5, threshold=0.8)
 ```
 
 ---

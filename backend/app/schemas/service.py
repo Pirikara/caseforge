@@ -9,14 +9,15 @@ class ServiceBase(BaseModel):
     base_url: Optional[str] = None
 
 class ServiceCreate(ServiceBase):
-    service_id: str
+    pass
+
+    pass
 
 class ServiceUpdate(ServiceBase):
     pass
 
 class Service(ServiceBase):
     id: int
-    service_id: str
     created_at: datetime
     updated_at: datetime
 

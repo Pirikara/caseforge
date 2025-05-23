@@ -49,7 +49,6 @@ export default function NewTestSuitePage() {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      // APIエンドポイントは仮
       await fetcher(`/api/services/${serviceId}/test-suites`, 'POST', values);
       toast.success('テストスイートが作成されました。');
       router.push(`/services/${serviceId}/test-suites`);

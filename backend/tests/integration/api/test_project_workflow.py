@@ -68,7 +68,7 @@ def test_workflow(monkeypatch):
     monkeypatch.setattr("app.api.services.ChainStore", lambda: mock_test_suite_store)
     
     monkeypatch.setattr("app.api.services.list_test_runs", lambda service_id, limit=10: [
-        {"id": "run-1-id", "run_id": "run-1", "suite_id": "suite-1", "suite_name": "TestSuite 1", "status": "completed", "start_time": "2023-01-01T10:00:00Z", "end_time": "2023-01-01T10:05:00Z", "test_cases_count": 2, "passed_test_cases": 2, "success_rate": 100} # TestRunSummary スキーマに合わせる
+        {"id": "run-1-id", "run_id": "run-1-id", "service_id": service_id, "suite_id": "suite-1", "suite_name": "TestSuite 1", "status": "completed", "start_time": "2023-01-01T10:00:00Z", "end_time": "2023-01-01T10:05:00Z", "test_cases_count": 2, "passed_test_cases": 2, "success_rate": 100} # TestRunSummary スキーマに合わせる
     ])
     
     monkeypatch.setattr("app.api.services.get_test_run", lambda service_id, run_id: {
@@ -94,38 +94,40 @@ def test_workflow(monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "created"
     
+    service_int_id = response.json()["id"]
+    
     files = {"file": ("test.json", '{"openapi": "3.0.0"}', "application/json")}
-    response = client.post(f"/api/services/{service_id}/schema", files=files)
+    response = client.post(f"/api/services/{service_int_id}/schema", files=files)
     assert response.status_code == 200
     
-    response = client.post(f"/api/services/{service_id}/generate-tests")
+    response = client.post(f"/api/services/{service_int_id}/generate-tests")
     print(response.json())
     print(response.status_code)
     assert response.status_code == 200
     assert "task_id" in response.json()
     assert response.json()["message"] == "Test suite generation (full_schema) started"
     
-    response = client.get(f"/api/services/{service_id}/test-suites")
+    response = client.get(f"/api/services/{service_int_id}/test-suites")
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["id"] == "suite-1"
     
-    response = client.get(f"/api/services/{service_id}/test-suites/suite-1")
+    response = client.get(f"/api/services/{service_int_id}/test-suites/suite-1")
     assert response.status_code == 200
     assert response.json()["id"] == "suite-1"
     assert len(response.json()["test_cases"]) == 1
     assert len(response.json()["test_cases"][0]["test_steps"]) == 2
     
-    response = client.post(f"/api/services/{service_id}/run-test-suites")
+    response = client.post(f"/api/services/{service_int_id}/run-test-suites")
     assert response.status_code == 200
     assert response.json()["message"] == "Test suite run complete"
     
-    response = client.get(f"/api/services/{service_id}/runs")
+    response = client.get(f"/api/services/{service_int_id}/runs")
     assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["run_id"] == "run-1"
+    assert response.json()[0]["run_id"] == "run-1-id"
     
-    response = client.get(f"/api/services/{service_id}/runs/run-1")
+    response = client.get(f"/api/services/{service_int_id}/runs/run-1")
     assert response.status_code == 200
     assert response.json()["run_id"] == "run-1"
     assert len(response.json()["test_case_results"]) == 1

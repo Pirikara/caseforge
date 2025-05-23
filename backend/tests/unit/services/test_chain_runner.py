@@ -258,7 +258,7 @@ async def test_run_test_suites_function(session, test_service, monkeypatch):
 
             test_suite = TestSuite(
                 id="test-suite-1",
-                service_id=test_service.service_id,
+                service_id=test_service.id,
                 name="Test TestSuite",
                 target_method="POST",
                 target_path="/users"
@@ -267,7 +267,7 @@ async def test_run_test_suites_function(session, test_service, monkeypatch):
             session.commit()
             session.refresh(test_suite)
         
-            result = await run_test_suites(test_service.service_id)
+            result = await run_test_suites(test_service.id)
 
             session.refresh(test_service)
 
@@ -303,8 +303,8 @@ def test_list_test_runs(session, test_service):
     session.commit()
     session.refresh(test_run)
 
-    with patch("app.services.chain_runner.Session", return_value=session) as mock_session:
-        test_runs = list_test_runs(test_service.service_id)
+    with patch("app.services.chain_runner.Session", return_value=session):
+        test_runs = list_test_runs(test_service.id)
     
     assert len(test_runs) == 1
     assert test_runs[0]["run_id"] == test_run.run_id
@@ -374,7 +374,7 @@ def test_get_test_run(session, test_service):
     session.add(step_result)
     session.commit()
     with patch("app.services.chain_runner.Session", return_value=session):
-        test_run_data = get_test_run(test_service.service_id, test_run.run_id)
+        test_run_data = get_test_run(test_service.id, test_run.run_id)
     
     assert test_run_data is not None
     assert test_run_data["run_id"] == test_run.run_id

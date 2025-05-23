@@ -17,7 +17,6 @@ export function useServices() {
       await fetcher(`/api/services/${serviceId}`, 'DELETE');
       mutate();
     } catch (err) {
-      console.error(`Failed to delete service ${serviceId}:`, err);
       throw err;
     }
   };

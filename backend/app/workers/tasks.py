@@ -15,12 +15,12 @@ from typing import List, Dict, Optional
 logger = logging.getLogger(__name__)
 
 @celery_app.task
-def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] = None):
+def generate_test_suites_task(service_id: int, error_types: Optional[List[str]] = None):
     """
     OpenAPIスキーマから依存関係を考慮したテストスイートを生成するCeleryタスク
     
     Args:
-        service_id: サービスID
+        service_id: サービスID (int)
         
     Returns:
         dict: 生成結果の情報
@@ -28,7 +28,7 @@ def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] 
     logger.info(f"Generating test suites for service {service_id}")
     
     try:
-        schema_path = f"{settings.SCHEMA_DIR}/{service_id}"
+        schema_path = f"{settings.SCHEMA_DIR}/{str(service_id)}"
         schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
         
         if not schema_files:
@@ -36,7 +36,7 @@ def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] 
             return {"status": "error", "message": "No schema files found"}
         
         schema_file = schema_files[0]
-        schema_content = get_schema_content(service_id, schema_file)
+        schema_content = get_schema_content(str(service_id), schema_file)
         
         if schema_file.endswith('.json'):
             schema = json.loads(schema_content)
@@ -49,7 +49,7 @@ def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] 
         logger.info(f"Successfully generated {len(test_suites)} test suites")
         
         chain_store = ChainStore()
-        chain_store.save_suites(service_id, test_suites)
+        chain_store.save_suites(None, service_id, test_suites) # Pass None for session as it's handled internally in save_suites
         
         return {"status": "completed", "count": len(test_suites)}
         
@@ -58,12 +58,12 @@ def generate_test_suites_task(service_id: str, error_types: Optional[List[str]] 
         return {"status": "error", "message": str(e)}
 
 @celery_app.task
-def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[str], error_types: Optional[List[str]] = None) -> Dict:
+def generate_test_suites_for_endpoints_task(service_id: int, endpoint_ids: List[str], error_types: Optional[List[str]] = None) -> Dict:
     """
     選択したエンドポイントからテストスイートを生成するタスク
     
     Args:
-        service_id: サービスID
+        service_id: サービスID (int)
         endpoint_ids: 選択したエンドポイントIDのリスト
         
     Returns:
@@ -72,14 +72,14 @@ def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[
     logger.info(f"Starting test suite generation for selected endpoints in service {service_id}")
     try:
         with Session(engine) as session:
-            service_query = select(Service).where(Service.service_id == service_id)
+            service_query = select(Service).where(Service.id == service_id)
             db_service = session.exec(service_query).first()
             
             if not db_service:
                 logger.error(f"Service not found: {service_id}")
                 return {"status": "error", "message": "Service not found"}
             
-            logger.info(f"Found service with service_id (str): {service_id} and database id (int): {db_service.id}")
+            logger.info(f"Found service with database id (int): {db_service.id}")
 
             endpoints_query = select(Endpoint).where(
                 Endpoint.service_id == db_service.id,
@@ -88,10 +88,10 @@ def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[
             selected_endpoints = session.exec(endpoints_query).all()
 
             if not selected_endpoints:
-                logger.error(f"No valid endpoints selected for service {service_id}")
-                return {"status": "error", "message": "No valid endpoints selected"}
+                logger.warning(f"No valid endpoints selected for service {service_id}")
+                return {"status": "warning", "message": "No test suites were generated for the selected endpoints."}
 
-            schema_path = f"{settings.SCHEMA_DIR}/{service_id}"
+            schema_path = f"{settings.SCHEMA_DIR}/{str(service_id)}"
             schema_files = [f for f in os.listdir(schema_path) if f.endswith(('.yaml', '.yml', '.json'))]
             
             if not schema_files:
@@ -99,7 +99,7 @@ def generate_test_suites_for_endpoints_task(service_id: str, endpoint_ids: List[
                 return {"status": "error", "message": "No schema files found"}
             
             schema_file = schema_files[0]
-            schema_content = get_schema_content(service_id, schema_file)
+            schema_content = get_schema_content(str(service_id), schema_file)
             
             if schema_file.endswith('.json'):
                 schema = json.loads(schema_content)

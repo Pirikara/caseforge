@@ -13,7 +13,7 @@ import TestRunsPage from './runs/page'; // TestRunsPageコンポーネントを�
 
 export default function ServiceDetailPage() {
   const params = useParams();
-  const serviceId = params.id as string;
+  const serviceId = parseInt(params.id as string, 10);
   const [activeTab, setActiveTab] = useState<string>('schema');
   const { services } = useServices();
   const { testRuns, isLoading: isLoadingTestRuns } = useTestRuns(serviceId); // useTestRunsフックを呼び出し
@@ -48,9 +48,7 @@ export default function ServiceDetailPage() {
           {service && <TestSuiteManagementTab serviceId={serviceId} service={service} />}
         </TabsContent>
 
-        {/* 実行履歴タブを追加 */}
         <TabsContent value="runs" className="space-y-4">
-           {/* TestRunsPageコンポーネントをレンダリング */}
            <TestRunsPage />
         </TabsContent>
       </ServiceDetailLayout>

@@ -201,7 +201,6 @@ export default function TestCasesPage() {
         )}
       </div>
       
-      {/* 削除確認ダイアログ */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

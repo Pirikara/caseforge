@@ -15,52 +15,15 @@ export interface Endpoint {
   responses?: Record<string, any>;
 }
 
-export function useEndpoints(serviceId: string) {
+export function useEndpoints(serviceId: number) {
   const { data, error, isLoading, mutate } = useSWR<Endpoint[]>(
-    `/api/services/${serviceId}/endpoints`,
+    `/api/services/${serviceId.toString()}/endpoints`,
     async (url: string) => {
-      console.log('Fetching endpoints from:', `${API}${url}`);
       const response = await fetch(`${API}${url}`);
-      
-      console.log('Endpoints API response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries([...response.headers.entries()])
-      });
       
       if (!response.ok) throw new Error(`API ${response.status}`);
       
-      const jsonData = await response.json();
-      console.log('Endpoints API data (first few):', jsonData.slice(0, 2));
-      
-      // 詳細なデータ構造を確認
-      if (jsonData && jsonData.length > 0) {
-        const firstEndpoint = jsonData[0];
-        console.log('First endpoint structure:', {
-          keys: Object.keys(firstEndpoint),
-          id: firstEndpoint.id,
-          path: firstEndpoint.path,
-          method: firstEndpoint.method,
-          request_body: firstEndpoint.request_body !== undefined ? 'あり' : 'なし',
-          request_body_type: firstEndpoint.request_body !== undefined ? typeof firstEndpoint.request_body : 'undefined',
-          request_body_value: firstEndpoint.request_body !== undefined ?
-            JSON.stringify(firstEndpoint.request_body).substring(0, 100) + '...' : 'undefined',
-          request_headers: firstEndpoint.request_headers !== undefined ? 'あり' : 'なし',
-          request_headers_type: firstEndpoint.request_headers !== undefined ? typeof firstEndpoint.request_headers : 'undefined',
-          request_headers_keys: firstEndpoint.request_headers !== undefined ?
-            Object.keys(firstEndpoint.request_headers).length : 'undefined',
-          request_query_params: firstEndpoint.request_query_params !== undefined ? 'あり' : 'なし',
-          request_query_params_type: firstEndpoint.request_query_params !== undefined ?
-            typeof firstEndpoint.request_query_params : 'undefined',
-          request_query_params_keys: firstEndpoint.request_query_params !== undefined ?
-            Object.keys(firstEndpoint.request_query_params).length : 'undefined',
-          responses: firstEndpoint.responses !== undefined ? 'あり' : 'なし',
-          responses_type: firstEndpoint.responses !== undefined ? typeof firstEndpoint.responses : 'undefined',
-          responses_keys: firstEndpoint.responses !== undefined ?
-            Object.keys(firstEndpoint.responses).length : 'undefined'
-        });
-      }
-      
+      const jsonData = await response.json();      
       return jsonData;
     }
   );

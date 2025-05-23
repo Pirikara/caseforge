@@ -38,7 +38,6 @@ export function EndpointSelectionStep() {
         setSelectedEndpoints(sharedData.selectedEndpoints);
       }
     } catch (error) {
-      console.error("エンドポイント取得エラー:", error);
       toast.error("エンドポイント取得エラー", {
         description: "エンドポイント一覧の取得中にエラーが発生しました",
       });
@@ -124,7 +123,6 @@ export function EndpointSelectionStep() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* 検索とフィルター */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-grow">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -151,7 +149,6 @@ export function EndpointSelectionStep() {
           </div>
         </div>
         
-        {/* 全選択/解除ボタン */}
         <div className="flex justify-between items-center">
           <Button
             variant="outline"
@@ -166,7 +163,6 @@ export function EndpointSelectionStep() {
           </span>
         </div>
         
-        {/* エンドポイント一覧 */}
         {isLoading ? (
           <div className="py-8 text-center">
             <p className="text-muted-foreground">読み込み中...</p>
@@ -209,7 +205,6 @@ export function EndpointSelectionStep() {
           </div>
         )}
         
-        {/* 保存ボタン */}
         <Button 
           className="w-full mt-4" 
           onClick={saveSelection}

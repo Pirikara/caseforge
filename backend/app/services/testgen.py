@@ -1,7 +1,7 @@
 from app.logging_config import logger
 from typing import Optional, List
 
-def trigger_test_generation(service_id: str, error_types: Optional[List[str]] = None) -> Optional[str]:
+def trigger_test_generation(service_id: int, error_types: Optional[List[str]] = None) -> Optional[str]:
     """
     テスト生成タスクを非同期で実行する
     

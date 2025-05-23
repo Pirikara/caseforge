@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { FileUpload } from '@/components/molecules/FileUpload';
 import { toast } from 'sonner';
 
-export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
+export const SchemaManagementTab = ({ serviceId }: { serviceId: number }) => {
   const [activeTab, setActiveTab] = React.useState('view');
   const [isUploading, setIsUploading] = React.useState(false);
   const [schema, setSchema] = React.useState<{ filename: string; content: string; content_type: string } | null>(null);
@@ -24,16 +24,8 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
       const response = await fetch(`${API}/api/services/${serviceId}/schema`);
       
-      console.log('Schema API Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries([...response.headers.entries()])
-      });
-      
       if (!response.ok) {
         if (response.status === 404) {
-          console.log('404エラーを検出: スキーマが存在しません');
           setSchema(null);
           setError(null);
           setIsLoading(false);
@@ -45,18 +37,8 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
       
       const data = await response.json();
       setSchema(data);
-    } catch (error) {
-      console.error('スキーマ取得エラー:', error);
-      if (error instanceof Error) {
-        console.log('エラー詳細:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-      }
-      
+    } catch (error) {      
       if (error instanceof Error && error.message.includes('404')) {
-        console.log('catchブロックで404エラーを検出');
         setSchema(null);
         setError(null);
       } else {
@@ -106,25 +88,21 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
       fetchSchema();
       
       try {
-        console.log('スキーマアップロード後のエンドポイントインポート開始:', serviceId);
         const importResponse = await fetch(`${API}/api/services/${serviceId}/endpoints/import`, {
           method: 'POST',
         });
         
         if (!importResponse.ok) {
           const importErrorData = await importResponse.json();
-          console.error('エンドポイントインポートエラー:', importErrorData);
           throw new Error(importErrorData.detail || 'エンドポイントのインポートに失敗しました');
         }
         
         const importData = await importResponse.json();
-        console.log('エンドポイントインポート成功:', importData);
         
         toast.success('エンドポイントがインポートされました', {
           description: `${importData.imported_count}件のエンドポイントをインポートしました。`,
         });
       } catch (importError) {
-        console.error('スキーマアップロード後のエンドポイントインポートエラー:', importError);
         toast.error('エンドポイントのインポートに失敗しました', {
           description: importError instanceof Error ? importError.message : '不明なエラーが発生しました',
         });
@@ -134,7 +112,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: string }) => {
         new MouseEvent('click', { bubbles: true })
       );
     } catch (error) {
-      console.error('スキーマアップロードエラー:', error);
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });

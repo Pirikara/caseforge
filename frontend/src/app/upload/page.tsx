@@ -21,7 +21,6 @@ import { FileUpload } from '@/components/molecules/FileUpload';
 import { useServices } from '@/hooks/useServices';
 import { toast } from 'sonner';
 
-// フォームのバリデーションスキーマ
 const formSchema = z.object({
   service_id: z.string().min(1, { message: 'サービスIDは必須です' }),
   file: z.instanceof(File, { message: 'ファイルは必須です' }),
@@ -32,27 +31,23 @@ export default function UploadPage() {
   const { services, isLoading: isLoadingServices } = useServices();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
-  // フォームの初期化
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       service_id: '',
     },
   });
-  
-  // ファイル選択時の処理
+
   const handleFileSelect = (file: File) => {
     form.setValue('file', file, { shouldValidate: true });
   };
   
-  // フォーム送信処理
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsSubmitting(true);
       
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
       
-      // FormDataの作成
       const formData = new FormData();
       formData.append('file', values.file);
       
@@ -70,10 +65,8 @@ export default function UploadPage() {
         description: `サービス「${values.service_id}」にスキーマがアップロードされました。`,
       });
       
-      // サービス詳細ページにリダイレクト
       router.push(`/services/${values.service_id}`);
     } catch (error) {
-      console.error('スキーマアップロードエラー:', error);
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });

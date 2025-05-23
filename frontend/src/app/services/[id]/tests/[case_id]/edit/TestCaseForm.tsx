@@ -271,7 +271,6 @@ export function TestCaseForm({ testCase, onSave, serviceId }: TestCaseFormProps)
             )}
           />
 
-          {/* テストステップ管理セクション */}
           <div className="space-y-4 pt-6">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-medium">テストステップ</h3>

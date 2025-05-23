@@ -3,7 +3,7 @@
 """
 from .openapi import EndpointParser, OpenAPIAnalyzer
 from .rag import EmbeddingFunctionForCaseforge, OpenAPISchemaChunker, index_schema
-from .vector_db import VectorDBManagerFactory, VectorDBManager, FAISSManager, ChromaDBManager
+from .vector_db import VectorDBManagerFactory, VectorDBManager
 from .test import (
     TestStatus, TestRunnerError, TestTimeoutError,
     TestResult, StepTestResult, CaseTestResult, SuiteTestResult,
@@ -29,7 +29,7 @@ __all__ = [
     "EmbeddingFunctionForCaseforge", "OpenAPISchemaChunker", "index_schema",
     
     # ベクトルDB関連
-    "VectorDBManagerFactory", "VectorDBManager", "FAISSManager", "ChromaDBManager",
+    "VectorDBManagerFactory", "VectorDBManager",
     
     # テスト実行関連
     "TestStatus", "TestRunnerError", "TestTimeoutError",

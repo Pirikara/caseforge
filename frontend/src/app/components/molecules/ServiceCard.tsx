@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 interface Service {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   created_at: string;

@@ -2,6 +2,7 @@ from .base import TimestampModel, get_session, engine
 from .service import Service, Schema
 from .test import TestSuite, TestCase, TestStep, TestRun, TestCaseResult, StepResult
 from .endpoint import Endpoint
+from sqlalchemy import text
 
 __all__ = [
     "TimestampModel", "get_session", "engine",
@@ -14,4 +15,7 @@ __all__ = [
 def init_db():
     """データベーススキーマを初期化する"""
     from sqlmodel import SQLModel
-    SQLModel.metadata.create_all(engine)
+
+    with engine.begin() as conn:
+        conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector;")
+        SQLModel.metadata.create_all(bind=conn)

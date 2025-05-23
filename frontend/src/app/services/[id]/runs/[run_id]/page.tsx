@@ -219,7 +219,6 @@ export default function TestRunDetailPage() {
           </TabsTrigger>
         </TabsList>
         
-        {/* 概要タブ */}
         <TabsContent value="summary" className="mt-6 space-y-6">
           <TestRunSummary 
             testRun={testRun} 
@@ -227,7 +226,6 @@ export default function TestRunDetailPage() {
           />
         </TabsContent>
         
-        {/* 結果詳細タブ */}
         <TabsContent value="results" className="mt-6 space-y-6">
           <TestCaseResultList 
             testCaseResults={testRun.test_case_results || []} 
@@ -235,7 +233,6 @@ export default function TestRunDetailPage() {
             onViewDetails={handleViewDetails}
           />
           
-          {/* テストケース詳細ダイアログ */}
           <dialog
             id="test-case-detail-dialog"
             className="p-0 rounded-lg shadow-lg backdrop:bg-black/50 w-full max-w-4xl"
@@ -294,7 +291,6 @@ export default function TestRunDetailPage() {
           </dialog>
         </TabsContent>
         
-        {/* グラフタブ */}
         <TabsContent value="charts" className="mt-6 space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <SuccessRateChart testCaseResults={testRun.test_case_results || []} />

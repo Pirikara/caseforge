@@ -9,13 +9,12 @@ celery[redis]>=5.4.0
 langchain==0.3.25
 langchain-community==0.3.24
 langchain-huggingface>=0.0.6
-chromadb==1.0.9
 sentence-transformers>=2.2.2
 pyyaml>=6.0.1
 jsonpath-ng>=1.5.0
-faiss-cpu>=1.7.4
 sentence-transformers>=2.2.2
 
+pgvector>=0.2.3
 httpx>=0.27.0
 pydantic-settings>=2.1.0
 sqlmodel>=0.0.16
