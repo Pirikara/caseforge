@@ -38,7 +38,6 @@ export function EndpointSelectionStep() {
         setSelectedEndpoints(sharedData.selectedEndpoints);
       }
     } catch (error) {
-      console.error("エンドポイント取得エラー:", error);
       toast.error("エンドポイント取得エラー", {
         description: "エンドポイント一覧の取得中にエラーが発生しました",
       });

@@ -15,11 +15,10 @@ export interface Endpoint {
   responses?: Record<string, any>;
 }
 
-export function useEndpoints(serviceId: string) {
+export function useEndpoints(serviceId: number) {
   const { data, error, isLoading, mutate } = useSWR<Endpoint[]>(
-    `/api/services/${serviceId}/endpoints`,
+    `/api/services/${serviceId.toString()}/endpoints`,
     async (url: string) => {
-      console.log('Fetching endpoints from:', `${API}${url}`);
       const response = await fetch(`${API}${url}`);
       
       console.log('Endpoints API response:', {
@@ -31,9 +30,7 @@ export function useEndpoints(serviceId: string) {
       if (!response.ok) throw new Error(`API ${response.status}`);
       
       const jsonData = await response.json();
-      console.log('Endpoints API data (first few):', jsonData.slice(0, 2));
       
-      // 詳細なデータ構造を確認
       if (jsonData && jsonData.length > 0) {
         const firstEndpoint = jsonData[0];
         console.log('First endpoint structure:', {

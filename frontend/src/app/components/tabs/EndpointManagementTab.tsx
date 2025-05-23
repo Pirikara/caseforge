@@ -26,7 +26,7 @@ import {
   SheetClose,
 } from '@/components/ui/sheet';
 
-export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
+export const EndpointManagementTab = ({ serviceId }: { serviceId: number }) => {
   const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
   const { endpoints, isLoading, mutate } = useEndpoints(serviceId);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -158,9 +158,7 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: string }) => {
       document.querySelector('[data-value="test-chains"]')?.dispatchEvent(
         new MouseEvent('click', { bubbles: true })
       );
-    } catch (error) {
-      console.error('テストチェーン生成エラー:', error);
-      
+    } catch (error) {      
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });

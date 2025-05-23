@@ -18,13 +18,13 @@ from sqlalchemy.orm import selectinload
 class DependencyAwareRAG:
     """依存関係を考慮したRAGクラス"""
     
-    def __init__(self, service_id: str, schema: dict, error_types: Optional[List[str]] = None):
+    def __init__(self, id: int, schema: dict, error_types: Optional[List[str]] = None):
         """
         Args:
-            service_id: サービスID
+            id: サービスID (int)
             schema: パース済みのOpenAPIスキーマ（dict形式）
         """
-        self.service_id = service_id
+        self.service_id = id # Keep attribute name for internal consistency if needed, but use int ID
         self.schema = schema
         self.error_types = error_types
         self.analyzer = OpenAPIAnalyzer(schema)
@@ -43,7 +43,7 @@ class DependencyAwareRAG:
                 logger.info("DependencyAwareRAG: ベクトルDBの初期化を開始")
                 try:
                     from app.services.vector_db.manager import VectorDBManagerFactory
-                    self.vectordb = VectorDBManagerFactory.create_default(service_id, db_type="pgvector")
+                    self.vectordb = VectorDBManagerFactory.create_default(str(id), db_type="pgvector")
                     logger.info("DependencyAwareRAG: ベクトルDBの初期化完了")
                 except Exception as e:
                     logger.warning(f"DependencyAwareRAG: ベクトルDB初期化エラー: {e}", exc_info=True)
@@ -378,18 +378,18 @@ class ChainStore:
         """初期化"""
         pass
     
-    def save_suites(self, session: Session, service_id: str, test_suites: List[Dict], overwrite: bool = True) -> None:
+    def save_suites(self, session: Session, id: int, test_suites: List[Dict], overwrite: bool = True) -> None:
         """
         生成されたテストスイートをデータベースに保存する
         
         Args:
             session: データベースセッション
-            service_id: サービスID
-            test_suites: 保存するテストスイiteのリスト (LLM生成JSON構造)
+            id: サービスID (int)
+            test_suites: 保存するテストスイteのリスト (LLM生成JSON構造)
             overwrite: 既存のテストスイートを上書きするかどうか (デフォルト: True)
         """
         try:
-            tests_dir = path_manager.get_tests_dir(service_id)
+            tests_dir = path_manager.get_tests_dir(str(id))
             path_manager.ensure_dir(tests_dir)
             
             suites_file_path = path_manager.join_path(tests_dir, "test_suites.json")
@@ -409,13 +409,13 @@ class ChainStore:
                 with open(suites_file_path, "w") as f:
                     json.dump(test_suites, f, indent=2)
             
-            logger.info(f"Exec save_suites Service ID: {service_id}")
-            service_query = select(Service).where(Service.service_id == service_id)
+            logger.info(f"Exec save_suites Service ID: {id}")
+            service_query = select(Service).where(Service.id == id)
             db_service = session.exec(service_query).first()
-            logger.info(f"Found service with service_id (str): {service_id} and database id (int): {db_service.id}")
+            logger.info(f"Found service with database id (int): {db_service.id}")
             
             if not db_service:
-                logger.error(f"Service not found: {service_id}")
+                logger.error(f"Service not found: {id}")
                 return
             
             if overwrite:
@@ -429,7 +429,7 @@ class ChainStore:
                         session.delete(case)
                     session.delete(suite)
                 
-                logger.info(f"Deleted {len(existing_suites)} existing test suites for service {service_id}")
+                logger.info(f"Deleted {len(existing_suites)} existing test suites for service {id}")
 
             for suite_data in test_suites:
                 suite_id = suite_data.get("id", str(uuid.uuid4()))
@@ -479,30 +479,30 @@ class ChainStore:
                         session.add(test_step)
                 
             session.commit()
-            logger.info(f"Saved {len(test_suites)} test suites with cases and steps to database")
+            logger.info(f"Saved {len(test_suites)} test suites with cases and steps to database for service {id}")
                 
         except Exception as e:
-            logger.error(f"Error saving test suites for service {service_id}: {e}", exc_info=True)
+            logger.error(f"Error saving test suites for service {id}: {e}", exc_info=True)
             session.rollback()
             raise
     
-    def list_test_suites(self, session: Session, service_id: str) -> List[Dict]:
+    def list_test_suites(self, session: Session, id: int) -> List[Dict]:
         """
         サービスのテストスイート一覧を取得する
         
         Args:
             session: データベースセッション
-            service_id: サービスID
+            id: サービスID (int)
             
         Returns:
             テストスイートのリスト
         """
         try:
-            service_query = select(Service).where(Service.service_id == service_id).options(selectinload(Service.test_suites))
+            service_query = select(Service).where(Service.id == id).options(selectinload(Service.test_suites))
             db_service = session.exec(service_query).first()
 
             if not db_service:
-                logger.error(f"Service not found: {service_id}")
+                logger.error(f"Service not found: {id}")
                 return []
             
             test_suites = []
@@ -515,43 +515,47 @@ class ChainStore:
                     "target_path": suite.target_path,
                     "created_at": suite.created_at.isoformat() if suite.created_at else None,
                     "test_cases_count": len(suite.test_cases) if suite.test_cases else 0,
-                    "service_id": db_service.id,
+                    "service_id": db_service.id, # Keep service_id key for frontend compatibility, but use int ID
                 }
                 test_suites.append(suite_data)
             
             return test_suites
 
         except Exception as e:
-            logger.error(f"Error listing test suites for service {service_id}: {e}", exc_info=True)
+            logger.error(f"Error listing test suites for service {id}: {e}", exc_info=True)
             
             try:
-                path = path_manager.join_path(path_manager.get_tests_dir(service_id), "test_suites.json")
+                # Fallback to filesystem - assuming directory names are integer IDs
+                path = path_manager.join_path(path_manager.get_tests_dir(str(id)), "test_suites.json")
                 if path_manager.exists(path):
                     with open(path, "r") as f:
                         test_suites = json.load(f)
+                    # Update service_id in fallback data if necessary
+                    for suite in test_suites:
+                         suite["service_id"] = id
                     return test_suites
             except Exception as fallback_error:
-                logger.error(f"Fallback error reading test suites from file system for service {service_id}: {fallback_error}", exc_info=True)
+                logger.error(f"Fallback error reading test suites from file system for service {id}: {fallback_error}", exc_info=True)
             
             return []
 
-    def merge_and_save_test_suites(self, service_id: str, new_test_suites: List[Dict]) -> None:
+    def merge_and_save_test_suites(self, id: int, new_test_suites: List[Dict]) -> None:
         """
         新しいテストスイートリストを既存のテストスイートとマージしてデータベースに保存する。
         新しいリストに含まれるtarget_methodとtarget_pathの組み合わせが同じテストスイートは既存のもので置き換え、
         新しいリストにない組み合わせの既存テストスイートはそのまま残す。
         
         Args:
-            service_id: サービスID
+            id: サービスID
             new_test_suites: 新しく生成されたテストスイートのリスト
         """
         try:
             with Session(engine) as session:
-                service_query = select(Service).where(Service.service_id == service_id)
+                service_query = select(Service).where(Service.id == id)
                 db_service = session.exec(service_query).first()
                 
                 if not db_service:
-                    logger.error(f"Service not found: {service_id}")
+                    logger.error(f"Service not found: {id}")
                     return
                 
                 existing_suites_dict = {(suite.target_method, suite.target_path): suite for suite in db_service.test_suites}
@@ -626,31 +630,31 @@ class ChainStore:
                     suites_to_save.append(test_suite)
 
                 session.commit()
-                logger.info(f"Merged and saved {len(new_test_suites)} new/updated test suites for service {service_id}")
+                logger.info(f"Merged and saved {len(new_test_suites)} new/updated test suites for service {id}")
                 
         except Exception as e:
-            logger.error(f"Error merging and saving test suites for service {service_id}: {e}", exc_info=True)
+            logger.error(f"Error merging and saving test suites for service {id}: {e}", exc_info=True)
             session.rollback()
             raise
     
-    def get_test_suite(self, session: Session, service_id: str, suite_id: str) -> Optional[Dict]:
+    def get_test_suite(self, session: Session, id: int, suite_id: str) -> Optional[Dict]:
         """
         特定のテストスイートの詳細を取得する
         
         Args:
             session: データベースセッション
-            service_id: サービスID
+            id: サービスID
             suite_id: テストスイートID
             
         Returns:
             テストスイートの詳細。見つからない場合はNone。
         """
         try:
-            service_query = select(Service).where(Service.service_id == service_id).options(selectinload(Service.test_suites))
+            service_query = select(Service).where(Service.id == id).options(selectinload(Service.test_suites))
             db_service = session.exec(service_query).first()
 
             if not db_service:
-                logger.error(f"Service not found: {service_id}")
+                logger.error(f"Service not found: {id}")
                 return None
             
             for suite in db_service.test_suites:
@@ -705,9 +709,9 @@ class ChainStore:
             return None
 
         except Exception as e:
-            logger.error(f"Error getting test suite {suite_id} for service {service_id}: {e}")
+            logger.error(f"Error getting test suite {suite_id} for service {id}: {e}")
             return None
 
         except Exception as e:
-            logger.error(f"Error getting chain {suite_id} for service {service_id}: {e}")
+            logger.error(f"Error getting chain {suite_id} for service {id}: {e}")
             return None

@@ -82,7 +82,6 @@ export function TestSuiteGenerationStep() {
       });
       
     } catch (error) {
-      console.error('テスト生成エラー:', error);
       toast.error("テスト生成エラー", {
         description: "テストスイートの生成中にエラーが発生しました",
       });

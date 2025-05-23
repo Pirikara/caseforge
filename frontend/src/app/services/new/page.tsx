@@ -21,10 +21,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 
 const formSchema = z.object({
-  service_id: z.string()
-    .min(3, { message: 'サービスIDは3文字以上である必要があります' })
-    .max(50, { message: 'サービスIDは50文字以下である必要があります' })
-    .regex(/^[a-z0-9_-]+$/, { message: 'サービスIDは小文字、数字、ハイフン、アンダースコアのみ使用できます' }),
   name: z.string()
     .min(1, { message: 'サービス名は必須です' })
     .max(100, { message: 'サービス名は100文字以下である必要があります' }),
@@ -38,7 +34,6 @@ export default function NewServicePage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      service_id: '',
       name: '',
       description: '',
     },
@@ -55,7 +50,6 @@ export default function NewServicePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          service_id: values.service_id,
           name: values.name,
           description: values.description || '',
         }),
@@ -72,9 +66,8 @@ export default function NewServicePage() {
         description: `サービス「${values.name}」が正常に作成されました。`,
       });
       
-      router.push(`/services/${values.service_id}`);
+      router.push(`/services/${data.id}`);
     } catch (error) {
-      console.error('サービス作成エラー:', error);
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });
@@ -96,24 +89,7 @@ export default function NewServicePage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="service_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>サービスID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="my-service" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      サービスを識別するための一意のIDです。小文字、数字、ハイフン、アンダースコアのみ使用できます。
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">              
               <FormField
                 control={form.control}
                 name="name"

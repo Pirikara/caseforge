@@ -10,7 +10,6 @@ class Service(TimestampModel, table=True):
     __tablename__ = "service"
     """サービスモデル"""
     id: Optional[int] = Field(default=None, primary_key=True)
-    service_id: str = Field(index=True, unique=True)
     name: str
     description: Optional[str] = None
     base_url: Optional[str] = Field(default=None)

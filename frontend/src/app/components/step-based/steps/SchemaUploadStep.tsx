@@ -77,7 +77,6 @@ export function SchemaUploadStep() {
       });
       
     } catch (error) {
-      console.error('スキーマアップロードエラー:', error);
       toast.error("スキーマアップロードエラー", {
         description: "スキーマのアップロード中にエラーが発生しました",
       });

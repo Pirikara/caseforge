@@ -13,10 +13,10 @@ from langchain_core.documents import Document
 class EndpointChainGenerator:
     """選択されたエンドポイントからテストチェーンを生成するクラス"""
     
-    def __init__(self, service_id: str, endpoints: List[Endpoint], schema: Dict = None, error_types: Optional[List[str]] = None): # error_types 引数を追加
+    def __init__(self, service_id: int, endpoints: List[Endpoint], schema: Dict = None, error_types: Optional[List[str]] = None): # error_types 引数を追加
         """
         Args:
-            service_id: サービスID
+            service_id: サービスID (int)
             endpoints: 選択されたエンドポイントのリスト
             schema: OpenAPIスキーマ（オプション）
         """
@@ -337,9 +337,9 @@ Return only a single valid JSON object matching the following format. **Do not i
         try:
             logger.info(f"Attempting RAG search for endpoint: {target_endpoint.method} {target_endpoint.path} using PGVector")
 
-            # PGVectorManagerのインスタンスを取得
-            vectordb_manager = VectorDBManagerFactory.create_default("pgvector")
-            logger.info("PGVectorManager instance created.")
+            # PGVectorManagerのインスタンスを取得 (service_idを指定)
+            vectordb_manager = VectorDBManagerFactory.create_default(service_id=self.service_id, db_type="pgvector")
+            logger.info(f"PGVectorManager instance created for service_id: {self.service_id}.")
 
             query = f"{target_endpoint.method.upper()} {target_endpoint.path} {target_endpoint.summary or ''} {target_endpoint.description or ''}"
             if target_endpoint.request_body:

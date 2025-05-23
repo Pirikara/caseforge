@@ -23,7 +23,6 @@ import { QueryParamEditor } from './components/QueryParamEditor';
 import { HeaderEditor } from './components/HeaderEditor';
 import { ExtractorEditor } from './components/ExtractorEditor';
 
-// フォームのスキーマ定義
 const formSchema = z.object({
   name: z.string().optional(),
   method: z.string().min(1, { message: 'メソッドは必須です。' }),
@@ -42,7 +41,7 @@ type FormValues = z.infer<typeof formSchema>;
 interface TestStepFormProps {
   testStep: TestStepDetail;
   onSave: (data: any) => Promise<void>;
-  serviceId: string;
+  serviceId: number;
   caseId: string;
 }
 
@@ -65,7 +64,6 @@ export function TestStepForm({ testStep, onSave, serviceId, caseId }: TestStepFo
     },
   });
 
-  // testStep が更新されたらフォームの値をリセット
   React.useEffect(() => {
     if (testStep) {
       form.reset({
@@ -86,7 +84,6 @@ export function TestStepForm({ testStep, onSave, serviceId, caseId }: TestStepFo
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
-      // フォームデータを整形
       const formData = {
         ...values,
       };

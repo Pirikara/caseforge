@@ -5,7 +5,7 @@ import { TestCase, TestStep } from './useTestRuns';
 
 export interface TestSuite {
   id: string;
-  service_id?: string;
+  service_id?: number;
   target_method: string;
   target_path: string;
   name: string;
@@ -16,18 +16,17 @@ export interface TestSuite {
   updated_at?: string;
 }
 
-export function useTestSuites(serviceId: string) {
+export function useTestSuites(serviceId: number) {
   const { data, error, isLoading, mutate } = useSWR<TestSuite[]>(
-    serviceId ? `/api/services/${serviceId}/test-suites` : null,
+    serviceId ? `/api/services/${serviceId.toString()}/test-suites` : null,
     fetcher
   );
   
   const deleteTestSuite = async (suiteId: string) => {
     try {
-      await fetcher(`/api/services/${serviceId}/test-suites/${suiteId}`, 'DELETE');
+      await fetcher(`/api/services/${serviceId.toString()}/test-suites/${suiteId}`, 'DELETE');
       mutate();
     } catch (err) {
-      console.error(`Failed to delete test suite ${suiteId}:`, err);
       throw err;
     }
   };
@@ -41,9 +40,9 @@ export function useTestSuites(serviceId: string) {
   };
 }
 
-export function useTestSuiteDetail(serviceId: string, suiteId: string | null) {
+export function useTestSuiteDetail(serviceId: number, suiteId: string | null) {
   const { data, error, isLoading, mutate } = useSWR<TestSuite>(
-    serviceId && suiteId ? `/api/services/${serviceId}/test-suites/${suiteId}` : null,
+    serviceId && suiteId ? `/api/services/${serviceId.toString()}/test-suites/${suiteId}` : null,
     fetcher
   );
   

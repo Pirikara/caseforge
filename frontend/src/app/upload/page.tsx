@@ -21,7 +21,6 @@ import { FileUpload } from '@/components/molecules/FileUpload';
 import { useServices } from '@/hooks/useServices';
 import { toast } from 'sonner';
 
-// フォームのバリデーションスキーマ
 const formSchema = z.object({
   service_id: z.string().min(1, { message: 'サービスIDは必須です' }),
   file: z.instanceof(File, { message: 'ファイルは必須です' }),
@@ -68,7 +67,6 @@ export default function UploadPage() {
       
       router.push(`/services/${values.service_id}`);
     } catch (error) {
-      console.error('スキーマアップロードエラー:', error);
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });

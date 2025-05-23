@@ -13,18 +13,17 @@ export interface TestCase {
   purpose: string;
 }
 
-export function useTestCases(serviceId: string) {
+export function useTestCases(serviceId: number) {
   const { data, error, isLoading, mutate } = useSWR<TestCase[]>(
-    serviceId ? `/api/services/${serviceId}/test-cases` : null,
+    serviceId ? `/api/services/${serviceId.toString()}/test-cases` : null,
     fetcher
   );
   
   const deleteChain = async (chainId: string) => {
     try {
-      await fetcher(`/api/services/${serviceId}/test-cases/${chainId}`, 'DELETE');
+      await fetcher(`/api/services/${serviceId.toString()}/test-cases/${chainId}`, 'DELETE');
       mutate();
     } catch (err) {
-      console.error(`Failed to delete chain ${chainId} for service ${serviceId}:`, err);
       throw err;
     }
   };
@@ -53,9 +52,9 @@ export interface TestCaseDetail extends TestCase {
   steps?: TestStep[];
 }
 
-export function useTestCaseDetail(serviceId: string, caseId: string) {
+export function useTestCaseDetail(serviceId: number, caseId: string) {
   const { data, error, isLoading, mutate } = useSWR<TestCaseDetail>(
-    serviceId && caseId ? `/api/services/${serviceId}/test-cases/${caseId}` : null,
+    serviceId && caseId ? `/api/services/${serviceId.toString()}/test-cases/${caseId}` : null,
     fetcher
   );
   return { testCase: data, isLoading, error, mutate };

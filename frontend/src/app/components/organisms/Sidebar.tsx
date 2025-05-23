@@ -19,7 +19,7 @@ interface Service {
 
 interface TestRun {
   run_id: string;
-  service_id: string;
+  service_id: number;
   service_name?: string;
   status: 'running' | 'completed' | 'failed';
   start_time: string;
@@ -47,7 +47,6 @@ function useRecentTestRuns() {
         const data = await response.json();
         setRecentRuns(data);
       } catch (err) {
-        console.error('最近のテスト実行の取得に失敗しました:', err);
         setError(err instanceof Error ? err : new Error('不明なエラー'));
       } finally {
         setIsLoading(false);

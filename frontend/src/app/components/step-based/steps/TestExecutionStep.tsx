@@ -62,7 +62,6 @@ export function TestExecutionStep() {
       });
       setTestResults(initialResults);
     } catch (error) {
-      console.error('テストケース取得エラー:', error);
       toast.error("テストケース取得エラー", {
         description: "テストケース一覧の取得中にエラーが発生しました",
       });
@@ -99,7 +98,6 @@ export function TestExecutionStep() {
       await pollTestResults(response.run_id);
       
     } catch (error) {
-      console.error('テスト実行エラー:', error);
       toast.error("テスト実行エラー", {
         description: "テストの実行中にエラーが発生しました",
       });
@@ -153,7 +151,6 @@ export function TestExecutionStep() {
       });
       
     } catch (error) {
-      console.error('テスト結果取得エラー:', error);
       toast.error("テスト結果取得エラー", {
         description: "テスト結果の取得中にエラーが発生しました",
       });

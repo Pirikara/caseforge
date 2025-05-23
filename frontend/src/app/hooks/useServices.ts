@@ -2,7 +2,7 @@ import useSWR from 'swr';
 import { fetcher } from '@/utils/fetcher';
 
 export interface Service {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   base_url?: string;
@@ -23,17 +23,15 @@ export function useServices() {
       mutate();
       return newService;
     } catch (err) {
-      console.error('Failed to create service:', err);
       throw err;
     }
   };
   
-  const deleteService = async (serviceId: string) => {
+  const deleteService = async (serviceId: number) => {
     try {
       await fetcher(`/api/services/${serviceId}`, 'DELETE');
       mutate();
     } catch (err) {
-      console.error(`Failed to delete service ${serviceId}:`, err);
       throw err;
     }
   };

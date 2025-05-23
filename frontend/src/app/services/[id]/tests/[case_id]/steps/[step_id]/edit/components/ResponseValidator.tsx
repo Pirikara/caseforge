@@ -28,16 +28,13 @@ export function ResponseValidator({ control, name }: ResponseValidatorProps) {
                   value={field.value ? JSON.stringify(field.value, null, 2) : ''}
                   onChange={(value: string | undefined) => {
                     try {
-                      // 空の場合はnullを設定
                       if (!value || value.trim() === '') {
                         field.onChange(null);
                         return;
                       }
-                      // JSONとして解析
                       const parsedValue = JSON.parse(value);
                       field.onChange(parsedValue);
                     } catch (e) {
-                      // エラーが発生した場合は、生の文字列をそのまま設定
                       console.error('JSON parse error:', e);
                     }
                   }}

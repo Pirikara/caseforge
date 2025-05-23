@@ -60,22 +60,22 @@ class PathManager:
             return self._root_path / filename
         return self._root_path
     
-    def get_schema_dir(self, service_id: Optional[str] = None) -> Path:
+    def get_schema_dir(self, service_id: Optional[int] = None) -> Path:
         """
         スキーマディレクトリのパスを取得する
         
         Args:
-            service_id (Optional[str]): サービスID。指定した場合はサービス固有のディレクトリを返す
+            service_id (Optional[int]): サービスID。指定した場合はサービス固有のディレクトリを返す
             
         Returns:
             Path: スキーマディレクトリのパス
         """
         schema_dir = Path(settings.SCHEMA_DIR)
-        if service_id:
-            return schema_dir / service_id
+        if service_id is not None:
+            return schema_dir / str(service_id)
         return schema_dir
     
-    def get_tests_dir(self, service_id: Optional[str] = None) -> Path:
+    def get_tests_dir(self, service_id: Optional[int] = None) -> Path:
         """
         テストディレクトリのパスを取得する
         
@@ -87,10 +87,10 @@ class PathManager:
         """
         tests_dir = Path(settings.TESTS_DIR)
         if service_id:
-            return tests_dir / service_id
+            return tests_dir / str(service_id)
         return tests_dir
     
-    def get_log_dir(self, service_id: Optional[str] = None, run_id: Optional[str] = None) -> Path:
+    def get_log_dir(self, service_id: Optional[int] = None, run_id: Optional[str] = None) -> Path:
         """
         ログディレクトリのパスを取得する
         
@@ -103,25 +103,25 @@ class PathManager:
         """
         log_dir = Path(settings.LOG_DIR)
         if service_id:
-            service_log_dir = log_dir / service_id
+            service_log_dir = log_dir / str(service_id)
             if run_id:
                 return service_log_dir / f"{run_id}.json"
             return service_log_dir
         return log_dir
     
-    def get_temp_dir(self, subdir: Optional[str] = None) -> Path:
+    def get_temp_dir(self, subdir: Optional[int] = None) -> Path:
         """
         一時ディレクトリのパスを取得する
         
         Args:
-            subdir (Optional[str]): サブディレクトリ名
+            subdir (Optional[int]): サブディレクトリ名
             
         Returns:
             Path: 一時ディレクトリのパス
         """
         temp_dir = Path("/tmp")
-        if subdir:
-            return temp_dir / subdir
+        if subdir is not None:
+            return temp_dir / str(subdir)
         return temp_dir
     
     

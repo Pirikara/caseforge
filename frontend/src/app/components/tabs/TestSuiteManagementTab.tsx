@@ -50,7 +50,7 @@ import { ja } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-export const TestChainManagementTab = ({ serviceId, service }: { serviceId: string, service: any }) => {
+export const TestChainManagementTab = ({ serviceId, service }: { serviceId: number, service: any }) => {
   const router = useRouter();
   const { testSuites, isLoading: isLoadingTestSuites, deleteTestSuite } = useTestSuites(serviceId);
   const { testRuns, isLoading: isLoadingTestRuns } = useTestRuns(serviceId);
@@ -133,8 +133,6 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: stri
 
       router.push(`/services/${serviceId}/runs/${data.run_id}`);
     } catch (error) {
-      console.error('テスト実行エラー:', error);
-
       toast.error('エラーが発生しました', {
         description: error instanceof Error ? error.message : '不明なエラーが発生しました',
       });

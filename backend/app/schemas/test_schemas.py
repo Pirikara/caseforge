@@ -133,6 +133,7 @@ class TestCaseResultWithSteps(TestCaseResult):
 class TestRunSummary(BaseModel):
     id: str
     run_id: str
+    service_id: int
     suite_id: str
     suite_name: str
     status: str

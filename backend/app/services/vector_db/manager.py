@@ -591,9 +591,6 @@ class VectorDBManager(abc.ABC):
         return count
 
 
-
-
-
 class VectorDBManagerFactory:
     """ベクトルDBマネージャーのファクトリークラス"""
     
@@ -665,7 +662,7 @@ class VectorDBManagerFactory:
         )
     
     @staticmethod
-    def create_default(service_id: Optional[str] = None) -> VectorDBManager:
+    def create_default(service_id: Optional[int] = None) -> VectorDBManager:
         """
         デフォルトのベクトルDBマネージャーを作成する
         
@@ -682,7 +679,7 @@ class VectorDBManagerFactory:
         persist_directory = path_manager.join_path(data_dir, db_type, service_id) if service_id else None
         logger.info(f"📂 persist_directory = {persist_directory}")
         
-        collection_name = service_id if service_id else "default"
+        collection_name = str(service_id) if service_id is not None else "default"
         logger.info(f"📁 collection_name = {collection_name}")
 
         logger.info("🧠 Creating embedding model...")

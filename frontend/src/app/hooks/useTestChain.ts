@@ -3,9 +3,9 @@ import { fetcher } from '@/utils/fetcher';
 
 import { TestSuite } from '@/hooks/useTestRuns';
 
-export function useTestSuiteDetail(serviceId: string | undefined, suiteId: string | undefined) {
+export function useTestSuiteDetail(serviceId: number | undefined, suiteId: string | undefined) {
   const { data, error, isLoading, mutate } = useSWR<TestSuite>(
-    (serviceId && suiteId) ? `/api/services/${serviceId}/test-suites/${suiteId}` : null,
+    (serviceId && suiteId) ? `/api/services/${serviceId.toString()}/test-suites/${suiteId}` : null,
     fetcher
   );
 

@@ -24,7 +24,7 @@ export function ServiceDetailLayout({
 }: ServiceDetailLayoutProps) {
   const params = useParams();
   const router = useRouter();
-  const serviceId = params.id as string;
+  const serviceId = parseInt(params.id as string, 10);
 
   const { services, isLoading, error, mutate } = useServices();
 
@@ -47,7 +47,6 @@ export function ServiceDetailLayout({
       mutate();
       toast.success("Base URLを保存しました");
     } catch (error) {
-      console.error('Failed to save Base URL:', error);
       toast.error("Base URLの保存に失敗しました");
     }
   };
