@@ -486,7 +486,6 @@ async def import_endpoints(id: int, service_path: Path = Depends(get_service_or_
         endpoints_data = parser.parse_endpoints(str(id))
 
         with Session(engine) as session:
-            # Service.service_id は存在しないため、Service.id で検索
             service_db_id = session.scalar(select(Service.id).where(Service.id == id))
             if service_db_id is not None:
                 delete_statement = delete(Endpoint).where(Endpoint.service_id == service_db_id)
@@ -563,7 +562,7 @@ async def list_endpoints(
     サービスのエンドポイント一覧を取得する
     
     Args:
-        service_id: サービスID
+        id: サービスID
         service_path: サービスのパス
         
     Returns:
@@ -620,7 +619,7 @@ async def list_test_cases_for_suite(
     """
     try:
         with Session(engine) as session:
-            service_db_id = session.scalar(select(Service.id).where(Service.service_id == id))
+            service_db_id = session.scalar(select(Service.id).where(Service.id == id))
             if service_db_id is None:
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 

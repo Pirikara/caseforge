@@ -812,7 +812,7 @@ class TestRunnerFactory:
                 logger.warning(f"No test suites found for service {service_id}")
                 return {"status": "error", "message": "No test suites found"}
             
-            service_query = select(Service).where(Service.service_id == service_id)
+            service_query = select(Service).where(Service.id == service_id)
             db_service = session.exec(service_query).first()
             
             if not db_service:
