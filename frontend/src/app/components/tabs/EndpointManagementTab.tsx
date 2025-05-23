@@ -89,33 +89,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: number }) => {
       );
     }
   }, [endpoints]);
-
-  React.useEffect(() => {
-    if (selectedEndpoint) {
-      console.log('選択されたエンドポイント詳細:', {
-        id: selectedEndpoint.id,
-        path: selectedEndpoint.path,
-        method: selectedEndpoint.method,
-        request_body: selectedEndpoint.request_body !== undefined ? 'あり' : 'なし',
-        request_body_type: selectedEndpoint.request_body !== undefined ? typeof selectedEndpoint.request_body : 'undefined',
-        request_body_value: selectedEndpoint.request_body !== undefined ?
-          JSON.stringify(selectedEndpoint.request_body).substring(0, 100) + '...' : 'undefined',
-        request_headers: selectedEndpoint.request_headers !== undefined ? 'あり' : 'なし',
-        request_headers_type: selectedEndpoint.request_headers !== undefined ? typeof selectedEndpoint.request_headers : 'undefined',
-        request_headers_keys: selectedEndpoint.request_headers !== undefined ?
-          Object.keys(selectedEndpoint.request_headers || {}).length : 'undefined',
-        request_query_params: selectedEndpoint.request_query_params !== undefined ? 'あり' : 'なし',
-        request_query_params_type: selectedEndpoint.request_query_params !== undefined ?
-          typeof selectedEndpoint.request_query_params : 'undefined',
-        request_query_params_keys: selectedEndpoint.request_query_params !== undefined ?
-          Object.keys(selectedEndpoint.request_query_params || {}).length : 'undefined',
-        responses: selectedEndpoint.responses !== undefined ? 'あり' : 'なし',
-        responses_type: selectedEndpoint.responses !== undefined ? typeof selectedEndpoint.responses : 'undefined',
-        responses_keys: selectedEndpoint.responses !== undefined ?
-          Object.keys(selectedEndpoint.responses || {}).length : 'undefined'
-      });
-    }
-  }, [selectedEndpoint]);
   
   const handleGenerateChain = async () => {
     if (selectedEndpoints.length === 0) {
@@ -135,13 +108,6 @@ export const EndpointManagementTab = ({ serviceId }: { serviceId: number }) => {
           endpoint_ids: selectedEndpoints,
           error_types: selectedErrorTypes,
         }),
-      });
-      
-      console.log('テストチェーン生成APIレスポンス:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries([...response.headers.entries()])
       });
       
       if (!response.ok) {

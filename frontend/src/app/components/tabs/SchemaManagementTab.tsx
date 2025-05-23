@@ -24,13 +24,6 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: number }) => {
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
       const response = await fetch(`${API}/api/services/${serviceId}/schema`);
       
-      console.log('Schema API Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries([...response.headers.entries()])
-      });
-      
       if (!response.ok) {
         if (response.status === 404) {
           setSchema(null);
@@ -44,15 +37,7 @@ export const SchemaManagementTab = ({ serviceId }: { serviceId: number }) => {
       
       const data = await response.json();
       setSchema(data);
-    } catch (error) {
-      if (error instanceof Error) {
-        console.log('エラー詳細:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-      }
-      
+    } catch (error) {      
       if (error instanceof Error && error.message.includes('404')) {
         setSchema(null);
         setError(null);
