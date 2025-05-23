@@ -649,7 +649,7 @@ async def list_test_cases_for_suite(
                  logger.error(f"Service with service_id {service_id} not found in database during test case listing for suite.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestSuite
+            from app.models.test.suite import TestSuite
             test_suite_query = select(TestSuite).where(
                 TestSuite.id == suite_id,
                 TestSuite.service_id == service_db_id
@@ -688,7 +688,7 @@ async def get_test_case_detail(
                  logger.error(f"Service with service_id {service_id} not found in database during test case detail fetch.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestCase
+            from app.models.test.case import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.service_id == service_db_id
@@ -726,7 +726,7 @@ async def create_test_case(
                  logger.error(f"Service with service_id {service_id} not found in database during test case creation.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestSuite
+            from app.models.test.suite import TestSuite
             test_suite_query = select(TestSuite).where(
                 TestSuite.id == suite_id,
                 TestSuite.service_id == service_db_id
@@ -737,7 +737,7 @@ async def create_test_case(
                 logger.warning(f"Test suite not found in DB during test case creation: service_id={service_id}, suite_id={suite_id}")
                 raise HTTPException(status_code=404, detail="Test suite not found")
 
-            from app.models.chain import TestCase
+            from app.models.test.case import TestCase
             test_case = TestCase(suite_id=db_test_suite.id, service_id=service_db_id, **test_case_data)
 
             session.add(test_case)
@@ -772,7 +772,7 @@ async def update_test_case(
                  logger.error(f"Service with service_id {service_id} not found in database during test case update.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestCase
+            from app.models.test.case import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.service_id == service_db_id
@@ -820,7 +820,7 @@ async def delete_test_case(
                  logger.error(f"Service with service_id {service_id} not found in database during test case deletion.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestCase
+            from app.models.test.case import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.service_id == service_db_id
@@ -859,7 +859,7 @@ async def list_test_steps_for_case(
                  logger.error(f"Service with service_id {service_id} not found in database during test step listing for case.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestCase
+            from app.models.test.case import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.service_id == service_db_id
@@ -898,7 +898,7 @@ async def get_test_step_detail(
                  logger.error(f"Service with service_id {service_id} not found in database during test step detail fetch.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestStep
+            from app.models.test.step import TestStep
             test_step_query = select(TestStep).where(
                 TestStep.id == step_id,
                 TestStep.service_id == service_db_id
@@ -936,7 +936,7 @@ async def create_test_step(
                  logger.error(f"Service with service_id {service_id} not found in database during test step creation.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestCase
+            from app.models.test.case import TestCase
             test_case_query = select(TestCase).where(
                 TestCase.id == case_id,
                 TestCase.service_id == service_db_id
@@ -947,7 +947,7 @@ async def create_test_step(
                 logger.warning(f"Test case not found in DB during test step creation: service_id={service_id}, case_id={case_id}")
                 raise HTTPException(status_code=404, detail="Test case not found")
 
-            from app.models.chain import TestStep
+            from app.models.test.step import TestStep
             test_step = TestStep(case_id=db_test_case.id, service_id=service_db_id, **test_step_data)
 
             session.add(test_step)
@@ -982,7 +982,7 @@ async def update_test_step(
                  logger.error(f"Service with service_id {service_id} not found in database during test step update.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestStep
+            from app.models.test.step import TestStep
             test_step_query = select(TestStep).where(
                 TestStep.id == step_id,
                 TestStep.service_id == service_db_id
@@ -1030,7 +1030,7 @@ async def delete_test_step(
                  logger.error(f"Service with service_id {service_id} not found in database during test step deletion.")
                  raise HTTPException(status_code=404, detail="Service not found in database.")
 
-            from app.models.chain import TestStep
+            from app.models.test.step import TestStep
             test_step_query = select(TestStep).where(
                 TestStep.id == step_id,
                 TestStep.service_id == service_db_id
