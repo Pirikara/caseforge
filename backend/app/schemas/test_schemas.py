@@ -59,7 +59,7 @@ class TestSuiteUpdate(TestSuiteBase):
 
 class TestSuite(TestSuiteBase):
     id: str
-    service_id: str
+    service_id: int
     created_at: datetime
     test_cases: List[TestCase] = []
 
