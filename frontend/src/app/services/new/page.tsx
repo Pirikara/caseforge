@@ -20,7 +20,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 
-// フォームのバリデーションスキーマ
 const formSchema = z.object({
   service_id: z.string()
     .min(3, { message: 'サービスIDは3文字以上である必要があります' })
@@ -36,7 +35,6 @@ export default function NewServicePage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   
-  // フォームの初期化
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -46,7 +44,6 @@ export default function NewServicePage() {
     },
   });
   
-  // フォーム送信処理
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsSubmitting(true);
@@ -75,7 +72,6 @@ export default function NewServicePage() {
         description: `サービス「${values.name}」が正常に作成されました。`,
       });
       
-      // サービス詳細ページにリダイレクト
       router.push(`/services/${values.service_id}`);
     } catch (error) {
       console.error('サービス作成エラー:', error);

@@ -19,14 +19,11 @@ interface ResponseTimeChartProps {
 }
 
 export default function ResponseTimeChart({ stepResults }: ResponseTimeChartProps) {
-  // 棒グラフデータの作成
   const chartData = React.useMemo(() => {
     if (!stepResults || stepResults.length === 0) return [];
     
-    // ステップをシーケンス順にソート
     const sortedSteps = [...stepResults].sort((a, b) => a.sequence - b.sequence);
     
-    // 各ステップのレスポンスタイムをグラフデータに変換
     return sortedSteps.map(step => ({
       name: `ステップ ${step.sequence}`,
       method: step.method,
@@ -36,16 +33,14 @@ export default function ResponseTimeChart({ stepResults }: ResponseTimeChartProp
     }));
   }, [stepResults]);
 
-  // 平均レスポンスタイムの計算
   const averageResponseTime = React.useMemo(() => {
     if (!stepResults || stepResults.length === 0) return 0;
     const validTimes = stepResults.filter(s => s.response_time !== undefined).map(s => s.response_time as number);
     if (validTimes.length === 0) return 0;
     const sum = validTimes.reduce((acc, time) => acc + time, 0);
-    return Math.round(sum / validTimes.length * 100) / 100; // 小数点2桁まで
+    return Math.round(sum / validTimes.length * 100) / 100;
   }, [stepResults]);
 
-  // カスタムツールチップ
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;

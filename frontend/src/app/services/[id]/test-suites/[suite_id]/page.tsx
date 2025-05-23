@@ -78,7 +78,7 @@ export default function TestSuiteDetailPage() {
   }
 
   return (
-    <> {/* Fragment で囲む */}
+    <>
       <div className="space-y-6">
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" asChild>
@@ -91,10 +91,9 @@ export default function TestSuiteDetailPage() {
 
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">テストスイート: {testSuite.name}</h1>
-          {/* テストスイート編集・削除ボタン */}
           <div>
-             <Button variant="outline" size="sm" className="mr-2" asChild> {/* asChild を追加 */}
-               <Link href={`/services/${serviceId}/test-suites/${suiteId}/edit`}> {/* 編集ページへのリンク */}
+             <Button variant="outline" size="sm" className="mr-2" asChild>
+               <Link href={`/services/${serviceId}/test-suites/${suiteId}/edit`}>
                  <EditIcon className="h-4 w-4 mr-1" />編集
                </Link>
              </Button>
@@ -104,7 +103,7 @@ export default function TestSuiteDetailPage() {
                onClick={() => setShowDeleteDialog(true)}
                disabled={isDeleting}
              >
-               {isDeleting ? '削除中...' : <><Trash2Icon className="h-4 w-4 mr-1" />削除</>} {/* 削除中の表示 */}
+               {isDeleting ? '削除中...' : <><Trash2Icon className="h-4 w-4 mr-1" />削除</>}
              </Button>
           </div>
         </div>
@@ -142,7 +141,6 @@ export default function TestSuiteDetailPage() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
              <h2 className="text-xl font-semibold">テストケース一覧</h2>
-             {/* 新規テストケース作成ボタン（後で実装） */}
              <Button asChild>
                <Link href={`/services/${serviceId}/tests/new?suiteId=${suiteId}`}>
                  新規テストケース作成
@@ -185,7 +183,6 @@ export default function TestSuiteDetailPage() {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">このテストスイートにはまだテストケースがありません。</p>
-                   {/* 新規テストケース作成ボタン（後で実装） */}
                   <Button asChild className="mt-4">
                     <Link href={`/services/${serviceId}/tests/new?suiteId=${suiteId}`}>
                       新規テストケース作成
@@ -198,7 +195,6 @@ export default function TestSuiteDetailPage() {
         </div>
       </div>
 
-      {/* 削除確認ダイアログ */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -208,9 +204,9 @@ export default function TestSuiteDetailPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>キャンセル</AlertDialogCancel> {/* 削除中は無効化 */}
-            <AlertDialogAction onClick={handleDeleteSuite} disabled={isDeleting}> {/* 削除処理を実行 */}
-              {isDeleting ? '削除中...' : '削除'} {/* 削除中の表示 */}
+            <AlertDialogCancel disabled={isDeleting}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSuite} disabled={isDeleting}>
+              {isDeleting ? '削除中...' : '削除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

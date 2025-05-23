@@ -48,9 +48,7 @@ export default function ServiceDetailPage() {
           {service && <TestSuiteManagementTab serviceId={serviceId} service={service} />}
         </TabsContent>
 
-        {/* 実行履歴タブを追加 */}
         <TabsContent value="runs" className="space-y-4">
-           {/* TestRunsPageコンポーネントをレンダリング */}
            <TestRunsPage />
         </TabsContent>
       </ServiceDetailLayout>

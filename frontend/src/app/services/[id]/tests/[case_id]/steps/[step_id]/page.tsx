@@ -1,13 +1,13 @@
 "use client"
 
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation'; // useRouter をインポート
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeftIcon, Trash2Icon, EditIcon } from 'lucide-react'; // Trash2Icon, EditIcon をインポート
-import { useTestCaseDetail, TestStep } from '@/hooks/useTestCases'; // TestStep 型と useTestCaseDetail フックをインポート
+import { ArrowLeftIcon, Trash2Icon, EditIcon } from 'lucide-react';
+import { useTestCaseDetail, TestStep } from '@/hooks/useTestCases';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,36 +18,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // AlertDialog コンポーネントをインポート
-import { toast } from 'sonner'; // toast をインポート
-import { fetcher } from '@/utils/fetcher'; // fetcher をインポート
+} from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
+import { fetcher } from '@/utils/fetcher';
 
 export default function TestStepDetailPage() {
   const params = useParams();
-  const router = useRouter(); // useRouter を使用
+  const router = useRouter();
   const serviceId = params.id as string;
   const caseId = params.case_id as string;
   const stepId = params.step_id as string;
 
   const { testCase, isLoading: isLoadingCase, error: errorCase } = useTestCaseDetail(serviceId, caseId);
 
-  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false); // 削除確認ダイアログの表示状態
-  const [isDeleting, setIsDeleting] = React.useState(false); // 削除処理中の状態
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
 
-  // テストケース詳細から該当するテストステップを検索
   const testStep = React.useMemo(() => {
     if (!testCase?.steps) return null;
     return testCase.steps.find(step => step.id === stepId);
   }, [testCase, stepId]);
 
-  // テストステップ削除処理
   const handleDeleteStep = async () => {
     setIsDeleting(true);
     try {
       await fetcher(`/api/services/${serviceId}/test-cases/${caseId}/steps/${stepId}`, 'DELETE');
       toast.success('テストステップが削除されました。');
-      router.push(`/projects/${serviceId}/tests/${caseId}`); // 削除成功後、テストケース詳細ページにリダイレクト
+      router.push(`/projects/${serviceId}/tests/${caseId}`);
     } catch (error: any) {
       toast.error('テストステップの削除に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -88,7 +86,7 @@ export default function TestStepDetailPage() {
   };
 
   return (
-    <> {/* Fragment で囲む */}
+    <>
       <div className="space-y-6">
         <div className="flex items-center gap-2 mb-4">
           <Button variant="outline" size="sm" asChild>
@@ -101,20 +99,19 @@ export default function TestStepDetailPage() {
 
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">テストステップ: {testStep.sequence}</h1>
-          {/* テストステップ編集・削除ボタン */}
           <div>
-             <Button variant="outline" size="sm" className="mr-2" asChild> {/* asChild を追加 */}
-               <Link href={`/projects/${serviceId}/tests/${caseId}/steps/${stepId}/edit`}> {/* 編集ページへのリンク */}
+             <Button variant="outline" size="sm" className="mr-2" asChild>
+               <Link href={`/projects/${serviceId}/tests/${caseId}/steps/${stepId}/edit`}>
                  <EditIcon className="h-4 w-4 mr-1" />編集
                </Link>
              </Button>
              <Button
                variant="destructive"
                size="sm"
-               onClick={() => setShowDeleteDialog(true)} // 削除ボタンクリックでダイアログ表示
-               disabled={isDeleting} // 削除中は無効化
+               onClick={() => setShowDeleteDialog(true)}
+               disabled={isDeleting}
              >
-               {isDeleting ? '削除中...' : <><Trash2Icon className="h-4 w-4 mr-1" />削除</>} {/* 削除中の表示 */}
+               {isDeleting ? '削除中...' : <><Trash2Icon className="h-4 w-4 mr-1" />削除</>}
              </Button>
           </div>
         </div>
@@ -184,7 +181,6 @@ export default function TestStepDetailPage() {
         </Card>
       </div>
 
-      {/* 削除確認ダイアログ */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -194,9 +190,9 @@ export default function TestStepDetailPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>キャンセル</AlertDialogCancel> {/* 削除中は無効化 */}
-            <AlertDialogAction onClick={handleDeleteStep} disabled={isDeleting}> {/* 削除処理を実行 */}
-              {isDeleting ? '削除中...' : '削除'} {/* 削除中の表示 */}
+            <AlertDialogCancel disabled={isDeleting}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteStep} disabled={isDeleting}>
+              {isDeleting ? '削除中...' : '削除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

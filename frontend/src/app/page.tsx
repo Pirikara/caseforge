@@ -72,7 +72,6 @@ export default function Dashboard() {
         />
       </div>
       
-      {/* 推奨アクション */}
       {isLoadingServices ? (
         <div className="text-center py-4">読み込み中...</div>
       ) : servicesWithoutSchema.length > 0 ? (
@@ -100,10 +99,9 @@ export default function Dashboard() {
          <div className="border rounded-lg p-4 text-muted-foreground">
            <p>新しいサービスを作成して、スキーマをアップロードしましょう。</p>
          </div>
-      ) : null /* スキーマがないサービスがない場合は推奨アクションセクション全体を非表示 */ }
+      ) : null}
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* サイドバー */}
         <div className="md:col-span-2 space-y-6">
           {isLoadingRuns ? (
             <div className="text-center py-4">読み込み中...</div>

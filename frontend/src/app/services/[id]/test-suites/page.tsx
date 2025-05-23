@@ -36,7 +36,6 @@ export default function TestSuitesPage() {
 
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">テストスイート一覧</h1>
-        {/* 新規テストスイート作成ボタン（後で実装） */}
         <Button asChild>
           <Link href={`/services/${serviceId}/test-suites/new`}>
             新規テストスイート作成
@@ -81,7 +80,6 @@ export default function TestSuitesPage() {
           ) : (
             <div className="text-center py-8">
               <p className="text-muted-foreground">テストスイートはまだありません。</p>
-              {/* 新規テストスイート作成ボタン（後で実装） */}
               <Button asChild className="mt-4">
                 <Link href={`/services/${serviceId}/test-suites/new`}>
                   新規テストスイート作成

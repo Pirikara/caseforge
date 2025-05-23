@@ -87,7 +87,6 @@ export function ServiceDetailLayout({
         <p className="text-muted-foreground">{service.description}</p>
       )}
 
-      {/* Base URL Setting */}
       <div className="flex items-end space-x-2">
         <div className="flex-grow space-y-2">
           <Label htmlFor="baseUrl">Base URL</Label>

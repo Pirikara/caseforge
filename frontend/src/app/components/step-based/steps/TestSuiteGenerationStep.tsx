@@ -100,7 +100,6 @@ export function TestSuiteGenerationStep() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* テストスイート情報入力 */}
         <div className="space-y-2">
           <Label htmlFor="suite-name">テストスイート名 *</Label>
           <Input
@@ -136,7 +135,6 @@ export function TestSuiteGenerationStep() {
           />
         </div>
         
-        {/* 選択エンドポイント情報 */}
         <div className="rounded-md bg-muted p-3">
           <div className="flex justify-between items-center mb-2">
             <h4 className="text-sm font-medium">選択済みエンドポイント</h4>
@@ -156,7 +154,6 @@ export function TestSuiteGenerationStep() {
           )}
         </div>
         
-        {/* 生成中プログレス */}
         {isGenerating && (
           <div className="space-y-2 py-2">
             <div className="flex justify-between text-xs">
@@ -175,7 +172,6 @@ export function TestSuiteGenerationStep() {
           </div>
         )}
         
-        {/* 注意事項 */}
         <div className="flex items-start gap-2 text-sm text-muted-foreground">
           <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <p>
@@ -183,8 +179,7 @@ export function TestSuiteGenerationStep() {
             また、後からテストスイート管理画面で編集することも可能です。
           </p>
         </div>
-        
-        {/* 生成ボタン */}
+
         <Button 
           className="w-full" 
           onClick={handleGenerateTests}

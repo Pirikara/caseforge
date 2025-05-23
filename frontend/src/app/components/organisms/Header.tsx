@@ -37,8 +37,7 @@ export function Header({ className }: { className?: string }) {
               <SheetContent side="left" className="p-0 w-64">
                 <SheetHeader className="p-4 border-b">
                   <div className="flex items-center justify-between">
-                    {/* SheetTitleをロゴとテキストに変更 */}
-                    <SheetTitle className="flex items-center"> {/* flex items-centerを追加 */}
+                    <SheetTitle className="flex items-center">
                       {theme === 'dark' ? (
                         <Image src="/logo/caseforge-logo-dark.svg" alt="Caseforge Logo Dark" width={48} height={48} className="mr-2" />
                       ) : (

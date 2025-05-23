@@ -1,13 +1,13 @@
 "use client"
 
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation'; // useRouter をインポート
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeftIcon, Trash2Icon, EditIcon } from 'lucide-react'; // Trash2Icon, EditIcon をインポート
-import { useTestCaseDetail, TestStep, useTestCases } from '@/hooks/useTestCases'; // テストケース詳細取得用フック, TestStep 型, useTestCases をインポート
+import { ArrowLeftIcon, Trash2Icon, EditIcon } from 'lucide-react';
+import { useTestCaseDetail, TestStep, useTestCases } from '@/hooks/useTestCases';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,34 +18,31 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // AlertDialog コンポーネントをインポート
-import { toast } from 'sonner'; // toast をインポート
-import { fetcher } from '@/utils/fetcher'; // fetcher をインポート
+} from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
+import { fetcher } from '@/utils/fetcher';
 
 export default function TestCaseDetailPage() {
   const params = useParams();
-  const router = useRouter(); // useRouter を使用
+  const router = useRouter();
   const serviceId = params.id as string;
   const caseId = params.case_id as string;
 
   const { testCase, isLoading: isLoadingCase, error: errorCase } = useTestCaseDetail(serviceId, caseId);
-  const { deleteChain } = useTestCases(serviceId); // useTestCases から deleteChain をインポート
+  const { deleteChain } = useTestCases(serviceId);
 
-  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false); // 削除確認ダイアログの表示状態
-  const [isDeleting, setIsDeleting] = React.useState(false); // 削除処理中の状態
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
 
-  // 現状、テストケース詳細にテストステップが含まれていると仮定
   const testSteps = testCase?.steps || [];
 
-  // テストケース削除処理
   const handleDeleteCase = async () => {
     setIsDeleting(true);
     try {
-      // useTestCases フックの deleteChain 関数を呼び出す
       await deleteChain(caseId);
        toast.success('テストケースが削除されました。');
-       router.push(`/projects/${serviceId}/tests`); // 削除成功後、一覧ページにリダイレクト
+       router.push(`/projects/${serviceId}/tests`);
      } catch (error: any) {
       toast.error('テストケースの削除に失敗しました。', {
         description: error.message || '不明なエラーが発生しました。',
@@ -77,7 +74,7 @@ export default function TestCaseDetailPage() {
   }
 
   return (
-    <> {/* Fragment で囲む */}
+    <>
       <div className="space-y-6">
         <div className="flex items-center gap-2 mb-4">
            <Button variant="outline" size="sm" asChild>
@@ -90,20 +87,19 @@ export default function TestCaseDetailPage() {
 
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">テストケース: {testCase.title || '名前なし'}</h1>
-          {/* テストケース編集・削除ボタン */}
           <div>
-             <Button variant="outline" size="sm" className="mr-2" asChild> {/* asChild を追加 */}
-               <Link href={`/projects/${serviceId}/tests/${caseId}/edit`}> {/* 編集ページへのリンク */}
+             <Button variant="outline" size="sm" className="mr-2" asChild>
+               <Link href={`/projects/${serviceId}/tests/${caseId}/edit`}>
                  <EditIcon className="h-4 w-4 mr-1" />編集
                </Link>
              </Button>
              <Button
                variant="destructive"
                size="sm"
-               onClick={() => setShowDeleteDialog(true)} // 削除ボタンクリックでダイアログ表示
-               disabled={isDeleting} // 削除中は無効化
+               onClick={() => setShowDeleteDialog(true)}
+               disabled={isDeleting}
              >
-               {isDeleting ? '削除中...' : <><Trash2Icon className="h-4 w-4 mr-1" />削除</>} {/* 削除中の表示 */}
+               {isDeleting ? '削除中...' : <><Trash2Icon className="h-4 w-4 mr-1" />削除</>}
              </Button>
           </div>
         </div>
@@ -149,7 +145,6 @@ export default function TestCaseDetailPage() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
              <h2 className="text-xl font-semibold">テストステップ一覧</h2>
-             {/* 新規テストステップ作成ボタン（後で実装） */}
                <Button asChild>
                  <Link href={`/projects/${serviceId}/tests/${caseId}/steps/new`}>
                    新規テストステップ作成
@@ -204,7 +199,6 @@ export default function TestCaseDetailPage() {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">このテストケースにはまだテストステップがありません。</p>
-                   {/* 新規テストステップ作成ボタン（後で実装） */}
                    <Button asChild className="mt-4">
                      <Link href={`/projects/${serviceId}/tests/${caseId}/steps/new`}>
                        新規テストステップ作成
@@ -217,19 +211,17 @@ export default function TestCaseDetailPage() {
         </div>
       </div>
 
-      {/* 削除確認ダイアログ */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>テストケースを削除しますか？</AlertDialogTitle>
             <AlertDialogDescription>
-              この操作は元に戻せません。テストケースに関連する全てのデータ（テストステップ、実行結果など）が完全に削除されます。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>キャンセル</AlertDialogCancel> {/* 削除中は無効化 */}
-            <AlertDialogAction onClick={handleDeleteCase} disabled={isDeleting}> {/* 削除処理を実行 */}
-              {isDeleting ? '削除中...' : '削除'} {/* 削除中の表示 */}
+            <AlertDialogCancel disabled={isDeleting}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCase} disabled={isDeleting}>
+              {isDeleting ? '削除中...' : '削除'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

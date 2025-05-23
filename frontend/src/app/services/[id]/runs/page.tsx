@@ -136,7 +136,6 @@ export default function TestRunsPage() {
         </div>
       </div>
       
-      {/* グラフ */}
       {chartData.length > 0 && (
         <div className="border rounded-lg p-4 bg-background">
           <h2 className="text-lg font-semibold mb-4 flex items-center">

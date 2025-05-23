@@ -17,11 +17,9 @@ interface StatusCodeDistributionChartProps {
 }
 
 export default function StatusCodeDistributionChart({ stepResults }: StatusCodeDistributionChartProps) {
-  // ステータスコードの分布データを作成
   const chartData = React.useMemo(() => {
     if (!stepResults || stepResults.length === 0) return [];
     
-    // ステータスコードごとにグループ化
     const statusCodeGroups: Record<string, number> = {};
     
     stepResults.forEach(step => {
@@ -31,7 +29,6 @@ export default function StatusCodeDistributionChart({ stepResults }: StatusCodeD
       }
     });
     
-    // グラフデータに変換
     return Object.entries(statusCodeGroups).map(([group, count]) => ({
       name: group,
       value: count,
@@ -48,11 +45,11 @@ export default function StatusCodeDistributionChart({ stepResults }: StatusCodeD
   }
 
   function getStatusCodeColor(group: string): string {
-    if (group.startsWith('2xx')) return '#10b981'; // 緑
-    if (group.startsWith('3xx')) return '#3b82f6'; // 青
-    if (group.startsWith('4xx')) return '#f59e0b'; // オレンジ
-    if (group.startsWith('5xx')) return '#ef4444'; // 赤
-    return '#9ca3af'; // グレー
+    if (group.startsWith('2xx')) return '#10b981';
+    if (group.startsWith('3xx')) return '#3b82f6';
+    if (group.startsWith('4xx')) return '#f59e0b';
+    if (group.startsWith('5xx')) return '#ef4444';
+    return '#9ca3af';
   }
 
   const CustomTooltip = ({ active, payload }: any) => {
