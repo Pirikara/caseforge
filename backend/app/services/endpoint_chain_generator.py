@@ -325,7 +325,7 @@ Return only a single valid JSON object matching the following format. **Do not i
         try:
 
             # PGVectorManagerのインスタンスを取得 (service_idを指定)
-            vectordb_manager = VectorDBManagerFactory.create_default(service_id=self.service_id, db_type="pgvector")
+            vectordb_manager = VectorDBManagerFactory.create_default(service_id=self.service_id)
 
             query = f"{target_endpoint.method.upper()} {target_endpoint.path} {target_endpoint.summary or ''} {target_endpoint.description or ''}"
             if target_endpoint.request_body:

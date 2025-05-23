@@ -39,7 +39,7 @@ class DependencyAwareRAG:
                 
                 try:
                     from app.services.vector_db.manager import VectorDBManagerFactory
-                    self.vectordb = VectorDBManagerFactory.create_default(str(id), db_type="pgvector")
+                    self.vectordb = VectorDBManagerFactory.create_default(str(id))
                 except Exception as e:
                     logger.warning(f"DependencyAwareRAG: ベクトルDB初期化エラー: {e}", exc_info=True)
                     self.vectordb = None
