@@ -372,7 +372,6 @@ EndpointChainGeneratorは、選択されたエンドポイントからテスト�
 erDiagram
   Service {
     integer id PK
-    string service_id
     string name
     string description
     string base_url
