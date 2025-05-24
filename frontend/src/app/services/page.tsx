@@ -104,7 +104,7 @@ export default function ServicesPage() {
                       variant="destructive"
                       size="sm"
                       onClick={() => {
-                        setServiceToDelete(service.id);
+                        setServiceToDelete(service.id.toString());
                         setShowDeleteDialog(true);
                       }}
                     >
@@ -140,7 +140,7 @@ export default function ServicesPage() {
             <AlertDialogAction
               onClick={async () => {
                 if (serviceToDelete) {
-                  await deleteService(serviceToDelete);
+                  await deleteService(Number(serviceToDelete));
                   setServiceToDelete(null);
                   setShowDeleteDialog(false);
                 }

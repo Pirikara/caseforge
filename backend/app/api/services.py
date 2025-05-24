@@ -12,7 +12,7 @@ from app.utils.path_manager import path_manager
 from app.logging_config import logger
 from app.schemas.service import ServiceCreate
 from app.schemas.service import Endpoint as EndpointSchema 
-from app.models import Endpoint, Service, TestCase, engine
+from app.models import Endpoint, Service, TestCase, SchemaChunk, engine
 from sqlmodel import select, Session, delete
 from typing import List, Optional
 import json
@@ -421,13 +421,15 @@ async def delete_service(id: int, service_path: Path = Depends(get_service_or_40
     サービスを削除するAPIエンドポイント
     """
     try:
-        # データベースからサービスを削除 (カスケード設定により関連データも削除される)
         with Session(engine) as session:
             service_query = select(Service).where(Service.id == id)
             db_service = session.exec(service_query).first()
 
             if not db_service:
                 raise HTTPException(status_code=404, detail="Service not found")
+            
+            delete_chunks_stmt = delete(SchemaChunk).where(SchemaChunk.service_id == id)
+            session.exec(delete_chunks_stmt)
 
             session.delete(db_service)
             session.commit()
