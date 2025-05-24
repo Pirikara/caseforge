@@ -797,7 +797,7 @@ class TestRunnerFactory:
                     return {"status": "error", "message": f"TestSuite not found: {suite_id}"}
                 test_suites_data = [test_suite_data]
             else:
-                test_suites_info = chain_store.list_test_suites(service_id)
+                test_suites_info = chain_store.list_test_suites(session, service_id)
                 test_suites_data = []
                 for test_suite_info in test_suites_info:
                     test_suite_data = chain_store.get_test_suite(service_id, test_suite_info["id"])

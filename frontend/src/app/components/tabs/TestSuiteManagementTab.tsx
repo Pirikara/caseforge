@@ -110,7 +110,7 @@ export const TestChainManagementTab = ({ serviceId, service }: { serviceId: numb
       setIsRunning(true);
 
       const API = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
-      const response = await fetch(`${API}/api/services/${serviceId}/run`, {
+      const response = await fetch(`${API}/api/services/${serviceId}/run-test-suites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

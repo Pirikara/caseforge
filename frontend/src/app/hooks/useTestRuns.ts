@@ -71,9 +71,9 @@ export interface TestSuite {
   test_cases?: TestCase[];
 }
 
-export function useTestRuns(serviceId: number) {
+export function useTestRuns(serviceId: string) {
   const { data, error, isLoading, mutate } = useSWR<TestRun[]>(
-    serviceId ? `/api/services/${serviceId.toString()}/runs` : null,
+    serviceId ? `/api/services/${serviceId}/runs` : null,
     fetcher
   );
   
@@ -85,9 +85,9 @@ export function useTestRuns(serviceId: number) {
   };
 }
 
-export function useTestRunDetail(serviceId: number, runId: string | null) {
+export function useTestRunDetail(serviceId: string, runId: string | null) {
   const { data, error, isLoading, mutate } = useSWR<TestRun>(
-    serviceId && runId ? `/api/services/${serviceId.toString()}/runs/${runId}` : null,
+    serviceId && runId ? `/api/services/${serviceId}/runs/${runId}` : null,
     fetcher
   );
 

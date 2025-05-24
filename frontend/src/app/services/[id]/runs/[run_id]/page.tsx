@@ -115,7 +115,7 @@ export default function TestRunDetailPage() {
   
   const service = React.useMemo(() => {
     if (!services) return null;
-    return services.find((p: Service) => p.id === serviceId);
+    return services.find((p: Service) => p.id.toString() === serviceId);
   }, [services, serviceId]);
 
   // 全ステップ結果を取得
@@ -146,7 +146,7 @@ export default function TestRunDetailPage() {
       <div className="text-center py-8">
         <p>テスト実行が見つかりません</p>
         <Button asChild className="mt-4">
-          <Link href={`/projects/${serviceId}/runs`}>テスト実行一覧に戻る</Link>
+          <Link href={`/services/${serviceId}/runs`}>テスト実行一覧に戻る</Link>
         </Button>
       </div>
     );
@@ -174,7 +174,7 @@ export default function TestRunDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/projects/${serviceId}/runs`}>
+          <Link href={`/services/${serviceId}/runs`}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             テスト実行一覧に戻る
           </Link>

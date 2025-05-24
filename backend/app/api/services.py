@@ -248,6 +248,7 @@ async def delete_test_suite(
 @router.get("/{id}/test-cases")
 async def get_test_cases(
     id: int,
+    session: Session = Depends(get_session),
     service_path: Path = Depends(get_service_or_404)
 ):
     """
@@ -262,7 +263,7 @@ async def get_test_cases(
     """
     try:
         chain_store = ChainStore()
-        test_suites = chain_store.list_test_suites(str(id))
+        test_suites = chain_store.list_test_suites(session, str(id))
         
         test_cases = []
         for suite in test_suites:

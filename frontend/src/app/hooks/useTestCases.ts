@@ -13,15 +13,15 @@ export interface TestCase {
   purpose: string;
 }
 
-export function useTestCases(serviceId: number) {
+export function useTestCases(serviceId: string) {
   const { data, error, isLoading, mutate } = useSWR<TestCase[]>(
-    serviceId ? `/api/services/${serviceId.toString()}/test-cases` : null,
+    serviceId ? `/api/services/${serviceId}/test-cases` : null,
     fetcher
   );
   
   const deleteChain = async (chainId: string) => {
     try {
-      await fetcher(`/api/services/${serviceId.toString()}/test-cases/${chainId}`, 'DELETE');
+      await fetcher(`/api/services/${serviceId}/test-cases/${chainId}`, 'DELETE');
       mutate();
     } catch (err) {
       throw err;

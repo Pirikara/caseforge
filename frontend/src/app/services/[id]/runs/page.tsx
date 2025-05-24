@@ -71,7 +71,7 @@ export default function TestRunsPage() {
   
   const service = React.useMemo(() => {
     if (!services) return null;
-    return services.find(p => p.id === serviceId);
+    return services.find(p => p.id === Number(serviceId));
   }, [services, serviceId]);
   
   const filteredTestRuns = React.useMemo(() => {

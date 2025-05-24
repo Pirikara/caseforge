@@ -40,9 +40,9 @@ export function useTestSuites(serviceId: number) {
   };
 }
 
-export function useTestSuiteDetail(serviceId: number, suiteId: string | null) {
+export function useTestSuiteDetail(serviceId: string, suiteId: string | null) {
   const { data, error, isLoading, mutate } = useSWR<TestSuite>(
-    serviceId && suiteId ? `/api/services/${serviceId.toString()}/test-suites/${suiteId}` : null,
+    serviceId && suiteId ? `/api/services/${serviceId}/test-suites/${suiteId}` : null,
     fetcher
   );
   

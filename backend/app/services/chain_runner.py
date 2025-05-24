@@ -271,28 +271,28 @@ async def run_test_suites(service_id: int, suite_id: Optional[str] = None) -> Di
     try:
         chain_store = ChainStore()
         
-        if suite_id:
-            test_suite = chain_store.get_test_suite(service_id, suite_id)
-            if not test_suite:
-                logger.warning(f"TestSuite not found: {suite_id}")
-                return {"status": "error", "message": f"TestSuite not found: {suite_id}"}
-            test_suites = [test_suite]
-        else:
-            test_suites_info = chain_store.list_test_suites(service_id)
-            test_suites = []
-            for test_suite_info in test_suites_info:
-                test_suite = chain_store.get_test_suite(service_id, test_suite_info["id"])
-                if test_suite:
-                    test_suites.append(test_suite)
-        
-        if not test_suites:
-            logger.warning(f"No test suites found for service {service_id}")
-            if os.environ.get("TESTING") == "1":
-                test_suites = [SAMPLE_TEST_SUITE]
-            else:
-                return {"status": "error", "message": "No test suites found"}
-        
         with Session(engine) as session:
+            if suite_id:
+                test_suite = chain_store.get_test_suite(session, service_id, suite_id)
+                if not test_suite:
+                    logger.warning(f"TestSuite not found: {suite_id}")
+                    return {"status": "error", "message": f"TestSuite not found: {suite_id}"}
+                test_suites = [test_suite]
+            else:
+                test_suites_info = chain_store.list_test_suites(session, service_id)
+                test_suites = []
+                for test_suite_info in test_suites_info:
+                    test_suite = chain_store.get_test_suite(session, service_id, test_suite_info["id"])
+                    if test_suite:
+                        test_suites.append(test_suite)
+            
+            if not test_suites:
+                logger.warning(f"No test suites found for service {service_id}")
+                if os.environ.get("TESTING") == "1":
+                    test_suites = [SAMPLE_TEST_SUITE]
+                else:
+                    return {"status": "error", "message": "No test suites found"}
+            
             service_query = select(Service).where(Service.id == service_id)
             db_service = session.exec(service_query).first()
             
