@@ -128,6 +128,20 @@ Return only a single valid JSON object matching the following format. **Do not i
             "user_id": "$.id"
           }},
           "expected_status": 201
+        }},
+        {{
+          "method": "HTTP method (e.g., PUT)",
+          "path": "API path (e.g., /users)",
+          "request_headers": {{
+            "Content-Type": "application/json"
+          }},
+          "request_body": {{
+            "name": "Jane Doe",
+            "user_id": {{user_id}}
+          }},
+          "request_params": {{}},
+          "extract_rules": {{}}
+          "expected_status": 201
         }}
       ]
     }}
@@ -136,16 +150,28 @@ Return only a single valid JSON object matching the following format. **Do not i
 ````
 
 **Instructions (MUST FOLLOW STRICTLY):**
-0. Each test step must include **all** of the following keys: `method`, `path`, `request_headers`, `request_body`, `request_params`, `extract_rules`, `expected_status`. Even if values are empty, all keys must be present.
-1. Use appropriate JSONPath expressions in `extract_rules` to capture IDs or other values from previous responses.
-2. Use the extracted values in subsequent steps (e.g., in path parameters or request body).
-3. The **final step of each test case must always be the target endpoint call**.
-4. Ensure logical, realistic sequences of steps (e.g., create resource → update → assert).
-5. The output must be **a single valid JSON object**, and **nothing else** (no comments, no explanation).
-6. Generate one test suite **per target endpoint**.
-7. Include both the HTTP method and path in the test suite's `"name"` field.
-8. For each test case, the `"name"` field should indicate the case type (e.g., "Normal case", "Invalid input").
-9. Use the appropriate `error_type` for abnormal cases: `"missing_field"`, `"invalid_input"`, `"unauthorized"`, `"not_found"`, etc. Use `null` for normal cases.
+1. Strict requirement: Every single step object in `test_steps` MUST include ALL of the following keys:
+    - `method`
+    - `path`
+    - `request_headers`
+    - `request_body`
+    - `request_params`
+    - `extract_rules`
+    - `expected_status`
+
+   This rule applies to **every step**, including setup and error test steps.
+   Do not omit `expected_status` even in intermediate or setup steps.
+   If no specific status is expected, use 200 or 201 depending on the HTTP method.
+
+2. Use appropriate JSONPath expressions in `extract_rules` to capture IDs or other values from previous responses.
+3. Use the extracted values in subsequent steps (e.g., in path parameters or request body).
+4. The **final step of each test case must always be the target endpoint call**.
+5. Ensure logical, realistic sequences of steps (e.g., create resource → update → assert).
+6. The output must be **a single valid JSON object**, and **nothing else** (no comments, no explanation).
+7. Generate one test suite **per target endpoint**.
+8. Include both the HTTP method and path in the test suite's `"name"` field.
+9. For each test case, the `"name"` field should indicate the case type (e.g., "Normal case", "Invalid input").
+10. Use the appropriate `error_type` for abnormal cases: `"missing_field"`, `"invalid_input"`, `"unauthorized"`, `"not_found"`, etc. Use `null` for normal cases.
 """
             prompt_template = prompt_template_str
 

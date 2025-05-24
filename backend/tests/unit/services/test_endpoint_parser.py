@@ -182,7 +182,10 @@ components:
     assert resolved_schema_with_bad_ref["$ref"] == '#/components/schemas/NonExistentSchema'
 
 def test_resolve_references_circular():
-    """循環参照が無限ループにならないかテスト (簡易的なチェック)"""
+    """循環参照が検出された場合に適切な例外が投げられることをテスト"""
+    import pytest
+    from app.exceptions import OpenAPIParseException
+    
     schema_content = """
 openapi: 3.0.0
 info:
@@ -200,15 +203,13 @@ components:
         a:
           $ref: '#/components/schemas/A'
 """
-    schema, resolved_schema = parse_openapi_schema(schema_content=schema_content)
-    schema_a_part = schema["components"]["schemas"]["A"]
-    try:
-        resolved_schema_a = _resolve_references(schema_a_part, schema)
-        assert isinstance(resolved_schema_a, dict)
-    except RecursionError:
-        pytest.fail("Circular reference caused RecursionError")
-    except Exception as e:
-        pytest.fail(f"An unexpected error occurred: {e}")
+    # 循環参照を含むスキーマの解析時にOpenAPIParseExceptionが投げられることを確認
+    with pytest.raises(OpenAPIParseException) as exc_info:
+        parse_openapi_schema(schema_content=schema_content)
+    
+    # エラーメッセージに循環参照の情報が含まれていることを確認
+    assert "循環参照が検出されました" in str(exc_info.value)
+    assert "B" in str(exc_info.value)
 
 def test_parse_endpoints_with_ref():
     """$refを含むスキーマでエンドポイントが正しくパースされるかテスト"""

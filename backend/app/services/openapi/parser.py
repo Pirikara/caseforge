@@ -4,89 +4,101 @@ import json
 import re
 import copy
 from app.logging_config import logger
+from app.exceptions import OpenAPIParseException
 
-def _resolve_references(schema: Dict, full_schema: Dict, resolved_refs: set = None) -> Dict:
+def _resolve_references(schema: Any, full_schema: Dict, resolved_refs: set = None) -> Any:
     """
     $refを再帰的に解決する（循環参照対応版）
-    
+    辞書やリスト構造を汎用的に探索し、$refを解決する。
+
     Args:
-        schema: 解決対象のスキーマ
+        schema: 解決対象のスキーマの一部（辞書、リスト、またはその他の型）
         full_schema: OpenAPIスキーマ全体
-        resolved_refs: 既に解決を試みた$refパスのセット (循環参照検出用)
-        
+        resolved_refs: 現在の解決パス内で既に解決を試みた$refパスのセット (循環参照検出用)
+
     Returns:
-        $refが解決されたスキーマ
+        $refが解決されたスキーマの一部
     """
+    # resolved_refsが提供されていない場合は新しいセットを作成
     if resolved_refs is None:
         resolved_refs = set()
 
-    if not schema or not isinstance(schema, dict):
-        return {} if schema is None else schema
-    
-    resolved = copy.deepcopy(schema)
-    
-    if "$ref" in resolved:
-        ref_path = resolved["$ref"]
-        
-        if ref_path in resolved_refs:
-            logger.warning(f"Circular reference detected: {ref_path}")
-            return resolved
-            
-        resolved_refs.add(ref_path)
-        
-        if ref_path.startswith("#/"):
-            parts = ref_path.lstrip("#/").split("/")
-            ref_value = full_schema
-            
-            try:
-                for part in parts:
-                    if isinstance(ref_value, list) and re.match(r'^\d+$', part):
-                         index = int(part)
-                         if 0 <= index < len(ref_value):
-                             ref_value = ref_value[index]
-                         else:
-                             logger.warning(f"Reference path index out of bounds: {ref_path}")
-                             return resolved
-                    elif isinstance(ref_value, dict) and part in ref_value:
-                        ref_value = ref_value[part]
-                    else:
-                        logger.warning(f"Reference path not found: {ref_path}")
-                        return resolved
-            except (ValueError, IndexError, TypeError) as e:
-                 logger.warning(f"Error resolving reference path {ref_path}: {e}")
-                 return resolved
-            
-            del resolved["$ref"]
-            
-            if isinstance(ref_value, dict):
-                ref_value = _resolve_references(ref_value, full_schema, resolved_refs)
-                
-            resolved.update(copy.deepcopy(ref_value))
-            resolved = _resolve_references(resolved, full_schema, resolved_refs)
-    
-    if "properties" in resolved and isinstance(resolved["properties"], dict):
-        for prop_name, prop_schema in resolved["properties"].items():
-            if isinstance(prop_schema, dict):
-                resolved["properties"][prop_name] = _resolve_references(prop_schema, full_schema, resolved_refs)
-    
-    if "items" in resolved and isinstance(resolved["items"], dict):
-        resolved["items"] = _resolve_references(resolved["items"], full_schema, resolved_refs)
-    
-    for composite_key in ["allOf", "anyOf", "oneOf"]:
-        if composite_key in resolved and isinstance(resolved[composite_key], list):
-            for i, item_schema in enumerate(resolved[composite_key]):
-                if isinstance(item_schema, dict):
-                    resolved[composite_key][i] = _resolve_references(item_schema, full_schema, resolved_refs)
-    
-    if "additionalProperties" in resolved and isinstance(resolved["additionalProperties"], dict):
-        resolved["additionalProperties"] = _resolve_references(resolved["additionalProperties"], full_schema, resolved_refs)
-        
-    if "parameters" in resolved and isinstance(resolved["parameters"], list):
-         for i, param_schema in enumerate(resolved["parameters"]):
-             if isinstance(param_schema, dict):
-                 resolved["parameters"][i] = _resolve_references(param_schema, full_schema, resolved_refs)
+    # スキーマが辞書の場合
+    if isinstance(schema, dict):
+        # $ref キーが存在する場合、その参照を解決して返す
+        if "$ref" in schema:
+            ref_path = schema["$ref"]
 
-    return resolved
+            # 現在の解決パス内で既に解決を試みている場合は循環参照
+            if ref_path in resolved_refs:
+                logger.error(f"Circular reference detected: {ref_path}")
+                raise OpenAPIParseException(
+                    f"循環参照が検出されました: {ref_path}。OpenAPIスキーマに循環参照は許可されていません。",
+                    details={
+                        "circular_reference_path": ref_path,
+                        "resolution_path": list(resolved_refs)
+                    }
+                )
+
+            if ref_path.startswith("#/"):
+                parts = ref_path.lstrip("#/").split("/")
+                ref_value = full_schema
+
+                try:
+                    for part in parts:
+                        # パスがリストのインデックスの場合
+                        if isinstance(ref_value, list) and re.match(r'^\d+$', part):
+                            index = int(part)
+                            if 0 <= index < len(ref_value):
+                                ref_value = ref_value[index]
+                            else:
+                                logger.warning(f"Reference path index out of bounds: {ref_path}")
+                                return schema # パスが見つからない場合は元の$refを返す
+                        # パスが辞書のキーの場合
+                        elif isinstance(ref_value, dict) and part in ref_value:
+                            ref_value = ref_value[part]
+                        else:
+                            logger.warning(f"Reference path not found: {ref_path}")
+                            return schema # パスが見つからない場合は元の$refを返す
+                except (ValueError, IndexError, TypeError) as e:
+                    logger.warning(f"Error resolving reference path {ref_path}: {e}")
+                    return schema # エラー発生時は元の$refを返す
+
+                # 現在の解決パス内で既に解決を試みている場合のみ循環参照として扱う
+                # 事前チェックは削除し、実際の解決パス内での循環参照のみを検出する
+
+                # 現在の解決パスに追加
+                resolved_refs.add(ref_path)
+
+                # 解決した値自体に$refが含まれていないか再帰的にチェック
+                # 現在の解決パスを引き継いで循環参照を検出
+                resolved_value = _resolve_references(ref_value, full_schema, resolved_refs)
+                
+                # 解決パスから削除（バックトラック）
+                resolved_refs.discard(ref_path)
+                
+                return resolved_value
+            else:
+                 # 外部参照はここでは解決しない
+                 logger.warning(f"External reference not supported: {ref_path}")
+                 return schema
+
+        # $ref キーが存在しない場合、辞書の値について再帰的に解決
+        resolved = copy.deepcopy(schema)
+        for key, value in resolved.items():
+            resolved[key] = _resolve_references(value, full_schema, resolved_refs)
+        return resolved
+
+    # スキーマがリストの場合
+    elif isinstance(schema, list):
+        resolved_list = []
+        for item in schema:
+            resolved_list.append(_resolve_references(item, full_schema, resolved_refs))
+        return resolved_list
+
+    # その他の型の場合はそのまま返す
+    else:
+        return schema
 
 def parse_openapi_schema(schema_content: Optional[str] = None, file_path: Optional[str] = None) -> Tuple[Dict, Dict]:
     """
@@ -207,17 +219,8 @@ class EndpointParser:
         if not request_body:
             return None
         
-        resolved_request_body = copy.deepcopy(request_body)
-        content = resolved_request_body.get("content", {})
-        
-        if "application/json" in content:
-            schema = content["application/json"].get("schema")
-            if schema:
-                resolved_request_body["content"]["application/json"]["schema"] = _resolve_references(schema, self.resolved_schema)
-        
-        for media_type, media_content in content.items():
-             if media_type != "application/json" and "schema" in media_content:
-                  resolved_request_body["content"][media_type]["schema"] = _resolve_references(media_content["schema"], self.resolved_schema)
+        # リクエストボディ全体を_resolve_referencesに渡して解決
+        resolved_request_body = _resolve_references(copy.deepcopy(request_body), self.resolved_schema)
 
         return resolved_request_body
 
