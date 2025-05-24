@@ -68,7 +68,7 @@ def test_workflow(monkeypatch):
     monkeypatch.setattr("app.api.services.ChainStore", lambda: mock_test_suite_store)
     
     monkeypatch.setattr("app.api.services.list_test_runs", lambda service_id, limit=10: [
-        {"id": "run-1-id", "run_id": "run-1-id", "service_id": service_id, "suite_id": "suite-1", "suite_name": "TestSuite 1", "status": "completed", "start_time": "2023-01-01T10:00:00Z", "end_time": "2023-01-01T10:05:00Z", "test_cases_count": 2, "passed_test_cases": 2, "success_rate": 100} # TestRunSummary スキーマに合わせる
+        {"id": 1, "run_id": "run-1-id", "service_id": service_id, "suite_id": "suite-1", "suite_name": "TestSuite 1", "status": "completed", "start_time": "2023-01-01T10:00:00Z", "end_time": "2023-01-01T10:05:00Z", "test_cases_count": 2, "passed_test_cases": 2, "success_rate": 100} # TestRunSummary スキーマに合わせる
     ])
     
     monkeypatch.setattr("app.api.services.get_test_run", lambda service_id, run_id: {

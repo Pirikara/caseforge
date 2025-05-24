@@ -445,6 +445,7 @@ def list_test_runs(service_id: int, limit: int = 10) -> List[Dict]:
                 run_data = {
                     "id": test_run.id,
                     "run_id": test_run.run_id,
+                    "service_id": service_id,
                     "suite_id": test_run.suite_id,
                     "suite_name": test_run.test_suite.name,
                     "status": test_run.status,

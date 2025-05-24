@@ -135,7 +135,7 @@ def test_get_test_run_history():
     with patch("app.api.services.list_test_runs") as mock_list:
         mock_list.return_value = [
             {
-                "id": str(uuid.uuid4()),
+                "id": 1,
                 "run_id": "run-1",
                 "service_id": 1,
                 "suite_id": "suite-1",
@@ -148,7 +148,7 @@ def test_get_test_run_history():
                 "success_rate": 100.0
             },
             {
-                "id": str(uuid.uuid4()),
+                "id": 1,
                 "run_id": "run-2",
                 "service_id": 1,
                 "suite_id": "suite-1",
