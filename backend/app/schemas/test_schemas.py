@@ -131,7 +131,7 @@ class TestCaseResultWithSteps(TestCaseResult):
     step_results: List[StepResult] = []
 
 class TestRunSummary(BaseModel):
-    id: int
+    id: str
     run_id: str
     suite_id: str
     suite_name: str
