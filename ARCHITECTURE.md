@@ -90,7 +90,7 @@ graph TD;
 
   subgraph Backend
     B -- Celery Task --> C[Worker]
-    C -- DB ORM & Vector Search --> D[PostgreSQL (pgvector)]
+    C -- DB ORM & Vector Search --> D["PostgreSQL: pgvector"]
     
     F[Config] --> B
     F --> C
