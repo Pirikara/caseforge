@@ -27,7 +27,7 @@ langchain-openai>=0.1.6
 
 # --- テスト用パッケージ ---
 pytest==9.0.1
-pytest-asyncio==1.2.0
+pytest-asyncio==1.3.0
 
 # --- デバッガー ---
 debugpy>=1.6.6
