@@ -14,7 +14,7 @@ jobs:
   converge:
     runs-on: ubuntu-latest
     steps:
-      - uses: astral-sh/setup-uv@v8 # pip resolution (backend/requirements.txt)
+      - uses: astral-sh/setup-uv@v8.2.0 # pip resolution (backend/requirements.txt)
       - uses: Pirikara/Converge@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
